@@ -1,0 +1,16 @@
+{% macro tile(t, multi_project) %}
+<a class="tile tone-edge-{{ status_tone(t.status) }}" href="/cards/{{ t.id }}" id="tile-{{ t.id }}">
+  <span class="tile-top">
+    <span class="tile-id">#{{ t.id }}</span>
+    {% if multi_project %}<span class="chip">{{ t.project_slug }}</span>{% endif %}
+  </span>
+  <span class="tile-title">{{ t.title }}</span>
+  <span class="tile-meta">
+    {% if t.step %}<span class="tile-live"><span class="live-dot" aria-hidden="true"></span>{{ t.step|capitalize }}</span>{% endif %}
+    {% if t.queued %}<span class="tile-queued">{{ icon('clock', 13) }}Queued</span>{% endif %}
+    {% if t.verdict and t.status in ('review', 'rework') %}<span class="mini-badge tone-{{ verdict_tone[t.verdict] }}">{{ verdict_label[t.verdict] }}</span>{% endif %}
+    {% if t.attempts > 1 %}<span>{{ t.attempts }} runs</span>{% endif %}
+    <span class="tile-cx">{{ t.complexity }}</span>
+  </span>
+</a>
+{% endmacro %}

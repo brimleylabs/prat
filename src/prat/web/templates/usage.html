@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Usage{% endblock %}
+{% macro bars(items, empty, href='') %}
+{% if items %}
+<ul class="usage-bars">
+  {% for s in items %}
+  <li>
+    <span class="usage-label">{% if href %}<a href="{{ href }}{{ s.key }}">{{ s.label }}</a>{% else %}{{ s.label }}{% endif %}</span>
+    <svg class="usage-track" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-track" width="100" height="8" rx="4"/><rect class="usage-fill tone-{{ s.tone }}" width="{{ [s.width, 1]|max }}" height="8" rx="4"/></svg>
+    <span class="usage-num">{{ s.usd|usd }}</span>
+    <span class="usage-share">{{ '%g'|format(s.share) }}%</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">{{ empty }}</p>
+{% endif %}
+{% endmacro %}
+{% block content %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Usage</h1>
+      <p class="page-sub">Where the agents' work goes, valued at Claude API prices. On a Claude subscription you pay your plan's flat fee, not these amounts; they show the relative weight of each kind of work.</p>
+    </div>
+    <nav class="chip-row" aria-label="Period">
+      {% for d in periods %}<a class="chip-link" href="/usage?days={{ d }}" {% if d == page.days %}aria-current="true"{% endif %}>{{ d }} days</a>{% endfor %}
+    </nav>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-label">API value</span><span class="stat-value">{{ page.total|usd }}</span></div>
+    <div class="stat"><span class="stat-label">Runs</span><span class="stat-value">{{ page.runs }}</span></div>
+    <div class="stat"><span class="stat-label">Cards landed</span><span class="stat-value">{{ page.landed_cards }}</span></div>
+    <div class="stat"><span class="stat-label">Per landed card</span><span class="stat-value">{{ page.per_landed|usd }}</span></div>
+  </div>
+
+  {% if page.total %}
+  <section class="panel" aria-labelledby="daily-h">
+    <header class="panel-head"><h2 id="daily-h">{{ icon('chart') }}By day</h2></header>
+    <div class="panel-body">
+      <svg class="usage-days" viewBox="0 0 {{ page.daily|length * 10 }} 100" preserveAspectRatio="none" role="img" aria-label="Usage per day over the last {{ page.days }} days">
+        {% for d in page.daily %}{% set h = [d.width, 1.5]|max if d.usd else 0 %}<rect class="usage-day" x="{{ loop.index0 * 10 + 1.5 }}" y="{{ 100 - h }}" width="7" height="{{ h }}" rx="1.5"><title>{{ d.label }}: {{ d.usd|usd }}</title></rect>{% endfor %}
+      </svg>
+      <div class="usage-axis"><span>{{ page.daily[0].label }}</span><span>Today</span></div>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="roles-h">
+      <header class="panel-head"><h2 id="roles-h">{{ icon('cpu') }}By kind of work</h2></header>
+      <div class="panel-body">{{ bars(page.roles, 'No model usage in this period.') }}</div>
+      <p class="panel-note">Retries and other covers attempts that were repeated and usage recorded before a step finished.</p>
+    </section>
+    <section class="panel" aria-labelledby="outcome-h">
+      <header class="panel-head"><h2 id="outcome-h">{{ icon('check-circle') }}By outcome</h2></header>
+      <div class="panel-body">{{ bars(page.outcomes, 'No runs in this period.') }}</div>
+      <p class="panel-note">Did not finish is work that failed, was blocked or was stopped. Clearer goals and acceptance criteria bring it down.</p>
+    </section>
+    <section class="panel" aria-labelledby="projects-h">
+      <header class="panel-head"><h2 id="projects-h">{{ icon('folder') }}By project</h2></header>
+      <div class="panel-body">
+        {{ bars(page.projects, 'No runs in this period.', '/projects/') }}
+      </div>
+    </section>
+    <section class="panel" aria-labelledby="cards-h">
+      <header class="panel-head"><h2 id="cards-h">{{ icon('list') }}Heaviest cards</h2></header>
+      <div class="panel-body">
+        {{ bars(page.cards, 'No runs in this period.', '/cards/') }}
+      </div>
+    </section>
+  </div>
+  {% else %}
+  <div class="empty">{{ icon('chart', 28) }}<h2>No usage yet</h2><p>Nothing has run in the last {{ page.days }} days.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

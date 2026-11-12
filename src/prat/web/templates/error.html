@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Not found' if status == 404 else 'Error' }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="empty">
+    {{ icon('inbox', 28) }}
+    <h1 class="page-title">{{ 'Not found' if status == 404 else 'Something is not right' }}</h1>
+    <p>{{ message }}</p>
+    <a class="btn" href="/board">{{ icon('board') }}Back to the board</a>
+  </div>
+</div>
+{% endblock %}

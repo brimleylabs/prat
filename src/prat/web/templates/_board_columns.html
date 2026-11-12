@@ -1,0 +1,39 @@
+{% from "_tile.html" import tile %}
+{% set active_statuses = ['ready', 'running', 'review', 'rework', 'blocked', 'failed'] %}
+{% set backlog_statuses = ['draft', 'done', 'cancelled'] %}
+{% macro column(col) %}
+  {% set count = col.tiles|length %}
+  <section class="column{% if not count %} column-empty{% endif %} column-{{ col.status }}" aria-labelledby="col-{{ col.status }}">
+    <header class="column-head">
+      <span class="dot tone-{{ col.tone }}" aria-hidden="true"></span>
+      <h3 class="column-title" id="col-{{ col.status }}">{{ col.label }}</h3>
+      <span class="column-count" aria-label="{{ count }} card{{ '' if count == 1 else 's' }}">{{ count }}</span>
+    </header>
+    {% if count %}
+      {% if col.status == 'cancelled' %}
+      <details class="column-fold">
+        <summary>{{ icon('chevron-right', 14) }}Show {{ count }} cancelled</summary>
+        <div class="column-body">
+          {% for t in col.tiles %}{{ tile(t, multi_project) }}{% endfor %}
+        </div>
+      </details>
+      {% else %}
+      <div class="column-body">
+        {% for t in col.tiles %}{{ tile(t, multi_project) }}{% endfor %}
+      </div>
+      {% endif %}
+    {% else %}
+      <p class="column-none">None</p>
+    {% endif %}
+  </section>
+{% endmacro %}
+<div class="board">
+  <h2 class="board-group-title">In progress</h2>
+  <div class="board-group board-active">
+    {% for col in columns if col.status in active_statuses %}{{ column(col) }}{% endfor %}
+  </div>
+  <h2 class="board-group-title">Backlog and history</h2>
+  <div class="board-group board-backlog">
+    {% for col in columns if col.status in backlog_statuses %}{{ column(col) }}{% endfor %}
+  </div>
+</div>

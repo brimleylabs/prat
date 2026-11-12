@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Add project{% endblock %}
+{% macro err(name) %}{% if errors.get(name) %}<p class="field-error" id="{{ name }}-error">{{ icon('alert', 14) }}{{ errors[name] }}</p>{% endif %}{% endmacro %}
+{% block content %}
+<div class="container">
+  <div class="form-shell">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/projects">Projects</a><span aria-hidden="true">/</span><span aria-current="page">Add project</span></nav>
+    <div class="page-head tight">
+      <div>
+        <h1 class="page-title">Add a project</h1>
+        <p class="page-sub">Give PRAT a repository link and the branch to work from, or the path of your own clone. PRAT keeps a separate clone for agents with pushing disabled, and never writes to yours.</p>
+      </div>
+    </div>
+    <form class="panel form" method="post" action="/projects" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="panel-body form-grid">
+        <div class="field">
+          <label for="checkout">Repository</label>
+          <input id="checkout" name="checkout" type="text" class="mono" required autofocus spellcheck="false" autocomplete="off" value="{{ form.get('checkout', '') }}" placeholder="https://github.com/you/shop or /home/you/code/shop" hx-get="/project-branches" hx-trigger="change, keyup changed delay:700ms" hx-target="#branch-field" hx-swap="outerHTML" aria-describedby="checkout-help{% if errors.get('checkout') %} checkout-error{% endif %}" {% if errors.get('checkout') %}aria-invalid="true"{% endif %}>
+          <p class="help" id="checkout-help">A link (https or ssh) is cloned into PRAT's projects folder with this machine's git credentials. A path must be a git checkout already on this machine.</p>
+          {{ err('checkout') }}
+        </div>
+        {% if form.get('branch') or errors.get('branch') %}
+        <div class="field" id="branch-field">
+          <label for="branch">Branch to work from</label>
+          <input id="branch" name="branch" type="text" class="mono" spellcheck="false" autocomplete="off" value="{{ form.get('branch', '') }}">
+          {{ err('branch') }}
+        </div>
+        {% else %}
+        <div class="field" id="branch-field"></div>
+        {% endif %}
+        <div class="field">
+          <label class="check"><input id="setup" name="setup" type="checkbox" {% if setup is not defined or setup %}checked{% endif %}> Let the setup agent make it runnable</label>
+          <p class="help">When the repository has no <span class="mono">.prat/project.toml</span>, an agent works out how to install, test and run it, proves it in a worktree and proposes the file as a card for you to approve. Leave this off to write the project file yourself.</p>
+        </div>
+        <div class="field">
+          <label for="agent_path">Agent clone path <span class="optional">optional</span></label>
+          <input id="agent_path" name="agent_path" type="text" class="mono" spellcheck="false" autocomplete="off" value="{{ form.get('agent_path', '') }}" placeholder="next to the checkout, with -agent appended" aria-describedby="agent-help{% if errors.get('agent_path') %} agent_path-error{% endif %}" {% if errors.get('agent_path') %}aria-invalid="true"{% endif %}>
+          <p class="help" id="agent-help">Must be outside the checkout and outside every other project. Approved cards are merged here; you pull from it.</p>
+          {{ err('agent_path') }}
+        </div>
+        <div class="field">
+          <label for="slug">Short name <span class="optional">optional</span></label>
+          <input id="slug" name="slug" type="text" class="mono" spellcheck="false" autocomplete="off" maxlength="63" value="{{ form.get('slug', '') }}" placeholder="from the project name" aria-describedby="slug-help{% if errors.get('slug') %} slug-error{% endif %}" {% if errors.get('slug') %}aria-invalid="true"{% endif %}>
+          <p class="help" id="slug-help">Lowercase letters, digits and dashes. Used in URLs and branch paths.</p>
+          {{ err('slug') }}
+        </div>
+      </div>
+      <div class="panel-foot form-row end">
+        <div class="form-actions">
+          <a class="btn btn-ghost" href="/projects">Cancel</a>
+          <button type="submit" class="btn btn-primary">{{ icon('plus') }}Add project</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

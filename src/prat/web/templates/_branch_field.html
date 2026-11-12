@@ -1,0 +1,16 @@
+<div class="field" id="branch-field">
+  {% if branches %}
+  <label for="branch">Branch to work from</label>
+  <select id="branch" name="branch" class="mono" aria-describedby="branch-help">
+    {% for name in branches %}<option value="{{ name }}"{% if name == default %} selected{% endif %}>{{ name }}{% if name == default %} (default){% endif %}</option>{% endfor %}
+  </select>
+  <p class="help" id="branch-help">Cards branch from it and approved work merges into it. {{ branches|length }} branch{{ '' if branches|length == 1 else 'es' }} found.</p>
+  {% elif error %}
+  <label for="branch">Branch to work from <span class="optional">optional</span></label>
+  <input id="branch" name="branch" type="text" class="mono" spellcheck="false" autocomplete="off" placeholder="the repository's default branch" aria-describedby="branch-error">
+  <p class="field-error" id="branch-error">{{ icon('alert', 14) }}Could not list the branches: {{ error }}</p>
+  {% elif link %}
+  <label for="branch">Branch to work from <span class="optional">optional</span></label>
+  <input id="branch" name="branch" type="text" class="mono" spellcheck="false" autocomplete="off" placeholder="the repository's default branch">
+  {% endif %}
+</div>

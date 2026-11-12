@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Projects</h1>
+      <p class="page-sub">Repositories PRAT works on. Agents never run in your checkout; PRAT keeps its own clone and never pushes from it.</p>
+    </div>
+    <a class="btn btn-primary" href="/projects/new">{{ icon('plus') }}Add project</a>
+  </div>
+  {% if rows %}
+  <ul class="project-list">
+    {% for row in rows %}
+    {% set p = row.project %}
+    <li class="panel project-row">
+      <div class="project-main">
+        <h2 class="project-name"><a href="/projects/{{ p.slug }}">{{ p.name }}</a>{% if p.slug != p.name %} <span class="chip">{{ p.slug }}</span>{% endif %}</h2>
+        <dl class="kv kv-inline">
+          <div><dt>Checkout</dt><dd class="mono path">{{ p.checkout_path }}</dd></div>
+          <div><dt>Agent clone</dt><dd class="mono path">{{ p.agent_path }}</dd></div>
+          <div><dt>Default branch</dt><dd class="mono">{{ p.default_branch }}</dd></div>
+        </dl>
+      </div>
+      <div class="project-side">
+        <p class="project-total">{{ row.total }} card{{ '' if row.total == 1 else 's' }}</p>
+        {% if row.counts %}
+        <ul class="count-chips">
+          {% for status, n in row.counts.items() %}<li><span class="dot tone-{{ status_tone(status) }}" aria-hidden="true"></span>{{ n }} {{ status_label(status)|lower }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        <div class="project-links">
+          <a class="btn btn-sm" href="/board?project={{ p.slug }}">{{ icon('board', 14) }}Board</a>
+          <a class="btn btn-sm btn-ghost" href="/projects/{{ p.slug }}">Settings{{ icon('arrow-right', 14) }}</a>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty">
+    {{ icon('folder', 28) }}
+    <h2>No projects yet</h2>
+    <p>Register a git repository you have checked out. PRAT reads its <span class="mono">.prat/project.toml</span> if there is one.</p>
+    <a class="btn btn-primary" href="/projects/new">{{ icon('plus') }}Add project</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="542" viewBox="0 0 1280 542" role="img" aria-label="PRAT's policy judging an agent's commands">
+  <style>
+    .m { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; }
+    .t { font-family: 'Segoe UI', Inter, system-ui, sans-serif; }
+  </style>
+  <rect width="1280" height="542" rx="20" fill="#0a1022"/>
+  <rect x="24" y="24" width="1232" height="494" rx="14" fill="#101930" stroke="#24314f"/>
+  <path d="M24 38a14 14 0 0 1 14-14h1204a14 14 0 0 1 14 14v26H24z" fill="#14224a" fill-opacity="0.6"/>
+  <circle cx="50" cy="44" r="6" fill="#f87171"/><circle cx="70" cy="44" r="6" fill="#f6b73c"/><circle cx="90" cy="44" r="6" fill="#4ade80"/>
+  <text x="118" y="49" class="m" font-size="15" fill="#c9d2e3">agent session · card #42 · autonomy medium · every call judged by PRAT's policy</text>
+  <g>
+    <text x="52" y="108" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.04;0.06;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="108" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.04;0.06;0.94;1" dur="12s" repeatCount="indefinite"/>sh .prat/setup.sh</text>
+    <rect x="52" y="118" width="78" height="22" rx="11" fill="#15693f" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.04;0.06;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="91" y="134" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#4ade80" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.04;0.06;0.94;1" dur="12s" repeatCount="indefinite"/>allowed</text>
+    <text x="142" y="134" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.04;0.06;0.94;1" dur="12s" repeatCount="indefinite"/>the project's own command</text>
+  </g>
+  <g>
+    <text x="52" y="160" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.145;0.165;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="160" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.145;0.165;0.94;1" dur="12s" repeatCount="indefinite"/>curl -s https://pypi.org/pypi/fastapi/json</text>
+    <rect x="52" y="170" width="74" height="22" rx="11" fill="#7f1d1d" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.145;0.165;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="89" y="186" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#f87171" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.145;0.165;0.94;1" dur="12s" repeatCount="indefinite"/>denied</text>
+    <text x="138" y="186" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.145;0.165;0.94;1" dur="12s" repeatCount="indefinite"/>curl uses the network: needs autonomy high</text>
+  </g>
+  <g>
+    <text x="52" y="212" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.27;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="212" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.27;0.94;1" dur="12s" repeatCount="indefinite"/>uvicorn app:app &amp; sleep 3; curl -s 127.0.0.1:8611/health; kill $!</text>
+    <rect x="52" y="222" width="78" height="22" rx="11" fill="#15693f" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.27;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="91" y="238" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#4ade80" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.27;0.94;1" dur="12s" repeatCount="indefinite"/>allowed</text>
+    <text x="142" y="238" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.27;0.94;1" dur="12s" repeatCount="indefinite"/>a server it started, on this machine</text>
+  </g>
+  <g>
+    <text x="52" y="264" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.355;0.375;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="264" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.355;0.375;0.94;1" dur="12s" repeatCount="indefinite"/>git push origin HEAD</text>
+    <rect x="52" y="274" width="74" height="22" rx="11" fill="#7f1d1d" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.355;0.375;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="89" y="290" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#f87171" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.355;0.375;0.94;1" dur="12s" repeatCount="indefinite"/>denied</text>
+    <text x="138" y="290" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.355;0.375;0.94;1" dur="12s" repeatCount="indefinite"/>approved work is merged locally, never pushed</text>
+  </g>
+  <g>
+    <text x="52" y="316" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.46;0.48;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="316" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.46;0.48;0.94;1" dur="12s" repeatCount="indefinite"/>cat &gt; .prat/project.toml &lt;&lt;'EOF'</text>
+    <rect x="52" y="326" width="74" height="22" rx="11" fill="#7f1d1d" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.46;0.48;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="89" y="342" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#f87171" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.46;0.48;0.94;1" dur="12s" repeatCount="indefinite"/>denied</text>
+    <text x="138" y="342" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.46;0.48;0.94;1" dur="12s" repeatCount="indefinite"/>.prat/ is protected: only the setup card writes it</text>
+  </g>
+  <g>
+    <text x="52" y="368" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.565;0.585;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="368" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.565;0.585;0.94;1" dur="12s" repeatCount="indefinite"/>cat ~/.ssh/id_ed25519</text>
+    <rect x="52" y="378" width="74" height="22" rx="11" fill="#7f1d1d" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.565;0.585;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="89" y="394" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#f87171" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.565;0.585;0.94;1" dur="12s" repeatCount="indefinite"/>denied</text>
+    <text x="138" y="394" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.565;0.585;0.94;1" dur="12s" repeatCount="indefinite"/>looks like a secret file</text>
+  </g>
+  <g>
+    <text x="52" y="420" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.67;0.69;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="420" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.67;0.69;0.94;1" dur="12s" repeatCount="indefinite"/>sed -i '' 's/2.0/3.0/' requirements.txt</text>
+    <rect x="52" y="430" width="78" height="22" rx="11" fill="#15693f" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.67;0.69;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="91" y="446" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#4ade80" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.67;0.69;0.94;1" dur="12s" repeatCount="indefinite"/>allowed</text>
+    <text x="142" y="446" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.67;0.69;0.94;1" dur="12s" repeatCount="indefinite"/>an edit inside its worktree</text>
+  </g>
+  <g>
+    <text x="52" y="472" class="m" font-size="16" fill="#f6b73c" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.775;0.795;0.94;1" dur="12s" repeatCount="indefinite"/>$</text>
+    <text x="72" y="472" class="m" font-size="16" fill="#eef2f8" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.775;0.795;0.94;1" dur="12s" repeatCount="indefinite"/>pytest -q server/tests</text>
+    <rect x="52" y="482" width="78" height="22" rx="11" fill="#15693f" fill-opacity="0.55" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.775;0.795;0.94;1" dur="12s" repeatCount="indefinite"/></rect>
+    <text x="91" y="498" text-anchor="middle" class="t" font-size="13" font-weight="700" fill="#4ade80" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.775;0.795;0.94;1" dur="12s" repeatCount="indefinite"/>allowed</text>
+    <text x="142" y="498" class="m" font-size="14" fill="#9aa6bc" opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.775;0.795;0.94;1" dur="12s" repeatCount="indefinite"/>a local program at autonomy medium</text>
+  </g>
+</svg>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Agent wall{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Agent wall</h1>
+      <p class="page-sub">Every agent at work right now. Tap one to watch its session full screen.</p>
+    </div>
+  </div>
+</div>
+<div class="container" id="wall"
+     data-board-stream="/events/board"
+     hx-get="/wall/tiles"
+     hx-trigger="prat-refresh, every 2s"
+     hx-swap="innerHTML">
+  {% include "_wall_tiles.html" %}
+</div>
+{% endblock %}

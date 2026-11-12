@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body_class %}page-login{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="login-shell">
+    <div class="panel login-card">
+      <div class="login-brand">{{ logo }}<span>PRAT</span></div>
+      <h1 class="login-title">Sign in</h1>
+      {% if error %}<div class="callout tone-bad compact" role="alert">{{ icon('alert') }}<p>{{ error }}</p></div>{% endif %}
+      {% if has_token %}
+      <p class="muted">Open the login link that <span class="mono">prat serve</span> printed, run <span class="mono">prat login-url</span> for a new one, or paste the token from the <span class="mono">access-token</span> file in your PRAT home.</p>
+      <form method="post" action="/login" class="form">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="field">
+          <label for="token">Access token</label>
+          <input id="token" name="token" type="password" class="mono" autocomplete="off" spellcheck="false" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">{{ icon('arrow-right') }}Sign in</button>
+      </form>
+      {% else %}
+      <p>This installation has no access token yet. Run <span class="mono">prat init</span>, then <span class="mono">prat serve</span>.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

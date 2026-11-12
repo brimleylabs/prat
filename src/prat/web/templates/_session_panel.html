@@ -1,0 +1,23 @@
+<section class="panel" id="session" aria-labelledby="session-h">
+  <header class="panel-head">
+    <h2 id="session-h">{{ icon('terminal') }}Session{% if page.run %} <span class="muted">run {{ page.run.id }}</span>{% endif %}</h2>
+    <div class="panel-tools">
+      {% if page.live %}<span class="live-label"><span class="live-dot" aria-hidden="true"></span>Live</span>{% endif %}
+      {% if page.run %}<a class="btn btn-ghost btn-sm" href="/cards/{{ card.id }}/runs/{{ page.run.id }}/replay">{{ icon('replay') }}Replay</a>{% endif %}
+    </div>
+  </header>
+  {% if page.entries_hidden %}<p class="panel-note">{{ page.entries_hidden }} earlier events are in the <a href="/cards/{{ card.id }}/runs/{{ page.run.id }}/replay">replay</a>.</p>{% endif %}
+  {% if page.live %}
+  <ol class="log" id="live-log" role="log" aria-live="polite" aria-relevant="additions" aria-label="Live agent session">
+    {% for e in page.entries %}{% include "_entry.html" %}{% endfor %}
+  </ol>
+  {% if not page.entries %}<p class="panel-note" id="live-waiting">Waiting for the agent to start.</p>{% endif %}
+  {% elif page.entries %}
+  <details class="log-fold">
+    <summary>{{ icon('chevron-right', 14) }}Show {{ 'the last' if page.entries_hidden else 'all' }} {{ page.entries|length }} events</summary>
+    <ol class="log" aria-label="Agent session">
+      {% for e in page.entries %}{% include "_entry.html" %}{% endfor %}
+    </ol>
+  </details>
+  {% endif %}
+</section>

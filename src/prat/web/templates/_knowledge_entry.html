@@ -1,0 +1,34 @@
+<div class="kg-entry">
+  <p class="tile-top"><span class="chip kind-chip kind-{{ entry.kind }}">{{ entry.kind }}</span>
+    {% if entry.status != 'active' %}<span class="badge tone-warn">{{ entry.status }}</span>{% elif entry.confirmed %}<span class="badge tone-ok">confirmed</span>{% else %}<span class="badge tone-neutral">observed</span>{% endif %}
+    <span class="tile-id">{{ entry.id }}</span></p>
+  <h3 class="kg-entry-title">{{ entry.summary }}</h3>
+  {% if entry.body %}<p class="pre">{{ entry.body }}</p>{% endif %}
+  <dl class="kv">
+    {% if entry.paths %}<div><dt>About</dt><dd>{% for p in entry.paths %}<span class="mono chip">{{ p }}</span> {% endfor %}</dd></div>{% endif %}
+    <div><dt>Written by</dt><dd>{{ 'a person' if entry.author == 'person' else 'PRAT (' ~ entry.author ~ ')' }}</dd></div>
+    <div><dt>Agents helped</dt><dd>{{ entry.helped }}{% if entry.hurt %}; misled {{ entry.hurt }}{% endif %}</dd></div>
+    {% if entry.sources %}<div><dt>Learned from</dt><dd>{% for s in entry.sources %}{% if s.card %}<a href="/cards/{{ s.card }}">card #{{ s.card }}</a>{% else %}{{ s.note or 'a person' }}{% endif %}{% if s.note and s.card %} <span class="muted">({{ s.note }})</span>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
+    {% if entry.links %}<div><dt>Links</dt><dd>{% for l in entry.links %}<span class="muted">{{ l.relation }}</span> <a href="#kgraph" data-kg-select="{{ l.to }}">{{ titles.get(l.to, l.to) }}</a>{% if not loop.last %}<br>{% endif %}{% endfor %}</dd></div>{% endif %}
+    {% if entry.superseded_by %}<div><dt>Replaced by</dt><dd><a href="#kgraph" data-kg-select="{{ entry.superseded_by }}">{{ titles.get(entry.superseded_by, entry.superseded_by) }}</a></dd></div>{% endif %}
+    <div><dt>Checked against the code</dt><dd>{{ entry.last_verified[:10] if entry.last_verified else 'not yet' }}</dd></div>
+  </dl>
+  {% if history %}
+  <h4 class="kg-sub">History</h4>
+  <ul class="plain-list kg-history">{% for h in history %}<li><time datetime="{{ h.date }}">{{ h.date[:10] }}</time> {{ h.subject }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if entry.status == 'active' %}
+  <div class="form-actions">
+    {% if not entry.confirmed %}
+    <form method="post" action="/projects/{{ slug }}/knowledge/entries/{{ entry.id }}/confirm" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm">{{ icon('check-circle', 14) }}Confirm</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/projects/{{ slug }}/knowledge/entries/{{ entry.id }}/retire" hx-post="/projects/{{ slug }}/knowledge/entries/{{ entry.id }}/retire" class="inline-form" data-confirm-label="Retire entry" data-confirm-tone="danger" hx-confirm="Retire this entry? Agents will no longer see it. It stays in the history.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm btn-danger">{{ icon('x-circle', 14) }}Retire</button>
+    </form>
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Knowledge: {{ page.slug }}{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/cytoscape-3.34.4.min.js" defer></script>
+<script src="/static/knowledge.js?v={{ version }}" defer></script>
+{% endblock %}
+{% block content %}
+{# Cytoscape adds a style element unless one with this id exists; the CSP would block it. #}
+<span id="__________cytoscape_stylesheet" hidden></span>
+<div class="container">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/projects">Projects</a><span aria-hidden="true">/</span><a href="/projects/{{ page.slug }}">{{ page.slug }}</a><span aria-hidden="true">/</span><span aria-current="page">Knowledge</span></nav>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Knowledge</h1>
+      <p class="page-sub">What PRAT has learned about {{ page.name }} from finished cards, and where it sits in the code. Agents get the entries relevant to their card. Each night PRAT checks them against the code, credits the ones that helped and retires what has gone.</p>
+    </div>
+    <div class="form-actions">
+      <form method="post" action="/projects/{{ page.slug }}/knowledge/seed" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn" {% if seeding %}disabled{% endif %} title="Inventory every file with tools, read every module, then write the project's knowledge">{{ icon('search') }}{{ 'Scanning the code' if seeding else ('Scan the code again' if page.inventory else 'Scan the code') }}</button>
+      </form>
+      <a class="btn" href="#add">{{ icon('plus') }}Add an entry</a>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-label">Entries</span><span class="stat-value">{{ page.entries|length }}</span></div>
+    <div class="stat"><span class="stat-label">Confirmed</span><span class="stat-value">{{ page.confirmed }}</span></div>
+    <div class="stat"><span class="stat-label">Files covered</span><span class="stat-value">{{ page.files }}</span></div>
+    <div class="stat"><span class="stat-label">Retired or replaced</span><span class="stat-value">{{ page.inactive }}</span></div>
+  </div>
+
+  {% if page.inventory %}
+  {% set inv = page.inventory %}
+  {% set scan = page.scan or {} %}
+  <section class="panel" id="scan" aria-labelledby="scan-h">
+    <header class="panel-head"><h2 id="scan-h">{{ icon('search') }}What the scan found</h2><div class="panel-tools"><span class="mono muted">{{ inv.commit[:10] }}</span></div></header>
+    <div class="panel-body scan-grid">
+      <dl class="kv">
+        <div><dt>Files</dt><dd>{{ inv.files|length }} tracked, {{ inv.readable|length }} code, config and docs{% if scan %}; read {{ scan.files_read }} of {{ scan.readable }}{% endif %}</dd></div>
+        <div><dt>Modules</dt><dd>{{ inv.modules|length }}{% if scan.timings %}; scan took {{ scan.timings.total|duration }} (tools {{ scan.timings.inventory|duration }}, reading {{ scan.timings.read|duration }}, synthesis {{ scan.timings.synthesis|duration }}){% endif %}</dd></div>
+        <div><dt>Languages</dt><dd>{% for lang, v in inv.languages.items()|sort(attribute='1.lines', reverse=True) %}{% if loop.index <= 8 %}<span class="chip">{{ lang }} {{ v.files }} files, {{ v.lines }} lines</span> {% endif %}{% endfor %}</dd></div>
+        <div><dt>Runtimes</dt><dd>{% for r in inv.runtimes %}<span class="chip">{{ r.what }} {{ r.version }}</span> {% else %}<span class="muted">none declared</span>{% endfor %}</dd></div>
+        <div><dt>Packages</dt><dd>{{ inv.packages|length }} installed, {{ inv.declared|length }} declared{% if inv.vulnerabilities %}; <span class="badge tone-bad">{{ inv.vulnerabilities|length }} with known vulnerabilities</span>{% else %}; no known vulnerabilities{% endif %}</dd></div>
+        <div><dt>Relationships</dt><dd>{{ inv.imports|length }} imports, {{ inv.calls|length }} file-to-file call and inheritance links, {{ inv.cochange|length }} pairs of files that change together</dd></div>
+      </dl>
+      {% if inv.hotspots %}
+      <div>
+        <h3 class="kg-sub">Changed most in the last year</h3>
+        <ul class="plain-list kg-history">{% for h in inv.hotspots[:8] %}<li><span class="mono">{{ h.path }}</span> <span class="muted">{{ h.commits }} commits</span></li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </div>
+    <p class="panel-note">Tools: {% for name, v in inv.tools.items() %}{{ name }} {{ 'not installed' if v == 'missing' else 'used' }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+  </section>
+  {% endif %}
+
+  <section class="panel" aria-labelledby="graph-h">
+    <header class="panel-head">
+      <h2 id="graph-h">{{ icon('graph') }}Graph</h2>
+      <div class="panel-tools">
+        <span class="kg-live" data-kg-status role="status" aria-live="polite">Loading</span>
+      </div>
+    </header>
+    <div class="kg-toolbar">
+      <fieldset class="kg-filters">
+        <legend class="sr-only">Show</legend>
+        {% for kind in kinds %}
+        <label class="kg-filter"><input type="checkbox" data-kg-kind="{{ kind }}" checked><span class="kg-dot kind-{{ kind }}" aria-hidden="true"></span>{{ kind }}</label>
+        {% endfor %}
+        <label class="kg-filter"><input type="checkbox" data-kg-modules checked><span class="kg-dot kg-module" aria-hidden="true"></span>modules</label>
+        <label class="kg-filter"><input type="checkbox" data-kg-files checked><span class="kg-dot kg-file" aria-hidden="true"></span>files</label>
+        <label class="kg-filter"><input type="checkbox" data-kg-inactive><span class="kg-dot kg-inactive" aria-hidden="true"></span>retired</label>
+      </fieldset>
+      <div class="kg-actions">
+        <input type="search" class="kg-search" placeholder="Find an entry or file" aria-label="Find an entry or file" data-kg-search>
+        <button type="button" class="btn btn-sm" data-kg-fit>{{ icon('maximize', 14) }}Fit</button>
+      </div>
+    </div>
+    <div class="kg-layout">
+      <div class="kg-canvas" id="kgraph" data-src="/projects/{{ page.slug }}/knowledge/graph.json" data-version="/projects/{{ page.slug }}/knowledge/version" data-entry="/projects/{{ page.slug }}/knowledge/entries/" role="img" aria-label="Graph of knowledge entries and the files they are about"></div>
+      <aside class="kg-detail" id="kg-detail" aria-live="polite">
+        <p class="muted">Select an entry to see what it says, where it came from and how it has changed. Files with a dashed outline matter to the code but nothing is known about them yet.</p>
+      </aside>
+    </div>
+    <p class="kg-legend panel-note">Lines: an entry is <span class="kg-key key-about">about</span> a file or module, <span class="kg-key key-link">related to</span> or <span class="kg-key key-bad">contradicts</span> another entry, or was <span class="kg-key key-old">replaced by</span> one. Between files: grey lines are imports, dotted blue lines are calls, dashed amber lines join files that change together. Bigger files changed more often; larger entries have helped more agents.</p>
+  </section>
+
+  {% if page.held %}
+  <section class="panel" id="held" aria-labelledby="held-h">
+    <header class="panel-head"><h2 id="held-h">{{ icon('shield') }}Held for you</h2><div class="panel-tools"><span class="badge tone-warn">{{ page.held|length }}</span></div></header>
+    <p class="panel-note">PRAT's screen holds back anything that reads like weakening a protection, adding credentials or letting agents push. Some of these are protective facts worded that way. Let through what is right; it is added as yours and confirmed.</p>
+    <ul class="held-list">
+      {% for h in page.held %}
+      <li class="held-item">
+        <p class="tile-top"><span class="chip kind-chip kind-{{ h.kind }}">{{ h.kind }}</span><span class="mini-badge tone-warn">{{ h.reason }}</span><span class="muted">from the {{ h.author }}</span></p>
+        <p class="kg-entry-title">{{ h.summary }}</p>
+        {% if h.body %}<p class="pre">{{ h.body }}</p>{% endif %}
+        {% if h.paths %}<p>{% for p in h.paths %}<span class="mono chip">{{ p }}</span> {% endfor %}</p>{% endif %}
+        <div class="form-actions">
+          <form method="post" action="/projects/{{ page.slug }}/knowledge/held/{{ h.id }}/accept" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm">{{ icon('check-circle', 14) }}Let it through</button>
+          </form>
+          <form method="post" action="/projects/{{ page.slug }}/knowledge/held/{{ h.id }}/drop" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-danger">{{ icon('x-circle', 14) }}Drop</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if page.lint %}
+  <section class="panel" aria-labelledby="lint-h">
+    <header class="panel-head"><h2 id="lint-h">{{ icon('alert') }}Needs a look</h2><div class="panel-tools"><span class="badge tone-warn">{{ page.lint|length }}</span></div></header>
+    <ul class="panel-body plain-list">
+      {% for issue in page.lint %}<li>{{ issue }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="panel" aria-labelledby="list-h">
+    <header class="panel-head"><h2 id="list-h">{{ icon('file') }}Entries</h2></header>
+    {% if page.entries %}
+    <div class="table-wrap">
+      <table class="table kg-table">
+        <thead><tr><th>Kind</th><th>What PRAT knows</th><th>Files</th><th>Helped</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for e in page.entries %}
+          <tr>
+            <td class="kg-kind"><span class="chip kind-chip kind-{{ e.kind }}">{{ e.kind }}</span></td>
+            <td class="kg-what"><a href="#kgraph" data-kg-select="{{ e.id }}">{{ e.summary }}</a>{% if e.author == 'person' %} <span class="mini-badge tone-neutral">by a person</span>{% endif %}</td>
+            <td class="kg-files">{% for p in e.paths %}<span class="mono chip">{{ p }}</span> {% endfor %}</td>
+            <td class="num kg-helped"><span class="kg-cell-label">Helped </span>{{ e.helped }}{% if e.hurt %} <span class="muted">/ misled {{ e.hurt }}</span>{% endif %}</td>
+            <td class="kg-status">{% if e.confirmed %}<span class="badge tone-ok">confirmed</span>{% else %}<span class="badge tone-neutral">observed</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty small">
+      <h2>Nothing learned yet</h2>
+      <p>PRAT writes entries after cards finish, during its quiet-hours dream. To start with a first picture of the code, use Scout the code above; you can also add what you already know below.</p>
+    </div>
+    {% endif %}
+    {% for problem in page.problems %}<p class="panel-note tone-bad">Could not read {{ problem.file }}: {{ problem.reason }}</p>{% endfor %}
+  </section>
+
+  <div class="two-col">
+    <section class="panel" id="add" aria-labelledby="add-h">
+      <header class="panel-head"><h2 id="add-h">{{ icon('plus') }}Add an entry</h2></header>
+      <form method="post" action="/projects/{{ page.slug }}/knowledge/entries" class="panel-body form-stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="field">
+          <label for="kind">Kind</label>
+          <select id="kind" name="kind" class="select">
+            {% for kind in kinds %}<option value="{{ kind }}">{{ kind }}: {{ kind_help[kind] }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="summary">Summary</label>
+          <input id="summary" name="summary" required maxlength="200" placeholder="Prices are stored in cents, never dollars">
+        </div>
+        <div class="field">
+          <label for="body">Details</label>
+          <textarea id="body" name="body" rows="3" maxlength="1200" placeholder="Two or three sentences an agent can act on."></textarea>
+        </div>
+        <div class="field">
+          <label for="paths">Files or folders it is about</label>
+          <input id="paths" name="paths" class="mono" placeholder="src/money.py, src/cart/">
+          <p class="help">Repository paths, separated by commas. Leave empty for the whole project.</p>
+        </div>
+        <div class="form-row end"><button type="submit" class="btn btn-primary">{{ icon('plus') }}Add</button></div>
+        <p class="help">Entries you add are confirmed and PRAT never rewrites them.</p>
+      </form>
+    </section>
+    <section class="panel" aria-labelledby="hist-h">
+      <header class="panel-head"><h2 id="hist-h">{{ icon('clock') }}Recent changes</h2></header>
+      {% if page.history %}
+      <ul class="panel-body plain-list kg-history">
+        {% for item in page.history %}<li><time datetime="{{ item.date }}">{{ item.date[:16]|replace('T', ' ') }}</time> {{ item.subject }}</li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="panel-body muted">No changes yet.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

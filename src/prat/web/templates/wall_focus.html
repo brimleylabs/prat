@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Watching #{{ card.id }}{% endblock %}
+{% block body_class %}focus-view{% endblock %}
+{% block content %}
+{% set run = page.run %}
+<div class="container focus-wrap">
+  <div id="card-panel" class="focus-panel"
+       hx-get="/wall/{{ card.id }}"
+       hx-select="#card-panel"
+       hx-trigger="prat-refresh"
+       hx-swap="outerHTML"
+       data-live="{{ 1 if page.live else 0 }}"
+       data-stream="/events/cards/{{ card.id }}"
+       data-run="{{ run.id if run else '' }}"
+       data-after="{{ page.last_seq }}">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/wall">Agent wall</a><span aria-hidden="true">/</span><span aria-current="page">Card #{{ card.id }}</span></nav>
+    <div class="focus-head">
+      <div>
+        <h1 class="page-title">{{ card.title }}</h1>
+        <p class="meta-line">
+          <span class="badge tone-{{ status_tone(card.status|string) }}">{% if page.live %}<span class="dot tone-{{ status_tone(card.status|string) }} pulse" aria-hidden="true"></span>{% endif %}{{ status_label(card.status|string) }}</span>
+          <span class="chip">{{ page.project.slug }}</span>
+          {% if step %}<span>Step: {{ step|capitalize }}</span>{% endif %}
+          {% if run and run.started_at %}<span>Running for <span data-since="{{ run.started_at|isotime }}">{{ run.started_at|ago }}</span></span>{% endif %}
+        </p>
+      </div>
+      <div class="form-actions">
+        <a class="btn" href="/wall">{{ icon('board') }}All agents</a>
+        <a class="btn btn-primary" href="/cards/{{ card.id }}">Open card{{ icon('arrow-right', 14) }}</a>
+      </div>
+    </div>
+    <section class="panel focus-screen" aria-label="Agent session">
+      {% if page.entries_hidden %}<p class="panel-note">{{ page.entries_hidden }} earlier events are in the <a href="/cards/{{ card.id }}/runs/{{ run.id }}/replay">replay</a>.</p>{% endif %}
+      <ol class="log focus-log" {% if page.live %}id="live-log" role="log" aria-live="polite" aria-relevant="additions"{% endif %} aria-label="Agent session">
+        {% for e in page.entries %}{% include "_entry.html" %}{% endfor %}
+      </ol>
+      {% if not page.entries %}<p class="panel-note" id="live-waiting">{{ 'Waiting for the agent to start.' if page.live else 'No session recorded for this card yet.' }}</p>{% endif %}
+      {% if not page.live and page.entries %}<p class="panel-note">This session has ended. {% if run %}<a href="/cards/{{ card.id }}/runs/{{ run.id }}/replay">Replay it</a> or <a href="/cards/{{ card.id }}">open the card</a>.{% endif %}</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

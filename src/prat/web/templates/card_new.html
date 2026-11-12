@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}New card{% endblock %}
+{% macro err(name) %}{% if errors.get(name) %}<p class="field-error" id="{{ name }}-error">{{ icon('alert', 14) }}{{ errors[name] }}</p>{% endif %}{% endmacro %}
+{% block content %}
+<div class="container">
+  <div class="form-shell">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/board">Board</a><span aria-hidden="true">/</span><span aria-current="page">New card</span></nav>
+    <div class="page-head tight">
+      <div>
+        <h1 class="page-title">New card</h1>
+        <p class="page-sub">One unit of work for one agent run. Clear acceptance criteria make the reviewer's verdict useful.</p>
+      </div>
+    </div>
+    {% if not projects %}
+    <div class="empty">{{ icon('folder', 28) }}<h2>No projects yet</h2><p>Add a project before filing cards.</p><a class="btn btn-primary" href="/projects/new">{{ icon('plus') }} Add a project</a></div>
+    {% else %}
+    <form class="panel form" method="post" action="/cards" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="panel-body form-grid">
+        <div class="field">
+          <label for="project">Project</label>
+          <select id="project" name="project" class="select" required {% if errors.get('project') %}aria-invalid="true" aria-describedby="project-error"{% endif %}>
+            <option value="" {% if not form.get('project') %}selected{% endif %} disabled>Choose a project</option>
+            {% for p in projects %}<option value="{{ p.slug }}" {% if form.get('project') == p.slug %}selected{% endif %}>{{ p.slug }}{% if p.name != p.slug %} ({{ p.name }}){% endif %}</option>{% endfor %}
+          </select>
+          {{ err('project') }}
+        </div>
+        <div class="field">
+          <label for="title">Title</label>
+          <input id="title" name="title" type="text" maxlength="200" required autofocus value="{{ form.get('title', '') }}" placeholder="Add rate limiting to the login endpoint" {% if errors.get('title') %}aria-invalid="true" aria-describedby="title-error"{% endif %}>
+          {{ err('title') }}
+        </div>
+        <div class="field">
+          <label for="goal">Goal</label>
+          <textarea id="goal" name="goal" rows="5" aria-describedby="goal-help{% if errors.get('goal') %} goal-error{% endif %}" placeholder="What should be true when this is done, and why.">{{ form.get('goal', '') }}</textarea>
+          <p class="help" id="goal-help">Given to the builder and the reviewer as written.</p>
+          {{ err('goal') }}
+        </div>
+        <div class="field">
+          <label for="criteria">Acceptance criteria</label>
+          <textarea id="criteria" name="criteria" rows="5" aria-describedby="criteria-help{% if errors.get('criteria') %} criteria-error{% endif %}" placeholder="- Requests over the limit get 429&#10;- Tests cover the limit and the reset">{{ form.get('criteria', '') }}</textarea>
+          <p class="help" id="criteria-help">One per line, starting with a dash. The reviewer grades each one.</p>
+          {{ err('criteria') }}
+        </div>
+        <div class="field-row">
+          <fieldset class="field">
+            <legend>Complexity</legend>
+            <div class="segmented">
+              {% for c in complexities %}
+              <label><input type="radio" name="complexity" value="{{ c }}" {% if form.get('complexity', 'medium') == c %}checked{% endif %}><span>{{ c|capitalize }}</span></label>
+              {% endfor %}
+            </div>
+            <p class="help">High adds a planning pass before the builder.</p>
+            {{ err('complexity') }}
+          </fieldset>
+        </div>
+      </div>
+      <div class="panel-foot form-row">
+        <label class="check"><input type="checkbox" name="start" value="1" {% if form.get('start') %}checked{% endif %}> Ready: queue a run now</label>
+        <div class="form-actions">
+          <a class="btn btn-ghost" href="/board">Cancel</a>
+          <button type="submit" class="btn btn-primary">{{ icon('plus') }}Create card</button>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

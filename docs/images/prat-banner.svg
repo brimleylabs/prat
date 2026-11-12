@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-label="PRAT: Propose, Review, Approve, Trust">
+  <defs>
+    <radialGradient id="glow" cx="1" cy="0" r="0.9">
+      <stop offset="0" stop-color="#1d3a7a" stop-opacity="0.75"/>
+      <stop offset="0.55" stop-color="#14224a" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#0a1022" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="520" rx="22" fill="#0a1022"/>
+  <rect width="1280" height="520" rx="22" fill="url(#glow)"/>
+
+  <g font-family="'Segoe UI', Inter, system-ui, sans-serif">
+    <text x="72" y="92" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="24" fill="#f6b73c">brimleylabs/prat</text>
+    <text x="68" y="216" font-size="132" font-weight="800" letter-spacing="-5" fill="#eef2f8">PRAT</text>
+    <text x="72" y="270" font-size="30" font-weight="700" fill="#eef2f8">Propose. Review. Approve. Trust.</text>
+    <text x="72" y="320" font-size="21" fill="#c9d2e3">Coding agents build on rails, in their own worktrees,</text>
+    <text x="72" y="350" font-size="21" fill="#c9d2e3">on their own branch of your data. PRAT proves the work</text>
+    <text x="72" y="380" font-size="21" fill="#c9d2e3">before you see it, and learns while you sleep.</text>
+    <text x="72" y="468" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="18" fill="#9aa6bc">Claude Agent SDK · Dolt · Doltgres · Postgres</text>
+  </g>
+
+  <!-- A card's life, drawn like a log -->
+  <g transform="translate(700 70)" font-family="'Segoe UI', Inter, system-ui, sans-serif">
+    <rect width="508" height="390" rx="16" fill="#101930" stroke="#24314f"/>
+    <path d="M0 16a16 16 0 0 1 16-16h476a16 16 0 0 1 16 16v40H0z" fill="#14224a" fill-opacity="0.55"/>
+    <line x1="0" y1="56" x2="508" y2="56" stroke="#24314f"/>
+    <text x="28" y="35" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="17" fill="#c9d2e3">prat card show 42</text>
+    <text x="480" y="35" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="17" fill="#eef2f8" text-anchor="end">shop · main</text>
+
+    <line x1="48" y1="96" x2="48" y2="244" stroke="#3a4868" stroke-width="3"/>
+    <line x1="48" y1="255" x2="48" y2="306" stroke="#f6b73c" stroke-width="3"/>
+
+    <g transform="translate(0 96)">
+      <circle cx="48" cy="0" r="11" fill="#101930" stroke="#c9d2e3" stroke-width="3"/>
+      <text x="80" y="-3" font-size="20" font-weight="700" fill="#eef2f8">Propose</text>
+      <text x="80" y="20" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="14" fill="#9aa6bc">card/42 · worktree · data branch card-42</text>
+    </g>
+    <g transform="translate(0 170)">
+      <circle cx="48" cy="0" r="11" fill="#101930" stroke="#c9d2e3" stroke-width="3"/>
+      <text x="80" y="-3" font-size="20" font-weight="700" fill="#eef2f8">Review</text>
+      <text x="80" y="20" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="14" fill="#9aa6bc">gates ✓ · criteria met · security pass</text>
+    </g>
+    <g transform="translate(0 244)">
+      <circle cx="48" cy="0" r="11" fill="#101930" stroke="#c9d2e3" stroke-width="3"/>
+      <text x="80" y="-3" font-size="20" font-weight="700" fill="#eef2f8">Approve</text>
+      <text x="80" y="20" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="14" fill="#9aa6bc">data, then code · local merge · never pushed</text>
+    </g>
+    <g transform="translate(0 318)">
+      <circle cx="48" cy="0" r="12" fill="#f6b73c"/>
+      <text x="80" y="-3" font-size="20" font-weight="700" fill="#f6b73c">Trust</text>
+      <text x="80" y="20" font-family="ui-monospace, 'Cascadia Mono', Consolas, monospace" font-size="14" fill="#9aa6bc">3 lessons learned · 2 stale facts retired overnight</text>
+    </g>
+  </g>
+</svg>

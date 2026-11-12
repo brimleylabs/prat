@@ -1,0 +1,30 @@
+# PRAT's own project file. PRAT uses it when it works on its own repository.
+name = "prat"
+default_branch = "main"
+autonomy = "medium"
+max_diff_lines = 5000
+max_diff_files = 200
+notes = """
+Python 3.12+ package in src/prat, tests in tests/ (unit, integration, web; e2e is skipped by default).
+Layout: cli.py (commands), config.py (settings), domain.py (state machines), db/ (models and Alembic
+migrations in db/alembic/versions), engine/ (run steps, reviewer, planner, prompts), git/ (git runner,
+agent clone, worktrees), policy/ (tool call policy, shell parsing, secret scanner), runtime/ (agent
+runtime adapters and the scripted fake), verification.py (gates and diff checks), changes.py (change
+classifier), errors.py (error log), improve/ (self-improvement), web/ (FastAPI app, templates, static).
+Rules: everything must behave the same on Linux, macOS and Windows; use pathlib and sys.executable,
+never a shell. Git is called through prat.git.Git and child processes through prat.proc. Schema
+changes need a new Alembic migration that works on more than one database dialect. Tests are offline
+and use the fake runtime. Planned work is listed in docs/ROADMAP.md; keep docs short and factual.
+"""
+
+[commands]
+setup = "{python} -m pip install -e .[dev]"
+test = "{python} -m pytest -q"
+lint = "{python} -m ruff check src tests"
+format = "{python} -m ruff format --check src tests"
+# The build gate is the strict type check.
+build = "{python} -m mypy"
+
+[verify]
+gates = ["test", "lint", "format", "build"]
+timeout_seconds = 3600

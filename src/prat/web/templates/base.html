@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="same-origin">
+<meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "allowScriptTags": false, "selfRequestsOnly": true, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
+<meta name="csrf-token" content="{{ csrf_token }}">
+<title>{% block title %}PRAT{% endblock %} - PRAT</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css?v={{ version }}">
+<script src="/static/theme.js?v={{ version }}"></script>
+<script src="/static/vendor/htmx-2.0.4.min.js" defer></script>
+<script src="/static/app.js?v={{ version }}" defer></script>
+{% block scripts %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="/board" aria-label="PRAT home">{{ logo }}<span class="brand-name">PRAT</span></a>
+    {% if signed_in %}
+    <nav class="nav" aria-label="Main">
+      <a href="/board" title="Board" {% if nav == 'board' %}aria-current="page"{% endif %}>{{ icon('board') }}<span>Board</span></a>
+      <a href="/wall" title="Wall" {% if nav == 'wall' %}aria-current="page"{% endif %}>{{ icon('terminal') }}<span>Wall</span></a>
+      <a href="/projects" title="Projects" {% if nav == 'projects' %}aria-current="page"{% endif %}>{{ icon('folder') }}<span>Projects</span></a>
+      <a href="/improve" title="Improve" {% if nav == 'improve' %}aria-current="page"{% endif %}>{{ icon('loop') }}<span>Improve</span></a>
+      <a href="/usage" title="Usage" {% if nav == 'usage' %}aria-current="page"{% endif %}>{{ icon('chart') }}<span>Usage</span></a>
+      <a href="/settings" title="Settings" {% if nav == 'settings' %}aria-current="page"{% endif %}>{{ icon('sliders') }}<span>Settings</span></a>
+    </nav>
+    <div class="topbar-actions">
+      <a class="btn btn-primary btn-sm" href="/cards/new" data-shortcut="c">{{ icon('plus') }}<span class="hide-narrow">New card</span><kbd class="kbd-inline hide-narrow">C</kbd></a>
+      <button type="button" class="btn btn-ghost btn-icon theme-toggle" data-theme-toggle aria-label="Colour theme: follow the system" title="Colour theme">
+        <span class="theme-icon theme-icon-system">{{ icon('monitor') }}</span>
+        <span class="theme-icon theme-icon-light">{{ icon('sun') }}</span>
+        <span class="theme-icon theme-icon-dark">{{ icon('moon') }}</span>
+      </button>
+      <button type="button" class="btn btn-ghost btn-icon hide-narrow" data-shortcuts-open aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">{{ icon('keyboard') }}</button>
+      <form method="post" action="/logout" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-ghost btn-icon" aria-label="Sign out" title="Sign out">{{ icon('logout') }}</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</header>
+<main id="main" class="main" tabindex="-1">
+  {% if flashes %}
+  <div class="container flashes" role="status" aria-live="polite">
+    {% for f in flashes %}
+    <div class="flash tone-{{ f.tone }}">
+      {% if f.tone == 'ok' %}{{ icon('check-circle') }}{% elif f.tone == 'bad' %}{{ icon('x-circle') }}{% elif f.tone == 'warn' %}{{ icon('alert') }}{% else %}{{ icon('info') }}{% endif %}
+      <span>{{ f.message }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="footer">
+  <div class="container footer-inner">
+    <span>PRAT {{ version }}</span>
+    {% if signed_in %}<span>Runtime: {{ runtime_name }}</span>{% endif %}
+    {% if signed_in %}<button type="button" class="linklike" data-shortcuts-open>Keyboard shortcuts <kbd>?</kbd></button>{% endif %}
+    <p class="footer-name" title="Git and Dolt are both British slang for a fool. PRAT keeps the family name.">PRAT: Propose, Review, Approve, Trust. A prat, in the proud tradition of git and Dolt.</p>
+  </div>
+</footer>
+{% if signed_in %}
+<dialog id="confirm-dialog" class="dialog" aria-labelledby="confirm-title">
+  <form method="dialog" class="dialog-body">
+    <h2 id="confirm-title" class="dialog-title">Please confirm</h2>
+    <p id="confirm-message" class="dialog-text"></p>
+    <div class="dialog-actions">
+      <button type="submit" value="cancel" class="btn">Go back</button>
+      <button type="submit" value="ok" class="btn btn-primary" id="confirm-ok">Continue</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="shortcuts-dialog" class="dialog" aria-labelledby="shortcuts-title">
+  <div class="dialog-body">
+    <h2 id="shortcuts-title" class="dialog-title">Keyboard shortcuts</h2>
+    <dl class="shortcuts">
+      <div><dt><kbd>g</kbd> <kbd>b</kbd></dt><dd>Board</dd></div>
+      <div><dt><kbd>g</kbd> <kbd>p</kbd></dt><dd>Projects</dd></div>
+      <div><dt><kbd>g</kbd> <kbd>w</kbd></dt><dd>Agent wall</dd></div>
+      <div><dt><kbd>g</kbd> <kbd>i</kbd></dt><dd>Self-improvement</dd></div>
+      <div><dt><kbd>g</kbd> <kbd>u</kbd></dt><dd>Usage</dd></div>
+      <div><dt><kbd>g</kbd> <kbd>s</kbd></dt><dd>Settings</dd></div>
+      <div><dt><kbd>c</kbd></dt><dd>New card</dd></div>
+      <div><dt><kbd>f</kbd></dt><dd>Project filter (board)</dd></div>
+      <div><dt><kbd>r</kbd></dt><dd>Run or move to ready (card)</dd></div>
+      <div><dt><kbd>a</kbd></dt><dd>Approve and merge (card)</dd></div>
+      <div><dt><kbd>w</kbd></dt><dd>Request rework (card)</dd></div>
+      <div><dt><kbd>x</kbd></dt><dd>Cancel (card)</dd></div>
+      <div><dt><kbd>m</kbd></dt><dd>Write a comment (card)</dd></div>
+      <div><dt><kbd>t</kbd></dt><dd>Switch colour theme</dd></div>
+      <div><dt><kbd>?</kbd></dt><dd>This list</dd></div>
+    </dl>
+    <form method="dialog" class="dialog-actions"><button class="btn" type="submit">Close</button></form>
+  </div>
+</dialog>
+{% endif %}
+</body>
+</html>

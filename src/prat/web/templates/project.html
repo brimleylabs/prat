@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ project.slug }}{% endblock %}
+{% block content %}
+<div class="container">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/projects">Projects</a><span aria-hidden="true">/</span><span aria-current="page">{{ project.slug }}</span></nav>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">{{ project.name }}</h1>
+      <p class="page-sub"><span class="chip">{{ project.slug }}</span> registered <time datetime="{{ project.created_at|isotime }}" title="{{ project.created_at|timestamp }}">{{ project.created_at|ago }}</time></p>
+    </div>
+    <div class="form-actions">
+      <a class="btn" href="/board?project={{ project.slug }}">{{ icon('board') }}Board</a>
+      <a class="btn" href="/projects/{{ project.slug }}/knowledge">{{ icon('graph') }}Knowledge</a>
+      <a class="btn btn-primary" href="/cards/new?project={{ project.slug }}">{{ icon('plus') }}New card</a>
+    </div>
+  </div>
+
+  {% if not suggestion %}
+  <div class="callout tone-info">{{ icon('lock', 18) }}<div><p class="callout-title">Read only here</p><p>The committed <span class="mono">.prat/project.toml</span> on <span class="mono">{{ project.default_branch }}</span> is the source of truth. Change it in the repository and commit; PRAT reads it at the start of every run, and agents can never edit it. Showing: {{ source }}.</p></div></div>
+  {% endif %}
+  {% if suggestion %}
+  <section class="panel setup-panel" aria-labelledby="suggest-h">
+    <header class="panel-head">
+      <h2 id="suggest-h">{{ icon('file') }}Add a project file</h2>
+      <div class="panel-tools"><span class="badge tone-warn">No gates yet</span></div>
+    </header>
+    <div class="panel-body">
+      <form method="post" action="/projects/{{ project.slug }}/setup" class="setup-agent">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <p>Let the setup agent work out how to install, test and run this project. PRAT proves its proposal (checks pass, the app starts and answers) before you review it.</p>
+        <button type="submit" class="btn btn-primary">{{ icon('play') }}Set up with the agent</button>
+      </form>
+      <p>Or write it yourself. Without <span class="mono">.prat/project.toml</span>, nothing is checked before a card reaches review. {% if suggestion.recognised %}This checkout looks like <strong>{{ suggestion.stacks|join(', ') }}</strong>; here is a starting point.{% else %}PRAT did not recognise the build files here; fill in the commands that build and test it.{% endif %}</p>
+      <div class="code-block">
+        <button type="button" class="btn btn-sm copy-btn" data-copy="#suggested-file">{{ icon('copy', 14) }}<span data-copy-label>Copy</span></button>
+        <pre class="code" id="suggested-file">{{ suggestion.toml() }}</pre>
+      </div>
+      <ol class="setup-steps">
+        <li>Save it as <span class="mono">.prat/project.toml</span> in <span class="mono path">{{ project.checkout_path }}</span>.</li>
+        <li>Check the commands run there, then commit it to <span class="mono">{{ suggestion.default_branch }}</span>.</li>
+        <li>PRAT picks it up at the start of the next run. Agents can never edit it.</li>
+      </ol>
+      {% for note in suggestion.notes %}<p class="help">{{ note }}</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% if spec_error %}<div class="callout tone-bad">{{ icon('x-circle', 18) }}<div><p class="callout-title">The committed project file is not valid</p><p class="pre">{{ spec_error }}</p></div></div>{% endif %}
+
+  <section class="panel" id="environments" aria-labelledby="env-h">
+    <header class="panel-head"><h2 id="env-h">{{ icon('play') }}Environments</h2><div class="panel-tools"><span class="setup-progress">Runs in your checkout</span></div></header>
+    <div class="panel-body flush" hx-get="/projects/{{ project.slug }}/environments" hx-trigger="load, every 4s" hx-swap="innerHTML">
+      <p class="panel-note">Loading environments.</p>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel">
+      <header class="panel-head"><h2>{{ icon('folder') }}Paths</h2></header>
+      <dl class="kv panel-body">
+        <div><dt>Your checkout</dt><dd class="mono path">{{ project.checkout_path }}</dd></div>
+        <div><dt>Agent clone</dt><dd class="mono path">{{ project.agent_path }}</dd></div>
+        <div><dt>Default branch</dt><dd class="mono">{{ spec.default_branch }}</dd></div>
+        <div><dt>Pull approved work</dt><dd class="mono path">git pull {{ project.agent_path }} {{ spec.default_branch }}</dd></div>
+      </dl>
+    </section>
+    <section class="panel">
+      <header class="panel-head"><h2>{{ icon('shield') }}Limits</h2></header>
+      <dl class="kv panel-body">
+        <div><dt>Autonomy</dt><dd>{{ spec.autonomy }} in the file; effective {{ effective }} (installation ceiling {{ ceiling }})</dd></div>
+        <div><dt>Diff limits</dt><dd>{{ spec.max_diff_files }} files, {{ spec.max_diff_lines }} changed lines</dd></div>
+        <div><dt>Protected paths</dt><dd>{% for p in spec.all_protected %}<span class="mono chip">{{ p }}</span> {% endfor %}</dd></div>
+        <div><dt>Secret paths</dt><dd>{% for p in spec.all_secret_paths %}<span class="mono chip">{{ p }}</span> {% endfor %}</dd></div>
+      </dl>
+    </section>
+    <section class="panel">
+      <header class="panel-head"><h2>{{ icon('terminal') }}Commands and gates</h2></header>
+      <div class="panel-body">
+        {% if commands %}
+        <dl class="kv">
+          {% for name, cmd in commands.items() %}
+          <div><dt>{{ name }}{% if name in spec.verify.gates %} <span class="mini-badge tone-ok">gate</span>{% endif %}</dt><dd class="mono path">{{ cmd }}</dd></div>
+          {% endfor %}
+          <div><dt>Gate timeout</dt><dd>{{ spec.verify.timeout_seconds|duration }}</dd></div>
+        </dl>
+        {% else %}
+        <p class="muted">No commands defined, so no gates run. Add a [commands] table and [verify] gates to the project file.</p>
+        {% endif %}
+      </div>
+    </section>
+    <section class="panel">
+      <header class="panel-head"><h2>{{ icon('cpu') }}Models</h2></header>
+      <dl class="kv panel-body">
+        {% for role, model in models.items() %}
+        <div><dt>{{ role }}</dt><dd class="mono">{{ model }}{% if spec.models.get(role) %} <span class="mini-badge tone-info">project</span>{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+    </section>
+  </div>
+  {% if spec.notes %}
+  <section class="panel">
+    <header class="panel-head"><h2>{{ icon('message') }}Notes for agents</h2></header>
+    <p class="panel-body pre prose">{{ spec.notes }}</p>
+  </section>
+  {% endif %}
+  {% if raw %}
+  <section class="panel">
+    <details class="raw-file">
+      <summary>{{ icon('chevron-right', 14) }}<span class="mono">.prat/project.toml</span> as committed</summary>
+      <pre class="code">{{ raw }}</pre>
+    </details>
+  </section>
+  {% endif %}
+  <section class="panel">
+    <header class="panel-head"><h2>{{ icon('list') }}Recent cards</h2><div class="panel-tools"><a class="btn btn-ghost btn-sm" href="/board?project={{ project.slug }}">All on the board{{ icon('arrow-right', 14) }}</a></div></header>
+    {% if recent %}
+    <ul class="row-list">
+      {% for c in recent %}
+      <li><a href="/cards/{{ c.id }}"><span class="tile-id">#{{ c.id }}</span><span class="row-title">{{ c.title }}</span><span class="badge tone-{{ status_tone(c.status) }}">{{ status_label(c.status) }}</span></a></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="panel-note">No cards yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

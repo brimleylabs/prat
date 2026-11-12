@@ -1,0 +1,33 @@
+{% set base_url = '/cards/' ~ panel.card_id ~ '/preview' if panel.card_id else '/projects/' ~ panel.slug ~ '/environments' %}
+{% if panel.problem %}<p class="panel-note">{{ icon('alert', 14) }} {{ panel.problem }}</p>{% endif %}
+{% if panel.links and not panel.card_id %}
+<div class="env-quick">
+  <span class="env-quick-label">Open</span>
+  {% for link in panel.links %}<a class="btn btn-sm" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ icon('external', 13) }}{{ link.label }}</a>{% endfor %}
+</div>
+{% endif %}
+{% if panel.views %}
+<ul class="env-list">
+  {% for v in panel.views %}
+  <li class="env-row">
+    <div class="env-main">
+      <p class="env-title"><span class="dot tone-{{ v.tone }}{% if v.state == 'starting' %} pulse{% endif %}" aria-hidden="true"></span>{{ v.title }} <span class="badge tone-{{ v.tone }}">{{ v.state|capitalize }}</span>{% if v.port %}<span class="mono muted">:{{ v.port }}</span>{% endif %}</p>
+      {% if v.links %}<p class="env-links">{% for label, url in v.links %}<a class="btn btn-sm" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ icon('external', 13) }}{{ label }}</a>{% endfor %}</p>{% endif %}
+      {% if v.message %}<p class="help">{{ v.message }}</p>{% endif %}
+      {% if v.log_tail %}<details class="entry-fold"><summary>Log</summary><pre class="code env-log">{{ v.log_tail }}</pre></details>{% endif %}
+    </div>
+    <div class="env-actions">
+      {% if v.running %}
+      <form method="post" action="{{ base_url }}/{{ v.name }}/restart" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm">{{ icon('replay', 14) }}Restart</button></form>
+      <form method="post" action="{{ base_url }}/{{ v.name }}/stop" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm">{{ icon('stop', 14) }}Stop</button></form>
+      {% else %}
+      {% if v.state == 'exited' %}<form method="post" action="{{ base_url }}/{{ v.name }}/stop" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-ghost btn-sm">Clear</button></form>{% endif %}
+      <form method="post" action="{{ base_url }}/{{ v.name }}/start" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-primary btn-sm">{{ icon('play', 14) }}{{ 'Preview' if panel.card_id else 'Start' }}</button></form>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% elif not panel.problem and not panel.links %}
+<p class="panel-note">{% if panel.card_id %}This project has no environment that can preview a card.{% else %}No environments yet. Add <span class="mono">[[environment]]</span> entries to <span class="mono">.prat/project.toml</span>, or, for this machine only, to <span class="mono">environments/{{ panel.slug }}.toml</span> in the PRAT home: a name, a label, the start command, a port and labelled links.{% endif %}</p>
+{% endif %}

@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prat"
+version = "0.1.0.dev0"
+description = "Self-hosted platform that runs an autonomous coding agent per work item in an isolated git worktree, with policy, verification, review and human approval."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.3",
+    "typer>=0.12",
+    "rich>=13",
+    "claude-agent-sdk>=0.2.180",
+    "fastapi>=0.115",
+    "jinja2>=3.1",
+    "uvicorn>=0.30",
+    # The staged trial probes a candidate's server over HTTP.
+    "httpx>=0.27",
+    # Pure-Python MySQL driver for the Dolt store.
+    "pymysql>=1.1",
+    "psycopg[binary]>=3.2",
+    # Windows has no system time zone database; rhythm needs named zones.
+    "tzdata>=2024.1; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+prat = "prat.cli:main"
+# The name before PRAT, kept so existing scripts and services keep working.
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prat"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Import PRAT from this working tree, not from wherever it is installed, so a
+# gate run in a card worktree tests that worktree's code.
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: tests that create real git repositories",
+    "e2e: real agent runs against a model; skipped unless PRAT_E2E=1",
+]
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "PT", "ASYNC"]
+ignore = [
+    "S603",  # subprocess with argument lists is the intended pattern here
+    "S607",  # git and project tools are resolved from PATH on purpose
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S104", "S105", "S106", "S108", "PT018", "ASYNC109", "ASYNC240"]
+"src/prat/db/alembic/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+packages = ["PRAT"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["prat.db.alembic.*"]
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# The MySQL driver for Dolt ships no type information.
+module = ["pymysql", "pymysql.*"]
+ignore_missing_imports = true

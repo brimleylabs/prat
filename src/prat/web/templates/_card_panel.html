@@ -1,0 +1,420 @@
+{% set run = page.run %}
+{% set acts = page.actions %}
+{% set status = card.status|string %}
+{% set running_steps = (run.steps|selectattr('running')|list) if run else [] %}
+<div id="card-panel" class="card-page"
+     hx-get="/cards/{{ card.id }}/panel{% if selected_run %}?run={{ selected_run }}{% endif %}"
+     hx-trigger="prat-refresh"
+     hx-swap="outerHTML"
+     data-live="{{ 1 if page.live else 0 }}"
+     data-stream="/events/cards/{{ card.id }}"
+     data-run="{{ run.id if run else '' }}"
+     data-after="{{ page.last_seq }}">
+
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/board">Board</a><span aria-hidden="true">/</span>
+    <a href="/board?project={{ page.project.slug }}">{{ page.project.slug }}</a><span aria-hidden="true">/</span>
+    <span aria-current="page">Card #{{ card.id }}</span>
+  </nav>
+
+  <header class="card-head">
+    <div class="card-head-main">
+      <h1 class="card-title">{{ card.title }}</h1>
+      <div class="facts">
+        <span class="badge tone-{{ status_tone(status) }}"><span class="dot tone-{{ status_tone(status) }}{% if status == 'running' %} pulse{% endif %}" aria-hidden="true"></span>{{ status_label(status) }}{% if page.queued %}, queued{% endif %}</span>
+        <a class="fact" href="/projects/{{ page.project.slug }}">{{ icon('folder', 14) }}{{ page.project.slug }}</a>
+        {% if card.branch %}<span class="fact mono">{{ icon('branch', 14) }}{{ card.branch }}</span>{% endif %}
+        {% if card.kind == 'setup' %}<span class="badge tone-accent" title="This card's agent proposes the project file; PRAT proves it before review.">Project setup</span>{% endif %}
+        <span class="fact">Complexity {{ card.complexity }}</span>
+        <span class="fact">{{ page.runs|length }} run{{ '' if page.runs|length == 1 else 's' }}</span>
+      </div>
+    </div>
+    <div class="card-actions">
+      {% if 'approve' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/approve" hx-post="/cards/{{ card.id }}/approve" data-confirm-label="Approve and merge" hx-confirm="Merge card #{{ card.id }} into {{ page.project.default_branch }} in the agent clone? PRAT merges locally with --no-ff and never pushes.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary" data-shortcut="a">{{ icon('merge') }}Approve and merge<kbd>A</kbd></button>
+      </form>
+      {% endif %}
+      {% if 'ready' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/ready" hx-post="/cards/{{ card.id }}/ready">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary" data-shortcut="r">{{ icon('play') }}Move to ready<kbd>R</kbd></button>
+      </form>
+      {% elif 'run' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/run" hx-post="/cards/{{ card.id }}/run">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn {{ 'btn-primary' if 'approve' not in acts else '' }}" data-shortcut="r">{{ icon('play') }}{{ 'Run again' if page.runs else 'Run' }}<kbd>R</kbd></button>
+      </form>
+      {% endif %}
+      {% if 'resume' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/resume" hx-post="/cards/{{ card.id }}/resume">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary">{{ icon('play') }}Resume run</button>
+      </form>
+      {% endif %}
+      {% if 'rework' in acts %}
+      <a class="btn" href="#rework-feedback" data-shortcut="w" data-focus-target="rework-feedback">{{ icon('undo') }}Request rework<kbd>W</kbd></a>
+      {% endif %}
+      {% if 'reopen' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/reopen" hx-post="/cards/{{ card.id }}/reopen">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn">{{ icon('undo') }}Reopen as draft</button>
+      </form>
+      {% endif %}
+      {% if 'cancel' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/cancel" hx-post="/cards/{{ card.id }}/cancel" data-confirm-label="Cancel card" data-confirm-tone="danger" hx-confirm="Cancel card #{{ card.id }}?{% if status == 'running' %} The running agent is stopped and its work so far stays on the branch.{% endif %}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-danger" data-shortcut="x">{{ icon('x') }}Cancel<kbd>X</kbd></button>
+      </form>
+      {% endif %}
+    </div>
+  </header>
+
+  {# What state is the card in, and what does it need from you? #}
+  {% if status == 'blocked' %}
+  <div class="callout tone-warn">{{ icon('alert', 18) }}<div><p class="callout-title">The agent is blocked and needs an answer</p><p class="pre">{{ card.status_reason or 'No reason was given.' }}</p><p class="callout-note">Reply by requesting rework with your answer, or run it again unchanged.</p></div></div>
+  {% elif status == 'failed' %}
+  <div class="callout tone-bad">{{ icon('x-circle', 18) }}<div><p class="callout-title">The run failed</p><p class="pre">{{ card.status_reason or 'No reason was recorded.' }}</p></div></div>
+  {% elif status == 'rework' %}
+  <div class="callout tone-warn">{{ icon('undo', 18) }}<div><p class="callout-title">Sent back for rework</p><p class="pre">{{ card.status_reason or '' }}</p><p class="callout-note">{% if page.queued %}Queued: the builder continues on the same branch with the feedback.{% else %}Run it again and the builder continues on the same branch with the feedback.{% endif %}</p></div></div>
+  {% elif status == 'review' %}
+  <div class="callout tone-ok">{{ icon('check-circle', 18) }}<div><p class="callout-title">Ready for your review</p><p>The gates passed{% if page.verdict %} and the reviewer says: {{ page.verdict.label|lower }}{% endif %}. Read the changes, then approve or send it back.</p></div></div>
+  {% elif status == 'running' %}
+  <div class="callout tone-accent">{{ icon('cpu', 18) }}<div><p class="callout-title">{% if running_steps %}{{ running_steps[0].label }}{% else %}Working{% endif %}{% if run and run.started_at %} <span class="muted">for <span data-since="{{ run.started_at|isotime }}">{{ run.started_at|ago }}</span></span>{% endif %}</p><p>The session below updates live.{% if 'resume' in acts %} This run is not owned by this server; resume it to continue.{% endif %}</p></div></div>
+  {% elif status == 'ready' %}
+  <div class="callout tone-info">{{ icon('clock', 18) }}<div><p class="callout-title">{{ 'Queued' if page.queued else 'Ready, not queued' }}</p><p>{{ 'Waiting for a free run slot.' if page.queued else 'Nothing is running it yet (for example after a restart). Press Run to queue it.' }}</p></div></div>
+  {% elif status == 'done' and page.undone %}
+  <div class="callout tone-warn">{{ icon('undo', 18) }}<div><p class="callout-title">Undone</p><p>This card's code was reversed as <span class="mono">{{ (page.undone.git_revert or '')[:10] }}</span>{% if page.undone.databases %} and its data reverted in {% for d in page.undone.databases %}<span class="mono">{{ d.database }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}. Everything that landed after it was kept. Pull it into your checkout with: <span class="mono">git pull {{ page.project.agent_path }} {{ page.project.default_branch }}</span></p></div></div>
+  {% elif status == 'done' %}
+  <div class="callout tone-ok">{{ icon('merge', 18) }}<div class="callout-grow"><p class="callout-title">Merged{% if page.landed and page.landed.databases %} with its data{% endif %}</p><p class="pre">{{ card.status_reason or '' }}. Pull it into your checkout with: git pull {{ page.project.agent_path }} {{ page.project.default_branch }}</p></div>
+    {% if page.landed %}
+    <form method="post" action="/cards/{{ card.id }}/undo" hx-post="/cards/{{ card.id }}/undo" data-confirm-label="Undo this card" data-confirm-tone="danger" hx-confirm="Reverse card #{{ card.id }}'s code{% if page.landed.databases %} and data{% endif %}? Everything that landed after it is kept. If either side would conflict, nothing changes.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-sm">{{ icon('undo') }}Undo this card</button>
+    </form>
+    {% endif %}
+  </div>
+  {% elif status == 'cancelled' %}
+  <div class="callout tone-neutral">{{ icon('minus-circle', 18) }}<div><p class="callout-title">Cancelled</p><p class="pre">{{ card.status_reason or '' }}</p></div></div>
+  {% elif status == 'draft' %}
+  <div class="callout tone-neutral">{{ icon('edit', 18) }}<div><p class="callout-title">Draft</p><p>Move it to ready to start a run through the queue.</p></div></div>
+  {% endif %}
+
+  <div class="card-grid">
+    <div class="card-main">
+
+
+      {% if page.live %}{% include "_session_panel.html" %}{% endif %}
+
+      {% if run and run.status != 'queued' and status in ('review', 'rework', 'blocked', 'failed', 'running') %}
+      <section class="panel" id="preview" aria-labelledby="preview-h">
+        <header class="panel-head"><h2 id="preview-h">{{ icon('external') }}Preview</h2><div class="panel-tools"><span class="setup-progress">This card's version, on its own port{% if page.databases %} and its own data branch{% endif %}</span></div></header>
+        <div class="panel-body flush" hx-get="/cards/{{ card.id }}/preview" hx-trigger="load, every 4s" hx-swap="innerHTML">
+          <p class="panel-note">Loading preview environments.</p>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if page.verdict %}
+      {% set v = page.verdict %}
+      <section class="panel" id="review" aria-labelledby="review-h">
+        <header class="panel-head">
+          <h2 id="review-h">{{ icon('shield') }}Reviewer verdict</h2>
+          <div class="panel-tools">
+            <span class="badge tone-{{ v.tone }}">{{ v.label }}</span>
+          </div>
+        </header>
+        <div class="panel-body">
+          <p class="meta-line">
+            {% if v.confidence is not none %}<span>Confidence {{ (v.confidence * 100)|round|int }}%</span>{% endif %}
+            {% if v.model %}<span class="mono">{{ v.model }}</span>{% endif %}
+            <span>A separate read-only session that saw the diff and gate output, not the builder's account.</span>
+          </p>
+          {% if not v.parsed %}<div class="callout tone-warn compact">{{ icon('alert') }}<p>The reviewer's answer could not be read as a verdict. Treat this card as unreviewed.</p></div>{% endif %}
+          <p class="pre prose">{{ v.summary }}</p>
+          {% if v.findings %}
+          <h3 class="sub-head">Acceptance criteria</h3>
+          <ul class="criteria">
+            {% for f in v.findings %}
+            <li class="criterion status-{{ f.status }}">
+              <span class="criterion-icon">{% if f.status == 'met' %}{{ icon('check-circle', 16, 'met') }}{% elif f.status == 'partial' %}{{ icon('minus-circle', 16, 'partly met') }}{% else %}{{ icon('x-circle', 16, 'not met') }}{% endif %}</span>
+              <div>
+                <p class="criterion-text">{{ f.criterion }}</p>
+                {% if f.evidence %}<p class="criterion-evidence">{{ f.evidence }}</p>{% endif %}
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if v.fix_list %}
+          <h3 class="sub-head">Fix list</h3>
+          <ol class="fixlist">{% for item in v.fix_list %}<li>{{ item }}</li>{% endfor %}</ol>
+          {% endif %}
+          {% if v.concerns %}
+          <h3 class="sub-head">Concerns</h3>
+          <ul class="plain-list">{% for item in v.concerns %}<li>{{ item }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if page.data_changed %}
+      <section class="panel" id="data-changes" aria-labelledby="data-h">
+        <header class="panel-head">
+          <h2 id="data-h">{{ icon('database') }}Data changes</h2>
+          <div class="panel-tools"><span class="setup-progress">Lands together with the code, and undoes together with it</span></div>
+        </header>
+        {% for db in page.databases if db.tables %}
+        <div class="panel-body flush">
+          <p class="panel-note"><span class="mono">{{ db.database }}</span>{% if db.name and db.name != db.database %} ({{ db.name }}){% endif %} on branch <span class="mono">{{ db.branch }}</span>{% if db.head %} at <span class="mono">{{ db.head[:10] }}</span>{% endif %}</p>
+          <table class="files">
+            <caption class="sr-only">Changed tables in {{ db.database }}</caption>
+            <thead><tr><th scope="col">Table</th><th scope="col">Change</th><th scope="col" class="num">Added</th><th scope="col" class="num">Removed</th><th scope="col" class="num">Changed</th></tr></thead>
+            <tbody>
+            {% for t in db.tables %}
+            <tr>
+              <td class="mono">{{ t.table }}</td>
+              <td>{% if t.schema_change %}<span class="mini-badge tone-warn">schema</span> {% endif %}{% if t.data_change %}<span class="mini-badge tone-accent">rows</span> {% endif %}{% if t.diff_type != 'modified' %}<span class="muted">{{ t.diff_type }}</span>{% endif %}</td>
+              <td class="num add">{{ '+' ~ t.rows_added if t.rows_added else '' }}</td>
+              <td class="num del">{{ '-' ~ t.rows_deleted if t.rows_deleted else '' }}</td>
+              <td class="num">{{ t.rows_modified or '' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% if page.diff %}
+      {% set d = page.diff %}
+      <section class="panel" id="changes" aria-labelledby="changes-h">
+        <header class="panel-head">
+          <h2 id="changes-h">{{ icon('file') }}Changes</h2>
+          {% if not d.error and d.files %}
+          <div class="panel-tools diffstat">
+            <span>{{ d.files|length }} file{{ '' if d.files|length == 1 else 's' }}</span>
+            <span class="add">+{{ d.insertions }}</span>
+            <span class="del">-{{ d.deletions }}</span>
+            <span class="muted">{{ d.total_bytes|filesize }}</span>
+          </div>
+          {% endif %}
+        </header>
+        {% if d.error %}
+        <p class="panel-note">{{ d.error }}</p>
+        {% elif not d.files %}
+        <p class="panel-note">No changes on the branch yet.</p>
+        {% else %}
+        <div class="panel-body flush">
+          <table class="files">
+            <caption class="sr-only">Changed files</caption>
+            <thead><tr><th scope="col">File</th><th scope="col" class="num">Added</th><th scope="col" class="num">Removed</th><th scope="col" class="num">Diff size</th></tr></thead>
+            <tbody>
+            {% for f in d.files %}
+            <tr>
+              <td><span class="file-cell"><span class="file-status st-{{ f.status[:1] }}" title="{{ f.status_label }}">{{ f.status[:1] }}</span><a class="mono path" href="#{{ f.anchor }}">{{ f.path }}</a></span></td>
+              <td class="num add">{{ '+' ~ f.added if not f.binary else 'binary' }}</td>
+              <td class="num del">{{ '-' ~ f.deleted if not f.binary else '' }}</td>
+              <td class="num muted">{{ f.size_bytes|filesize }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% if d.commits %}
+          <details class="commits">
+            <summary>{{ icon('chevron-right', 14) }}{{ d.commits|length }} commit{{ '' if d.commits|length == 1 else 's' }} on the branch</summary>
+            <ul>{% for sha, subject in d.commits %}<li><span class="mono muted">{{ sha[:10] }}</span> {{ subject }}</li>{% endfor %}</ul>
+          </details>
+          {% endif %}
+          {% if d.note %}<p class="panel-note">{{ d.note }}</p>{% endif %}
+          {% set big = d.insertions + d.deletions > 800 %}
+          {% for f in d.files %}
+          <details class="diff-file" id="{{ f.anchor }}" {% if not big %}open{% endif %}>
+            <summary>
+              {{ icon('chevron-right', 14) }}<span class="mono path">{{ f.path }}</span>
+              <span class="diff-file-stat">{% if f.binary %}binary{% else %}<span class="add">+{{ f.added }}</span> <span class="del">-{{ f.deleted }}</span>{% endif %}</span>
+            </summary>
+            {% if f.lines %}
+            <div class="diff" role="region" aria-label="Diff of {{ f.path }}" tabindex="0">
+              <table class="diff-table">
+                {% for l in f.lines %}
+                {% if l.kind == 'hunk' %}
+                <tr class="dl-hunk"><td class="ln" colspan="2"></td><td class="dc">{{ l.text }}</td></tr>
+                {% else %}
+                <tr class="dl-{{ l.kind }}"><td class="ln">{{ l.old if l.old is not none else '' }}</td><td class="ln">{{ l.new if l.new is not none else '' }}</td><td class="dc"><span class="sign" aria-hidden="true">{{ '+' if l.kind == 'add' else ('-' if l.kind == 'del' else ' ') }}</span>{% if l.kind == 'add' %}<span class="sr-only">added: </span>{% elif l.kind == 'del' %}<span class="sr-only">removed: </span>{% endif %}{{ l.text }}</td></tr>
+                {% endif %}
+                {% endfor %}
+              </table>
+            </div>
+            {% if f.hidden_lines %}<p class="panel-note">{{ f.hidden_lines }} more lines are not shown here. Run git diff {{ d.base[:10] }} {{ d.head[:10] }} -- {{ f.path }} in the agent clone to see them.</p>{% endif %}
+            {% else %}
+            <p class="panel-note">{{ 'Binary file; no text diff.' if f.binary else 'No text changes (mode or empty file).' }}</p>
+            {% endif %}
+          </details>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+
+      {% if page.gates or page.findings %}
+      <section class="panel" id="verification" aria-labelledby="verify-h">
+        <header class="panel-head"><h2 id="verify-h">{{ icon('check-circle') }}Verification</h2>
+          <div class="panel-tools"><span class="muted">{{ page.gates|selectattr('passed')|list|length }}/{{ page.gates|length }} gates passed</span></div>
+        </header>
+        <div class="panel-body">
+          {% for f in page.findings %}
+          <div class="callout tone-bad compact">{{ icon('x-circle') }}<p><strong>{{ f.kind }}</strong>{% if f.path %} in <span class="mono">{{ f.path }}</span>{% endif %}: {{ f.message }}</p></div>
+          {% endfor %}
+          <ul class="gates">
+            {% for g in page.gates %}
+            <li class="gate {{ 'gate-pass' if g.passed else 'gate-fail' }}">
+              <div class="gate-row">
+                {% if g.passed %}{{ icon('check-circle', 16, 'passed') }}{% else %}{{ icon('x-circle', 16, 'failed') }}{% endif %}
+                <span class="gate-name">{{ g.name }}</span>
+                <span class="mono gate-cmd">{{ g.command }}</span>
+                <span class="gate-facts">{% if g.timed_out %}timed out{% elif g.cancelled %}cancelled{% elif g.exit_code is not none %}exit {{ g.exit_code }}{% endif %} &middot; {{ g.seconds|duration }}</span>
+              </div>
+              {% if g.output %}
+              <details class="entry-fold"{% if not g.passed %} open{% endif %}>
+                <summary>Output (last part)</summary>
+                <pre class="code">{{ g.output }}</pre>
+              </details>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if not page.live and run %}{% include "_session_panel.html" %}{% endif %}
+
+      {% if 'rework' in acts %}
+      <section class="panel" id="rework" aria-labelledby="rework-h">
+        <header class="panel-head"><h2 id="rework-h">{{ icon('undo') }}Request rework</h2></header>
+        <form class="panel-body form" method="post" action="/cards/{{ card.id }}/rework">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="field">
+            <label for="rework-feedback">What should change?</label>
+            <textarea id="rework-feedback" name="feedback" rows="4" required aria-describedby="rework-help"></textarea>
+            <p class="help" id="rework-help">The builder gets this together with the reviewer's last verdict and continues on the same branch.</p>
+          </div>
+          <div class="form-row">
+            <label class="check"><input type="checkbox" name="run_now" value="1" checked> Start the run now</label>
+            <button type="submit" class="btn">{{ icon('send') }}Send back for rework</button>
+          </div>
+        </form>
+      </section>
+      {% endif %}
+
+      <section class="panel" id="comments" aria-labelledby="comments-h">
+        <header class="panel-head"><h2 id="comments-h">{{ icon('message') }}Comments</h2><div class="panel-tools"><span class="muted">{{ page.comments|length }}</span></div></header>
+        <div class="panel-body">
+          {% if page.comments %}
+          <ol class="comments">
+            {% for c in page.comments %}
+            <li class="comment author-{{ c.author }}">
+              <div class="comment-head">
+                <span class="comment-author">{{ c.author_label }}</span>
+                {% if c.kind not in ('comment', 'note') %}<span class="chip">{{ c.kind|replace('_', ' ') }}</span>{% endif %}
+                {% if c.run_id %}<span class="muted">run {{ c.run_id }}</span>{% endif %}
+                <time class="muted" datetime="{{ c.created_at|isotime }}" title="{{ c.created_at|timestamp }}">{{ c.created_at|ago }}</time>
+              </div>
+              {% if c.kind == 'verdict' %}
+              <details class="entry-fold"><summary>Show the full verdict text</summary><p class="pre comment-body">{{ c.body }}</p></details>
+              {% else %}
+              <p class="pre comment-body">{{ c.body }}</p>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+          {% else %}
+          <p class="muted">No comments yet. Comments added before a rework run are given to the builder.</p>
+          {% endif %}
+          <form class="form comment-form" method="post" action="/cards/{{ card.id }}/comments">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="field">
+              <label for="comment-body" class="sr-only">Add a comment</label>
+              <textarea id="comment-body" name="body" rows="2" placeholder="Add a comment" required data-shortcut="m"></textarea>
+            </div>
+            <div class="form-row end"><button type="submit" class="btn btn-sm">{{ icon('send', 14) }}Comment</button></div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <aside class="card-brief" aria-label="Card brief">
+      <section class="side-panel">
+        <h2 class="side-head">Goal</h2>
+        {% if card.goal %}<p class="pre prose">{{ card.goal }}</p>{% else %}<p class="muted">No goal written.</p>{% endif %}
+      </section>
+      <section class="side-panel">
+        <h2 class="side-head">Acceptance criteria</h2>
+        {% if page.criteria %}
+        <ul class="crit-list">{% for item in page.criteria %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% else %}<p class="muted">None. The reviewer judges against the goal alone.</p>{% endif %}
+      </section>
+    </aside>
+
+    <aside class="card-meta" aria-label="Runs and history">
+      <section class="side-panel">
+        <dl class="kv">
+          {% if card.autonomy %}<div><dt>Autonomy</dt><dd>{{ card.autonomy }}</dd></div>{% endif %}
+          <div><dt>Created</dt><dd><time datetime="{{ card.created_at|isotime }}" title="{{ card.created_at|timestamp }}">{{ card.created_at|ago }}</time></dd></div>
+        </dl>
+      </section>
+      {% if run %}
+      <section class="side-panel">
+        <h2 class="side-head">Run {{ run.id }} timeline</h2>
+        <p class="meta-line">
+          <span class="badge tone-{{ status_tone(run.status) }}">{{ status_label(run.status) }}</span>
+          {% if run.seconds is not none %}<span>{{ run.seconds|duration }}</span>{% endif %}
+        </p>
+        {% if run.reason and run.status != 'succeeded' %}<p class="pre small">{{ run.reason }}</p>{% endif %}
+        <ol class="steps">
+          {% for s in run.steps %}
+          <li class="step step-{{ s.status }}">
+            <span class="step-icon">{% if s.status == 'succeeded' %}{{ icon('check-circle', 16, 'succeeded') }}{% elif s.status == 'failed' %}{{ icon('x-circle', 16, 'failed') }}{% elif s.status == 'running' %}<span class="spinner" role="img" aria-label="running"></span>{% elif s.status == 'skipped' %}{{ icon('minus-circle', 16, 'skipped') }}{% else %}{{ icon('circle', 16, 'pending') }}{% endif %}</span>
+            <div class="step-main">
+              <div class="step-row">
+                <span class="step-name">{{ s.label }}</span>
+                <span class="step-time">{% if s.running and s.started_at %}<span data-since="{{ s.started_at|isotime }}">{{ s.started_at|ago }}</span>{% elif s.seconds is not none %}{{ s.seconds|duration }}{% else %}{{ status_label(s.status) }}{% endif %}</span>
+              </div>
+              {% if s.seconds %}<svg class="step-bar" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="0" width="100" height="4" rx="2" class="bar-track"/><rect x="0" y="0" width="{{ [s.percent, 1.5]|max }}" height="4" rx="2" class="bar-fill"/></svg>{% endif %}
+              {% if s.facts %}<p class="step-facts">{% for k, val in s.facts %}<span>{{ k }}: {{ val }}</span>{% endfor %}</p>{% endif %}
+              {% if s.error and s.status == 'failed' %}<p class="step-error">{{ s.error }}</p>{% endif %}
+              {% if s.attempts > 1 %}<p class="step-facts"><span>{{ s.attempts }} attempts</span></p>{% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+      </section>
+      {% endif %}
+      {% if page.runs|length > 0 %}
+      <section class="side-panel">
+        <h2 class="side-head">Runs</h2>
+        <ol class="runs">
+          {% for r in page.runs %}
+          <li class="{{ 'current' if run and r.id == run.id else '' }}">
+            <a href="/cards/{{ card.id }}?run={{ r.id }}" {% if run and r.id == run.id %}aria-current="true"{% endif %}>Run {{ r.id }}</a>
+            <span class="dot tone-{{ status_tone(r.status) }}" aria-hidden="true"></span><span>{{ status_label(r.status) }}</span>
+            <a class="muted" href="/cards/{{ card.id }}/runs/{{ r.id }}/replay" aria-label="Replay run {{ r.id }}">{{ icon('replay', 14) }}</a>
+          </li>
+          {% endfor %}
+        </ol>
+      </section>
+      {% endif %}
+      <section class="side-panel">
+        <h2 class="side-head">History</h2>
+        <ol class="history">
+          {% for h in page.history|reverse %}
+          <li><span class="dot tone-{{ h.tone }}" aria-hidden="true"></span><span class="history-text">{{ h.text }}</span><time class="muted" datetime="{{ h.created_at|isotime }}" title="{{ h.created_at|timestamp }}">{{ h.created_at|ago }}</time></li>
+          {% endfor %}
+        </ol>
+      </section>
+    </aside>
+  </div>
+</div>

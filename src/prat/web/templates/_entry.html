@@ -1,0 +1,26 @@
+<li class="entry tone-{{ e.tone }} cat-{{ e.category }}" data-seq="{{ e.seq }}" data-category="{{ e.category }}">
+  <time class="entry-time" datetime="{{ e.ts|isotime }}" title="{{ e.ts|timestamp }}">{{ e.offset_label }}</time>
+  <div class="entry-main">
+    <div class="entry-head">
+      <span class="entry-agent agent-{{ e.agent }}">{{ e.agent_label }}</span>
+      <span class="entry-title">
+        {% if e.category == 'denied' %}{{ icon('shield-x', 14) }}{% elif e.category == 'tool' %}{{ icon('terminal', 14) }}{% elif e.category == 'text' %}{{ icon('message', 14) }}{% elif e.tone == 'bad' %}{{ icon('x-circle', 14) }}{% elif e.tone == 'ok' %}{{ icon('check-circle', 14) }}{% endif %}
+        {{ e.title }}
+      </span>
+    </div>
+    {% if e.code %}
+      {% if e.fold_code %}
+      <details class="entry-fold"><summary>Show output ({{ e.code_lines }} line{{ '' if e.code_lines == 1 else 's' }})</summary><pre class="code">{{ e.code }}</pre></details>
+      {% else %}
+      <pre class="code">{{ e.code }}</pre>
+      {% endif %}
+    {% endif %}
+    {% if e.detail %}
+      {% if e.fold_detail %}
+      <details class="entry-fold"><summary>{{ 'Show input' if e.category == 'tool' else 'Show all (' ~ e.detail_lines ~ ' lines)' }}</summary><pre class="code">{{ e.detail }}</pre></details>
+      {% else %}
+      <p class="entry-detail">{{ e.detail }}</p>
+      {% endif %}
+    {% endif %}
+  </div>
+</li>

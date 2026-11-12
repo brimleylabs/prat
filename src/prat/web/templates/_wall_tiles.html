@@ -1,0 +1,31 @@
+{% if tiles %}
+<ul class="wall-grid">
+  {% for t in tiles %}
+  <li>
+    <a class="wall-tile{% if t.queued %} is-queued{% endif %}" href="/wall/{{ t.card_id }}" aria-label="Watch card {{ t.card_id }}: {{ t.title }}">
+      <span class="wall-head">
+        <span class="tile-id">#{{ t.card_id }}</span>
+        <span class="chip">{{ t.project_slug }}</span>
+        {% if t.queued %}<span class="wall-state">{{ icon('clock', 13) }}Queued</span>
+        {% else %}<span class="wall-state live"><span class="live-dot" aria-hidden="true"></span>{{ (t.step or 'starting')|capitalize }}</span>{% endif %}
+        {% if t.since %}<span class="wall-since" data-since="{{ t.since|isotime }}">{{ t.since|ago }}</span>{% endif %}
+      </span>
+      <span class="wall-title">{{ t.title }}</span>
+      <span class="wall-screen" aria-hidden="true">
+        {% for e in t.lines %}
+        <span class="wall-line cat-{{ e.category }} tone-{{ e.tone }}"><span class="wall-who">{{ e.agent_label }}</span><span class="wall-what">{% if e.category == 'text' %}{{ e.detail }}{% else %}{{ e.title }}{% if e.code and e.category == 'tool' %} {{ e.code.splitlines()[0] }}{% endif %}{% endif %}</span></span>
+        {% else %}
+        <span class="wall-line wall-idle">{{ 'Waiting for a free slot.' if t.queued else 'Starting up.' }}</span>
+        {% endfor %}
+      </span>
+      <span class="wall-foot">
+        {% if t.denials %}<span class="mini-badge tone-denied">{{ t.denials }} denied</span>{% endif %}
+        <span class="wall-open">{{ icon('external', 13) }}Watch</span>
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty">{{ icon('terminal', 28) }}<h2>No agents running</h2><p>Tiles appear here the moment a card starts. Mark a card ready to start one.</p><a class="btn" href="/board">{{ icon('board') }}Open the board</a></div>
+{% endif %}

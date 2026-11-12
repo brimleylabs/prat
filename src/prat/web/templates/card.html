@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}#{{ card.id }} {{ card.title }}{% endblock %}
+{% block content %}
+<div class="container">
+  {% include "_card_panel.html" %}
+</div>
+{% endblock %}

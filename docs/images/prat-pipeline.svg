@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="330" viewBox="0 0 1280 330" role="img" aria-label="A card moves through PRAT: card, prepare, build, verify, review, approve, learn">
+  <style>
+    .t { font-family: 'Segoe UI', Inter, system-ui, sans-serif; }
+    .m { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; }
+    .node rect { fill: #101930; stroke: #24314f; stroke-width: 1.5; }
+    .node .lit { fill: #14224a; stroke: #f6b73c; stroke-width: 2; }
+    .label { fill: #eef2f8; font-size: 19px; font-weight: 700; }
+    .sub { fill: #9aa6bc; font-size: 12.5px; }
+    .rail { stroke: #24314f; stroke-width: 3; fill: none; }
+    .flow { stroke: #f6b73c; stroke-width: 3; fill: none; stroke-dasharray: 1080; stroke-dashoffset: 1080; animation: flow 12s infinite linear; }
+    .token { animation: travel 12s infinite linear; }
+    .rework { stroke: #fb923c; stroke-width: 2; fill: none; stroke-dasharray: 6 7; opacity: 0.85; }
+    .tag { font-size: 12px; fill: #fb923c; }
+    .done { opacity: 0; animation: done 12s infinite; }
+    @keyframes flow { 0% { stroke-dashoffset: 1080; } 78% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+    @keyframes travel {
+      0% { transform: translate(0px, 0); }
+      78% { transform: translate(1080px, 0); }
+      100% { transform: translate(1080px, 0); }
+    }
+    @keyframes lit { 0% { opacity: 0; } 4% { opacity: 1; } 88% { opacity: 1; } 96% { opacity: 0; } 100% { opacity: 0; } }
+    @keyframes done { 0%, 78% { opacity: 0; } 82%, 94% { opacity: 1; } 100% { opacity: 0; } }
+    .n1 .lit { animation-delay: 0s; } .n2 .lit { animation-delay: 1.56s; } .n3 .lit { animation-delay: 3.12s; }
+    .n4 .lit { animation-delay: 4.68s; } .n5 .lit { animation-delay: 6.24s; } .n6 .lit { animation-delay: 7.8s; }
+    .n7 .lit { animation-delay: 9.36s; }
+    @media (prefers-reduced-motion: reduce) { .flow, .token, .node .lit, .done { animation: none; } .flow { stroke-dashoffset: 0; } .node .lit { opacity: 1; } }
+  </style>
+  <rect width="1280" height="330" rx="20" fill="#0a1022"/>
+  <text x="40" y="46" class="m" font-size="16" fill="#f6b73c">how a card moves</text>
+
+  <path class="rail" d="M100 150 H1180"/>
+  <path class="flow" d="M100 150 H1180"/>
+  <path class="rework" d="M820 192 C 820 268, 460 268, 460 192"/>
+  <text x="640" y="290" text-anchor="middle" class="tag m">rework with the reviewer's fix list</text>
+
+  <g><circle cx="100" cy="150" r="9" fill="#f6b73c"/><circle cx="100" cy="150" r="17" fill="#f6b73c" opacity="0.18"/><animateTransform attributeName="transform" type="translate" values="0 0;1080 0;1080 0" keyTimes="0;0.78;1" dur="12s" repeatCount="indefinite"/></g>
+  <g class="t">
+    <g class="node m1" transform="translate(40 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="0s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Card</text><text x="60" y="56" text-anchor="middle" class="sub">goal + criteria</text></g>
+    <g class="node m2" transform="translate(220 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="1.56s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Prepare</text><text x="60" y="56" text-anchor="middle" class="sub">worktree + data</text></g>
+    <g class="node m3" transform="translate(400 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="3.12s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Build</text><text x="60" y="56" text-anchor="middle" class="sub">agent on rails</text></g>
+    <g class="node m4" transform="translate(580 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="4.68s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Verify</text><text x="60" y="56" text-anchor="middle" class="sub">your gates</text></g>
+    <g class="node m5" transform="translate(760 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="6.24s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Review</text><text x="60" y="56" text-anchor="middle" class="sub">criteria + security</text></g>
+    <g class="node m6" transform="translate(940 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="7.8s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Approve</text><text x="60" y="56" text-anchor="middle" class="sub">you, locally</text></g>
+    <g class="node m7" transform="translate(1120 112)"><rect width="120" height="76" rx="14"/><rect class="lit" width="120" height="76" rx="14" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.85;1" dur="12s" begin="9.36s" repeatCount="indefinite"/></rect>
+      <text x="60" y="34" text-anchor="middle" class="label">Learn</text><text x="60" y="56" text-anchor="middle" class="sub">dream tonight</text></g>
+  </g>
+
+
+  <g class="m" font-size="13" fill="#c9d2e3">
+    <text x="100" y="98" text-anchor="middle">#42</text>
+    <text x="280" y="98" text-anchor="middle">card/42</text>
+    <text x="460" y="98" text-anchor="middle">every call judged</text>
+    <text x="640" y="98" text-anchor="middle">setup ✓ test ✓</text>
+    <text x="820" y="98" text-anchor="middle">met</text>
+    <text x="1000" y="98" text-anchor="middle">data, then code</text>
+    <text x="1180" y="98" text-anchor="middle">+3 facts</text>
+  </g>
+  <g class="done t"><rect x="1000" y="26" width="240" height="34" rx="17" fill="#15693f" opacity="0.35"/><text x="1120" y="49" text-anchor="middle" font-size="15" font-weight="700" fill="#4ade80">landed · nothing pushed</text></g>
+</svg>

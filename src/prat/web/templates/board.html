@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Board{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Board</h1>
+      <p class="page-sub">{{ total }} card{{ '' if total == 1 else 's' }}{% if project %} in {{ project }}{% endif %}. Updates live.</p>
+    </div>
+    {% if projects %}
+    <form class="filter" method="get" action="/board">
+      <label for="project-filter" class="filter-label">{{ icon('filter') }}<span>Project</span></label>
+      <select id="project-filter" name="project" class="select" data-autosubmit data-shortcut="f">
+        <option value="">All projects</option>
+        {% for p in projects %}
+        <option value="{{ p.slug }}" {% if p.slug == project %}selected{% endif %}>{{ p.slug }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn btn-sm" type="submit">Apply</button></noscript>
+    </form>
+    {% endif %}
+  </div>
+  {% if setup %}
+  <section class="panel setup-panel" aria-labelledby="setup-h">
+    <header class="panel-head">
+      <h2 id="setup-h">{{ icon('check-circle') }}Get started</h2>
+      <div class="panel-tools"><span class="setup-progress">{{ setup.done_count }} of {{ setup.steps|length }} done</span></div>
+    </header>
+    <ol class="checklist panel-body">
+      {% for s in setup.steps %}
+      <li class="{{ 'done' if s.done else 'todo' }}">
+        {% if s.done %}<span class="icon-done">{{ icon('check-circle', 18, 'done') }}</span>{% else %}<span class="icon-todo">{{ icon('circle', 18, 'to do') }}</span>{% endif %}
+        <div><p class="check-title">{{ s.title }}</p><p class="check-detail">{{ s.detail }}</p></div>
+        {% if not s.done and s.action and s.href %}<a class="btn btn-sm {{ 'btn-primary' if s.key == setup.next_key else '' }}" href="{{ s.href }}">{{ s.action }}{{ icon('arrow-right', 14) }}</a>{% else %}<span></span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+</div>
+{% if projects %}
+<div class="container board-wrap" id="board"
+     data-board-stream="/events/board"
+     hx-get="/board/columns{% if project %}?project={{ project }}{% endif %}"
+     hx-trigger="prat-refresh"
+     hx-swap="innerHTML">
+  {% include "_board_columns.html" %}
+</div>
+{% endif %}
+{% endblock %}

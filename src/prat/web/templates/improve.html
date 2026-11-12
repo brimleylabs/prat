@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Self-improvement{% endblock %}
+{% block content %}
+{% set conf = page.conf %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Self-improvement</h1>
+      <p class="page-sub">PRAT diagnoses its own runs, researches current practice, files the best findings as cards on its own repository, and lands only what passes the full proof: tests, invariants, a security review and a staged trial.</p>
+    </div>
+    <div class="form-actions">
+      {% if page.ready and conf.enabled and scheduler %}
+      <form method="post" action="/improve/run" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn" {% if page.cycle_running %}disabled{% endif %}>{{ icon('play') }}{{ 'Cycle running' if page.cycle_running else 'Run a cycle now' }}</button>
+      </form>
+      {% endif %}
+      {% if page.ready %}
+      <form method="post" action="/improve/toggle" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="enabled" value="{{ '0' if conf.enabled else '1' }}">
+        <button type="submit" class="btn {{ '' if conf.enabled else 'btn-primary' }}">{{ icon('stop' if conf.enabled else 'play') }}{{ 'Turn off' if conf.enabled else 'Turn on' }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not page.ready %}
+  <section class="panel setup-panel" aria-labelledby="improve-setup-h">
+    <header class="panel-head"><h2 id="improve-setup-h">{{ icon('branch') }}Set up self-improvement</h2></header>
+    <div class="panel-body">
+      {% if conf.target == 'overlay' %}
+      <p>PRAT improves this installation through its overlay: rules, guidance and settings kept apart from PRAT, so upgrades never conflict with them. Setup creates the overlay if needed and a clone of it for PRAT's agents; proven changes are applied to the overlay, never forced.</p>
+      {% else %}
+      <p>PRAT works on its own source in a separate clone, the same way it works on yours: hooks pinned, pushing only through a guarded path, and never in the checkout this server runs from. Setup makes that clone from the repository this server was installed from. This is for PRAT's maintainers.</p>
+      {% endif %}
+      <form method="post" action="/improve/setup" class="form-actions setup-action">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary">{{ icon('plus') }}Set up</button>
+      </form>
+      <p class="help">Nothing runs until you also turn it on. From a terminal: <span class="mono">prat improve setup</span>, then <span class="mono">prat improve on</span>.</p>
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="stats">
+    <div class="stat"><span class="stat-label">Status</span><span class="stat-value"><span class="badge tone-{{ 'ok' if conf.enabled else 'neutral' }}">{{ 'On' if conf.enabled else 'Off' }}</span></span></div>
+    <div class="stat"><span class="stat-label">Mode</span><span class="stat-value">{{ 'Automatic' if conf.mode == 'auto' else 'You approve' }}</span></div>
+    <div class="stat"><span class="stat-label">Last cycle</span><span class="stat-value">{% if page.last_cycle %}<time datetime="{{ page.last_cycle.started_at|isotime }}" title="{{ page.last_cycle.started_at|timestamp }}">{{ page.last_cycle.started_at|ago }}</time>{% else %}Never{% endif %}</span></div>
+    <div class="stat"><span class="stat-label">Open cards</span><span class="stat-value">{{ page.open_cards|length }} <span class="stat-unit">of {{ conf.max_open_cards }}</span></span></div>
+    <div class="stat"><span class="stat-label">Daily guard used</span><span class="stat-value">{{ page.guard_used|round|int }}%</span></div>
+  </div>
+  <p class="meta-line improve-next">{{ icon('clock', 14) }}<span>Next cycle: {% if page.cycle_running %}one is running now{% elif page.next_reason == 'due' %}due now{% elif page.next_at and page.next_reason.startswith('the interval') %}<time datetime="{{ page.next_at|isotime }}" title="{{ page.next_at|timestamp }}">{{ page.next_at|timestamp }}</time>{% else %}{{ page.next_reason }}{% endif %}</span>{% if page.info %}<span>Pushes to <span class="mono">{{ page.info.origin }}</span>{% if not page.info.push_available %} (push unavailable){% endif %}</span>{% endif %}</p>
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="target-h">
+      <header class="panel-head"><h2 id="target-h">{{ icon('loop') }}What it improves</h2></header>
+      <form method="post" action="/improve/target" class="panel-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="choice-list">
+          <label class="choice"><input type="radio" name="target" value="overlay" {% if conf.target == 'overlay' %}checked{% endif %}><span><strong>This installation's overlay</strong><span class="help">Rules, guidance and settings for how agents work here. PRAT itself never changes, so every upgrade stays clean. Recommended.</span></span></label>
+          <label class="choice"><input type="radio" name="target" value="core" {% if conf.target == 'core' %}checked{% endif %}><span><strong>PRAT's own code</strong><span class="help">For PRAT's maintainers: changes to PRAT's source, proven by the staged trial and pushed to PRAT's repository.</span></span></label>
+        </div>
+        {% if page.info and (page.info.target != conf.target) %}<p class="help">Set up runs on {{ 'the overlay' if page.info.target == 'overlay' else "PRAT's own code" }}. Set up again to switch.</p>{% endif %}
+        <div class="form-actions"><button type="submit" class="btn btn-sm">Save</button>{% if page.ready %}<button type="submit" class="btn btn-sm" formaction="/improve/setup">Set up again</button>{% endif %}</div>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="mode-h">
+      <header class="panel-head"><h2 id="mode-h">{{ icon('shield') }}Who lands the work</h2></header>
+      <form method="post" action="/improve/mode" class="panel-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="choice-list">
+          <label class="choice"><input type="radio" name="mode" value="auto" {% if conf.mode == 'auto' %}checked{% endif %}><span><strong>Automatic</strong><span class="help">A change that passes every proof lands and pushes by itself. Anything that fails goes back for rework or is abandoned.</span></span></label>
+          <label class="choice"><input type="radio" name="mode" value="review" {% if conf.mode == 'review' %}checked{% endif %}><span><strong>You approve</strong><span class="help">The same proof runs, then the card waits in review for you.</span></span></label>
+        </div>
+        <div class="form-actions"><button type="submit" class="btn btn-sm">Save mode</button></div>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="cards-h">
+      <header class="panel-head"><h2 id="cards-h">{{ icon('list') }}Cards in flight</h2></header>
+      {% if page.open_cards %}
+      <ul class="row-list">
+        {% for c in page.open_cards %}
+        <li><a href="/cards/{{ c.id }}"><span class="tile-id">#{{ c.id }}</span><span class="row-title">{{ c.title }}</span><span class="badge tone-{{ status_tone(c.status) }}">{{ status_label(c.status) }}</span></a></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="panel-note">None open. A cycle files new ones from the findings below.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="panel" id="rhythm" aria-labelledby="rhythm-h">
+    <header class="panel-head"><h2 id="rhythm-h">{{ icon('moon') }}Rhythm and dreams</h2><div class="panel-tools"><span class="setup-progress">Works while you do not</span></div></header>
+    <div class="panel-body" hx-get="/improve/rhythm" hx-trigger="load, every 15s" hx-swap="innerHTML">
+      <p class="panel-note">Loading.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="findings-h">
+    <header class="panel-head">
+      <h2 id="findings-h">{{ icon('inbox') }}Findings</h2>
+      <div class="panel-tools"><span class="setup-progress">{% for status, n in page.counts.items() %}{{ n }} {{ status }}{% if not loop.last %}, {% endif %}{% endfor %}</span></div>
+    </header>
+    {% if page.findings %}
+    <ul class="finding-list">
+      {% for f in page.findings %}
+      <li>
+        <div class="finding-main">
+          <p class="finding-title">{{ f.title }}</p>
+          <p class="meta-line"><span class="mini-badge tone-{{ 'bad' if f.severity == 'high' else ('warn' if f.severity == 'medium' else 'neutral') }}">{{ f.severity }}</span><span>{{ f.source }}</span><span>effort {{ f.effort }}</span>{% if f.seen_count > 1 %}<span>seen {{ f.seen_count }} times</span>{% endif %}{% if f.card_id %}<a href="/cards/{{ f.card_id }}">card #{{ f.card_id }}</a>{% endif %}</p>
+          {% if f.problem %}<p class="finding-text">{{ f.problem }}</p>{% endif %}
+        </div>
+        {% if f.status == 'new' %}
+        <form method="post" action="/improve/findings/{{ f.id }}/dismiss" class="inline-form" data-confirm-label="Dismiss" hx-confirm="Dismiss this finding? It will never be filed as a card.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-ghost btn-sm">{{ icon('x', 14) }}Dismiss</button>
+        </form>
+        {% else %}<span class="badge tone-accent">Carded</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="panel-note">No open findings. Each cycle adds what it finds in the runs, the error log and the roadmap.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel" id="overlay" aria-labelledby="overlay-h">
+    <header class="panel-head">
+      <h2 id="overlay-h">{{ icon('sliders') }}Your overlay</h2>
+      <div class="panel-tools">{% if overlay.active %}<span class="badge tone-ok">{{ overlay.loaded|length }} applied</span>{% elif overlay.present %}<span class="badge tone-warn">Not applied</span>{% else %}<span class="badge tone-neutral">None yet</span>{% endif %}</div>
+    </header>
+    <p class="panel-note">This installation's own rules, guidance and settings, kept in <span class="mono path">{{ overlay.path }}</span> apart from PRAT itself. Upgrades never change it, and it can add and tighten but never loosen PRAT's rules.</p>
+    <div class="panel-body">
+      {% if not overlay.present %}
+      <form method="post" action="/improve/overlay/init" class="form-actions">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary">{{ icon('plus') }}Set up the overlay</button>
+      </form>
+      {% else %}
+      {% if overlay.loaded %}<p class="meta-line"><span>Applied:</span>{% for item in overlay.loaded %}<span class="chip mono">{{ item }}</span>{% endfor %}</p>{% endif %}
+      {% if overlay.disabled %}
+      <h3 class="sub-head">Switched off</h3>
+      <ul class="plain-list">{% for issue in overlay.disabled %}<li><span class="mono">{{ issue.item }}</span>: {{ issue.reason }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if overlay.denied_commands or overlay.denied_paths or overlay.require_person %}
+      <h3 class="sub-head">Rules it adds</h3>
+      <ul class="plain-list">
+        {% for r in overlay.denied_commands %}<li>Never runs <span class="mono">{{ r.pattern }}</span>: {{ r.reason }}</li>{% endfor %}
+        {% for r in overlay.denied_paths %}<li>Never {{ 'reads or writes' if r.read else 'writes' }} <span class="mono">{{ r.pattern }}</span>: {{ r.reason }}</li>{% endfor %}
+        {% if overlay.require_person %}<li>Needs a person for: {{ overlay.require_person|join(', ') }}</li>{% endif %}
+      </ul>
+      {% endif %}
+      {% if overlay.guidance %}<p class="meta-line"><span>Guidance for:</span>{% for role in overlay.guidance %}<span class="chip">{{ role }}</span>{% endfor %}</p>{% endif %}
+      {% if overlay_changes %}
+      <h3 class="sub-head">Recent changes</h3>
+      <ul class="finding-list">
+        {% for c in overlay_changes %}
+        <li>
+          <div class="finding-main"><p class="finding-title">{{ c.subject }}</p><p class="meta-line"><span class="mono">{{ c.sha[:10] }}</span><span>{{ c.date[:16]|replace('T', ' ') }}</span></p></div>
+          {% if not loop.last %}
+          <form method="post" action="/improve/overlay/undo/{{ c.sha }}" class="inline-form" data-confirm-label="Undo change" hx-confirm="Undo this overlay change with a new commit? It applies from the next run.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-ghost btn-sm">{{ icon('undo', 14) }}Undo</button>
+          </form>
+          {% else %}<span></span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  {% if page.held %}
+  <section class="panel" aria-labelledby="held-h">
+    <header class="panel-head">
+      <h2 id="held-h">{{ icon('shield') }}Held by the screen</h2>
+      <div class="panel-tools"><span class="setup-progress">{{ page.held|length }} waiting for you</span></div>
+    </header>
+    <p class="panel-note">Research proposals that matched the keyword screen for weakening a protection, adding credentials or letting agents push. The screen is cautious on purpose, so it holds some good ideas too. Nothing here becomes a card unless you let it through, and the full proof still applies after that.</p>
+    <ul class="finding-list">
+      {% for f in page.held %}
+      <li>
+        <div class="finding-main">
+          <p class="finding-title">{{ f.title }}</p>
+          <p class="meta-line"><span class="mini-badge tone-warn">{{ f.decision_note[14:] }}</span><span>{{ f.source }}</span><span>effort {{ f.effort }}</span></p>
+          <details class="entry-fold"><summary>Read the proposal</summary><p class="finding-text pre">{{ f.problem }}</p><p class="finding-text pre">{{ f.proposal }}</p><p class="finding-text pre">{{ f.acceptance_criteria }}</p></details>
+        </div>
+        <form method="post" action="/improve/findings/{{ f.id }}/allow" class="inline-form" data-confirm-label="Let it through" hx-confirm="Put this finding in the queue? A cycle may then file it as a card; it still has to pass every gate, the reviewers and the trial.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm">{{ icon('check') }}Let it through</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="feed-h">
+      <header class="panel-head"><h2 id="feed-h">{{ icon('history') }}Activity</h2></header>
+      {% if page.feed %}
+      <ol class="feed">
+        {% for e in page.feed %}
+        <li>
+          <span class="mini-badge tone-{{ e.tone }}">{{ e.label }}</span>
+          <span class="feed-text">{{ e.message }}{% if e.card_id %} <a href="/cards/{{ e.card_id }}">#{{ e.card_id }}</a>{% endif %}</span>
+          <time class="feed-time" datetime="{{ e.created_at|isotime }}" title="{{ e.created_at|timestamp }}">{{ e.created_at|ago }}</time>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="panel-note">Nothing yet. Every decision the loop makes is recorded here.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel" aria-labelledby="limits-h">
+      <header class="panel-head"><h2 id="limits-h">{{ icon('sliders') }}Limits</h2></header>
+      <form method="post" action="/improve/settings" class="panel-body form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% for name, label, help in editable %}
+        <div class="field field-inline">
+          <label for="set-{{ name }}">{{ label }}</label>
+          <input id="set-{{ name }}" name="{{ name }}" type="text" inputmode="decimal" class="mono input-short" value="{{ conf[name] }}" aria-describedby="help-{{ name }}">
+          <p class="help" id="help-{{ name }}">{{ help }}</p>
+        </div>
+        {% endfor %}
+        {% for name, label, help in switches %}
+        <label class="check"><input type="checkbox" name="{{ name }}" value="1" {% if conf[name] %}checked{% endif %}> <span><strong>{{ label }}</strong> <span class="help">{{ help }}</span></span></label>
+        {% endfor %}
+        <div class="form-actions"><button type="submit" class="btn btn-sm">Save limits</button></div>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

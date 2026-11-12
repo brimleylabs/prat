@@ -1,0 +1,26 @@
+{% set base = '/cards/' ~ card_id ~ '/runs/' ~ run.id ~ '/replay' %}
+<nav class="chips" aria-label="Filter by kind" hx-target="#replay-entries" hx-push-url="true">
+  <a class="chip-link" href="{{ base }}{% if agent %}?agent={{ agent }}{% endif %}" hx-get="{{ base }}{% if agent %}?agent={{ agent }}{% endif %}" {% if not category %}aria-current="true"{% endif %}>All <span class="chip-count">{{ total }}</span></a>
+  {% for key, count in categories.items() %}
+  {% set href = base ~ '?category=' ~ key ~ ('&agent=' ~ agent if agent else '') %}
+  <a class="chip-link{% if key == 'denied' %} chip-denied{% endif %}" href="{{ href }}" hx-get="{{ href }}" {% if category == key %}aria-current="true"{% endif %}>{{ category_label[key] }} <span class="chip-count">{{ count }}</span></a>
+  {% endfor %}
+</nav>
+{% if agents|length > 1 %}
+<nav class="chips chips-secondary" aria-label="Filter by agent" hx-target="#replay-entries" hx-push-url="true">
+  {% set href = base ~ ('?category=' ~ category if category else '') %}
+  <a class="chip-link" href="{{ href }}" hx-get="{{ href }}" {% if not agent %}aria-current="true"{% endif %}>Every agent</a>
+  {% for a in agents %}
+  {% set href = base ~ '?agent=' ~ a ~ ('&category=' ~ category if category else '') %}
+  <a class="chip-link" href="{{ href }}" hx-get="{{ href }}" {% if agent == a %}aria-current="true"{% endif %}>{{ agent_label[a] }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+<p class="panel-note" aria-live="polite">Showing {{ entries|length }} of {{ total }} events.</p>
+{% if entries %}
+<ol class="log log-replay" aria-label="Session events">
+  {% for e in entries %}{% include "_entry.html" %}{% endfor %}
+</ol>
+{% else %}
+<div class="empty small">{{ icon('inbox', 24) }}<p>No events match this filter.</p></div>
+{% endif %}

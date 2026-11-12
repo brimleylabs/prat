@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Settings and health</h1>
+      <p class="page-sub">Read only. Installation settings live in <span class="mono">config.toml</span> in the PRAT home, overridable with <span class="mono">PRAT_*</span> environment variables. No secret is ever shown here.</p>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="auth-h">
+      <header class="panel-head">
+        <h2 id="auth-h">{{ icon('key') }}Agent authentication</h2>
+        <div class="panel-tools"><span class="badge tone-{{ 'ok' if auth.usable else 'bad' }}">{{ 'Usable' if auth.usable else 'Not usable' }}</span></div>
+      </header>
+      <dl class="kv panel-body">
+        <div><dt>Mode</dt><dd class="mono">{{ auth.mode }}</dd></div>
+        <div><dt>Status</dt><dd>{{ auth.detail }}</dd></div>
+        {% if auth.login_kind %}<div><dt>Login kind</dt><dd>{{ auth.login_kind }}</dd></div>{% endif %}
+        <div><dt>Runtime in use</dt><dd class="mono">{{ runtime_name }}</dd></div>
+      </dl>
+      {% if runtime_name.startswith('fake') %}<p class="panel-note">This server uses the scripted fake runtime, which needs no authentication. The status above is what the Claude runtime would see.</p>{% endif %}
+      <p class="panel-note">{% if auth.mode == 'claude_login' %}Personal use only: runs use your own Claude Code login and plan limits. PRAT never reads, stores or forwards that login.{% else %}The API key is read from the environment or the config file and passed only to the agent process.{% endif %} The check is cached for 30 seconds.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="models-h">
+      <header class="panel-head"><h2 id="models-h">{{ icon('cpu') }}Model registry</h2></header>
+      <table class="table">
+        <thead><tr><th scope="col">Role</th><th scope="col">Model</th><th scope="col">Set by</th></tr></thead>
+        <tbody>
+          {% for m in models %}
+          <tr><td>{{ m.role }}</td><td class="mono">{{ m.model }}</td><td class="muted">{{ m.source }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="panel-note">A project's <span class="mono">[models]</span> table overrides these for that project.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="limits-h">
+      <header class="panel-head"><h2 id="limits-h">{{ icon('sliders') }}Concurrency and limits</h2></header>
+      <dl class="kv panel-body">
+        <div><dt>Runs at once</dt><dd>{{ settings.max_concurrent_runs }} in total, {{ settings.max_concurrent_per_project }} per project</dd></div>
+        <div><dt>Now</dt><dd>{{ active }} running in this server, {{ queued if queued > 0 else 0 }} waiting; {{ running }} card{{ '' if running == 1 else 's' }} marked running</dd></div>
+        <div><dt>Autonomy ceiling</dt><dd>{{ settings.max_autonomy }}</dd></div>
+        <div><dt>Runaway guard</dt><dd>a run stops after about {{ settings.default_budget_usd|usd }} of usage at API prices. <a href="/usage">See usage</a></dd></div>
+        <div><dt>Gate timeout</dt><dd>{{ settings.gate_timeout_seconds|duration }}</dd></div>
+        <div><dt>Loop detector</dt><dd>same call {{ settings.loop_threshold }} times in {{ settings.loop_window }} is denied</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="server-h">
+      <header class="panel-head"><h2 id="server-h">{{ icon('lock') }}Web server</h2></header>
+      <dl class="kv panel-body">
+        <div><dt>Accepted origins</dt><dd>{% for o in origins %}<span class="mono chip">{{ o }}</span> {% endfor %}</dd></div>
+        <div><dt>Remote access</dt><dd>{{ 'allowed (web_allow_remote)' if settings.web_allow_remote else 'off: loopback only' }}</dd></div>
+        <div><dt>Sessions</dt><dd>expire after {{ '%g'|format(settings.web_session_hours) }} hours, on sign-out, or when the access token is rotated; a server restart keeps them</dd></div>
+        <div><dt>Access token</dt><dd><span class="mono path">{{ token_file }}</span><br><span class="muted">{% if token_private is none %}File modes do not apply on this system; keep the PRAT home private.{% elif token_private %}Readable only by you.{% else %}Readable by other users: run chmod 600 on it.{% endif %} Rotate with prat rotate-token.</span></dd></div>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="about-h">
+      <header class="panel-head"><h2 id="about-h">{{ icon('info') }}About</h2></header>
+      <dl class="kv panel-body">
+        <div><dt>Version</dt><dd class="mono">{{ prat_version }}</dd></div>
+        <div><dt>PRAT home</dt><dd class="mono path">{{ settings.home }}</dd></div>
+        <div><dt>Database</dt><dd class="mono path">{{ database }}</dd></div>
+      </dl>
+    </section>
+  </div>
+</div>
+{% endblock %}

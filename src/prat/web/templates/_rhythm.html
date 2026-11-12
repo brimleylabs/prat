@@ -1,0 +1,66 @@
+{% set st = panel.state %}
+<div class="rhythm">
+  <div class="rhythm-state">
+    <span class="badge tone-{{ 'info' if st.name == 'dreaming' or panel.dreaming else ('ok' if st.name == 'awake' else 'neutral') }}">{{ 'dreaming' if panel.dreaming else st.name }}</span>
+    <span class="muted">{{ 'A dream is running.' if panel.dreaming else st.reason|capitalize ~ '.' }}</span>
+    {% if st.window %}
+    <span class="rhythm-window">{{ icon('clock', 14) }}{{ 'Learned' if st.window.learned else 'Default' }} dream window: <time datetime="{{ st.window.start.isoformat() }}">{{ st.window.start.strftime('%a %H:%M') }}</time> to <time datetime="{{ st.window.end.isoformat() }}">{{ st.window.end.strftime('%H:%M') }}</time></span>
+    {% endif %}
+  </div>
+
+  <figure class="heat">
+    <svg class="heat-grid" viewBox="0 0 {{ 24 * 14 + 30 }} {{ 7 * 14 + 16 }}" role="img" aria-label="When you use PRAT: activity by hour of the week, darker is busier. Outlined hours are the dream window.">
+      {% for h in range(0, 24, 3) %}<text class="heat-axis" x="{{ 30 + h * 14 + 1 }}" y="{{ 7 * 14 + 13 }}">{{ '%02d'|format(h) }}</text>{% endfor %}
+      {% for d in days %}<text class="heat-axis" x="0" y="{{ loop.index0 * 14 + 10 }}">{{ d }}</text>{% endfor %}
+      {% for c in panel.cells %}<rect class="heat-cell heat-{{ c.level }}{% if c.in_window %} heat-window{% endif %}{% if (c.day, c.hour) == panel.now_cell %} heat-now{% endif %}" x="{{ 30 + c.hour * 14 }}" y="{{ c.day * 14 }}" width="12" height="12" rx="2"><title>{{ days[c.day] }} {{ '%02d'|format(c.hour) }}:00, activity {{ '%.0f'|format(c.score * 100) }}%{% if c.in_window %}, dream window{% endif %}</title></rect>{% endfor %}
+    </svg>
+    <figcaption class="help">{% if panel.settings.mode == 'never' %}Dreaming is off.{% elif panel.settings.mode == 'fixed' %}Fixed quiet hours.{% elif panel.learning %}Still learning your hours ({{ panel.active_days }} of {{ 5 }} active days); until then PRAT dreams from 01:00 to 05:00.{% else %}Learned from {{ panel.active_days }} active days, recent weeks counting most.{% endif %} Any action of yours during a dream makes it stop.</figcaption>
+  </figure>
+
+  <div class="two-col rhythm-cols">
+    <form method="post" action="/improve/rhythm/hours" class="form-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <fieldset class="field">
+        <legend>When PRAT dreams</legend>
+        <div class="segmented">
+          {% for value, label in [('learn', 'Learn my hours'), ('fixed', 'Fixed hours'), ('never', 'Never')] %}
+          <label><input type="radio" name="mode" value="{{ value }}" {% if panel.settings.mode == value %}checked{% endif %}><span>{{ label }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="field-row">
+        <div class="field"><label for="fixed_start">Fixed: from</label><select id="fixed_start" name="fixed_start" class="select">{% for h in range(24) %}<option value="{{ h }}" {% if h == panel.settings.fixed_start %}selected{% endif %}>{{ '%02d'|format(h) }}:00</option>{% endfor %}</select></div>
+        <div class="field"><label for="fixed_end">to</label><select id="fixed_end" name="fixed_end" class="select">{% for h in range(24) %}<option value="{{ h }}" {% if h == panel.settings.fixed_end %}selected{% endif %}>{{ '%02d'|format(h) }}:00</option>{% endfor %}</select></div>
+      </div>
+      <div class="field"><label for="timezone">Time zone</label><input id="timezone" name="timezone" value="{{ panel.settings.timezone }}" placeholder="This computer's (for example America/Chicago)"></div>
+      <div class="form-actions"><button type="submit" class="btn btn-sm">Save</button></div>
+    </form>
+    <div class="form-stack">
+      <p class="help">A dream tidies finished previews, reads what each card taught and updates every project's knowledge, checks that knowledge against the code, and reviews how PRAT itself is doing.</p>
+      <form method="post" action="/improve/dream" hx-post="/improve/dream" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-sm" {% if panel.dreaming %}disabled{% endif %}>{{ icon('moon', 14) }}{{ 'Dreaming' if panel.dreaming else 'Dream now' }}</button>
+      </form>
+    </div>
+  </div>
+
+  <h3 class="kg-sub">Recent dreams</h3>
+  {% if panel.dreams %}
+  <ul class="dream-list">
+    {% for d in panel.dreams %}
+    {% set remember = (d.results or {}).get('remember') or {} %}
+    <li class="dream-item">
+      <p class="meta-line"><span class="mini-badge tone-{{ 'ok' if d.status == 'succeeded' else ('info' if d.status == 'running' else ('warn' if d.status == 'interrupted' else 'bad')) }}">{{ d.status }}</span><span>{{ d.trigger }}</span><time datetime="{{ d.started_at|isotime }}" title="{{ d.started_at|timestamp }}">{{ d.started_at|ago }}</time>{% if d.status == 'running' %}<span>{{ d.phase }}</span>{% endif %}{% if d.status == 'interrupted' %}<span>stopped before {{ (d.results or {}).get('interrupted_at', '') }}</span>{% endif %}</p>
+      {% for p in remember.get('projects', []) %}
+      <p class="dream-line"><a href="/projects/{{ p.slug }}/knowledge">{{ p.slug }}</a>: {{ p.ingested }} card run{{ '' if p.ingested == 1 else 's' }} read{% if p.settled %}, {{ p.settled }} settled card{{ '' if p.settled == 1 else 's' }} read again{% endif %}{% if p.checked %}, {{ p.checked }} checked against the code ({{ p.check_wrong }} no longer true, {{ p.check_refined }} brought up to date){% endif %}, {{ p.changes|length }} knowledge change{{ '' if p.changes|length == 1 else 's' }}, {{ p.helped }} credited, {{ p.renamed }} followed renames, {{ p.stale }} stale, {{ p.merged }} merged{% if p.lint %}, {{ p.lint|length }} to look at{% endif %}</p>
+      {% if p.changes %}<ul class="dream-changes">{% for change in p.changes %}<li>{{ change }}</li>{% endfor %}</ul>{% endif %}
+      {% endfor %}
+      {% if (d.results or {}).get('tidy') %}<p class="dream-line muted">Tidy: {{ d.results.tidy.previews_removed }} preview{{ '' if d.results.tidy.previews_removed == 1 else 's' }} removed</p>{% endif %}
+      {% if (d.results or {}).get('error') %}<p class="dream-line tone-bad">{{ d.results.error }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No dreams yet.</p>
+  {% endif %}
+</div>
