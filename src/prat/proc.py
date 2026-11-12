@@ -294,10 +294,14 @@ def _windows_started_at(pid: int) -> float | None:
 
 
 def _posix_started_at(pid: int) -> float | None:
+    # A child that exited but was not reaped yet (a zombie, state Z) still has an id and a
+    # start time, but it is not running.
     stat = Path(f"/proc/{pid}/stat")
     if stat.exists():
         try:
             fields = stat.read_text().rsplit(")", 1)[1].split()
+            if fields[0] in ("Z", "X"):
+                return None
             ticks = int(fields[19])
             boot = next(
                 int(line.split()[1])
@@ -310,7 +314,7 @@ def _posix_started_at(pid: int) -> float | None:
             return None
     try:
         result = subprocess.run(
-            ["ps", "-o", "lstart=", "-p", str(pid)],
+            ["ps", "-o", "stat=,lstart=", "-p", str(pid)],
             capture_output=True,
             text=True,
             timeout=10,
@@ -319,13 +323,13 @@ def _posix_started_at(pid: int) -> float | None:
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    text = result.stdout.strip()
-    if result.returncode != 0 or not text:
+    words = result.stdout.split()
+    if result.returncode != 0 or len(words) < 2 or words[0].startswith("Z"):
         return None
     import time
 
     try:
-        return time.mktime(time.strptime(" ".join(text.split()), "%a %b %d %H:%M:%S %Y"))
+        return time.mktime(time.strptime(" ".join(words[1:]), "%a %b %d %H:%M:%S %Y"))
     except ValueError:
         return None
 

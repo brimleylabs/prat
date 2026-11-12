@@ -11,8 +11,10 @@ configuration.
 from __future__ import annotations
 
 import asyncio
+import atexit
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -62,6 +64,7 @@ WRITE_FILE: list[dict[str, Any]] = [
 # PRAT's own git calls still see them, as they would in real use.
 _EMPTY_CONFIG = Path(tempfile.mkdtemp(prefix="prat-inv-git-")) / "gitconfig"
 _EMPTY_CONFIG.write_text("", encoding="utf-8")
+atexit.register(shutil.rmtree, _EMPTY_CONFIG.parent, True)
 GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": str(_EMPTY_CONFIG), "GIT_CONFIG_NOSYSTEM": "1"}
 
 
