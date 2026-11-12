@@ -667,3 +667,101 @@ def test_writes_inside_the_worktree_need_low(
 
 def test_awk_needs_medium(layout: dict[str, Path]) -> None:
     assert bash(make_policy(layout, Autonomy.MEDIUM), "awk '{print $1}' data.txt").allowed
+
+
+# Second review: option abbreviations, code from the repository, variables and wildcards -------
+
+
+@pytest.fixture
+def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "user"
+    (home / ".aws").mkdir(parents=True)
+    (home / ".aws" / "credentials").write_text("[default]\n", encoding="utf-8")
+    (home / ".git-credentials").write_text("x\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    return home
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # sed options that hide a script: a value-taking -l, abbreviations GNU sed accepts.
+        "sed -l 5 '1e id' README.md",
+        "sed -nl5 '1e id' README.md",
+        "sed --expr='1e id' README.md",
+        "sed --e '1e id' README.md",
+        "sed --fi=evil.sed README.md",
+        "sed --line-length 5 '1e id' README.md",
+        "sed -x p README.md",
+        # Variables that make a command run code from the repository.
+        "PATH=.:$PATH ls",
+        "PATH=.:$PATH; ls",
+        "export PATH=.:$PATH; ls",
+        "env PATH=. ls",
+        "LESSOPEN='|./x %s' less README.md",
+        "PAGER=./x git log",
+        "GIT_PAGER=./x git log",
+        "LD_PRELOAD=./x.so ls",
+        "PYTHONSTARTUP=./x.py python --version",
+        # Credentials through wildcards, braces, variables and searches.
+        "cat ~/.aws/cred*",
+        "cat ~/.aws/*",
+        "cat ~/.aws/{credentials,config}",
+        "cat $HOME/.aws/credentials",
+        "cat ${HOME}/.git-credentials",
+        "cat ~/.git-cred*",
+        "grep -r . ~/.aws",
+        "grep -rn TOKEN ~",
+        "rg TOKEN ~",
+        "cd ~ && grep -r TOKEN .",
+        "find ~ -name credentials -exec cat {} ;",
+        "F=~/.aws/credentials; cat $F",
+        "cat $SOMEWHERE/notes.txt",
+        # Secret variables, however they are referenced.
+        "echo $GITHUB_TOKEN",
+        'echo "${ANTHROPIC_API_KEY}"',
+        "printf %s $DB_PASSWORD",
+        "declare -p GITHUB_TOKEN",
+    ],
+)
+def test_second_review_routes_are_closed(
+    layout: dict[str, Path], fake_home: Path, command: str
+) -> None:
+    decision = bash(make_policy(layout, Autonomy.READ_ONLY), command)
+    assert not decision.allowed, command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "sed -n -E 's/a/b/p' README.md",
+        "sed --quiet -e p README.md",
+        "sed --regexp-extended 's/a/b/' README.md",
+        "sed -- 's/a/b/' README.md",
+        "cat src/{a,b}.py",
+        "ls *.md",
+        "grep -rn TODO src",
+        "rg greet",
+        "echo $HOME",
+        "ls $HOME/projects",
+        "cat ~/notes.txt",
+    ],
+)
+def test_ordinary_reads_still_work(layout: dict[str, Path], fake_home: Path, command: str) -> None:
+    decision = bash(make_policy(layout, Autonomy.READ_ONLY), command)
+    assert decision.allowed, (command, decision.reason)
+
+
+def test_changing_the_program_path_needs_medium(layout: dict[str, Path], fake_home: Path) -> None:
+    command = "PATH=./node_modules/.bin:$PATH jest"
+    assert not bash(make_policy(layout, Autonomy.LOW), command).allowed
+    assert bash(make_policy(layout, Autonomy.MEDIUM), command).allowed
+
+
+def test_a_projects_own_docker_folder_is_not_a_credential_store(
+    layout: dict[str, Path], fake_home: Path
+) -> None:
+    (layout["work"] / ".docker").mkdir()
+    (layout["work"] / ".docker" / "Dockerfile").write_text("FROM x\n", encoding="utf-8")
+    assert bash(make_policy(layout, Autonomy.READ_ONLY), "cat .docker/Dockerfile").allowed

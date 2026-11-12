@@ -13,6 +13,7 @@ works in a worktree of a separate clone whose push destinations are disabled.
 from __future__ import annotations
 
 import fnmatch
+import glob
 import os
 import re
 from collections.abc import Iterable, Mapping, Sequence
@@ -180,39 +181,41 @@ READ_ONLY_COMMANDS = _words(
 )
 # Credential stores outside any project, matched against the whole resolved path. A file's
 # name alone is judged by the secret path patterns of the project file.
-SECRET_LOCATIONS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(pattern, re.I)
-    for pattern in (
-        r"/\.ssh/",
-        r"/\.gnupg/",
-        r"/\.aws/(?:credentials|config|sso/)",
-        r"/\.azure/",
-        r"/\.config/gcloud/",
-        r"/\.config/gh/",
-        r"/\.config/glab-cli/",
-        r"/\.config/hub$",
-        r"/\.config/git/credentials$",
-        r"/\.git-credentials$",
-        r"/\.docker/config\.json$",
-        r"/\.kube/config$",
-        r"/\.claude\.json$",
-        r"/\.claude/\.credentials\.json$",
-        r"/\.pgpass$",
-        r"/\.my\.cnf$",
-        r"/\.vault-token$",
-        r"/\.cargo/credentials(?:\.toml)?$",
-        r"/\.gem/credentials$",
-        r"/\.composer/auth\.json$",
-        r"/\.terraform\.d/credentials\.tfrc\.json$",
-        r"^/proc/[^/]+/environ$",
-    )
-)
+# Credential stores in the home folder: files, or folders whose whole contents are secret.
+# Matched against the real home folder, so a project's own `.docker/` folder is not one.
+SECRET_HOME_PATHS: tuple[str, ...] = (
+    ".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker/config.json",
+    ".config/gcloud", ".config/gh", ".config/glab-cli", ".config/hub",
+    ".config/git/credentials", ".git-credentials", ".netrc", ".npmrc", ".pypirc",
+    ".claude.json", ".claude/.credentials.json", ".pgpass", ".my.cnf", ".vault-token",
+    ".cargo/credentials", ".cargo/credentials.toml", ".gem/credentials",
+    ".composer/auth.json", ".terraform.d/credentials.tfrc.json", "Library/Keychains",
+)  # fmt: skip
+# Secret wherever they are.
+SECRET_LOCATIONS: tuple[re.Pattern[str], ...] = (re.compile(r"^/proc/[^/]+/environ$"),)
 # Environment variable names that usually hold a credential.
 SECRET_VARIABLE = re.compile(
     r"TOKEN|SECRET|PASSW|PASSPHRASE|CREDENTIAL|(?:API|ACCESS|PRIVATE)_?KEY|COOKIE|SESSION", re.I
 )
 # Builtins that print every variable when given no names.
 ENVIRONMENT_DUMPS = _words("set export declare typeset")
+# Builtins that set variables from NAME=value arguments.
+DECLARE_COMMANDS = _words("export declare typeset readonly local")
+# Variables that make later commands run other code: where programs are found, pagers and
+# input preprocessors, editors, preloaded libraries, interpreter start-up code.
+RUNTIME_VARIABLE = re.compile(
+    r"^(?:PATH|CDPATH|LESSOPEN|LESSCLOSE|PAGER|GIT_PAGER|MANPAGER|SYSTEMD_PAGER|EDITOR|VISUAL"
+    r"|GIT_EDITOR|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|BROWSER|LD_\w+|DYLD_\w+|PYTHONPATH"
+    r"|PYTHONSTARTUP|PYTHONHOME|NODE_OPTIONS|NODE_PATH|PERL5OPT|PERL5LIB|PERLLIB|RUBYOPT"
+    r"|RUBYLIB|BASH_ENV|ENV|PROMPT_COMMAND|SHELLOPTS|BASHOPTS|IFS)$"
+)
+# A shell variable reference: $NAME, ${NAME}, ${!NAME}.
+VARIABLE_REFERENCE = re.compile(r"\$\{?!?([A-Za-z_][A-Za-z0-9_]*)")
+# Variables a path may use; anything else in a path cannot be checked before it runs.
+PATH_VARIABLES = _words("HOME PWD TMPDIR USER")
+# Tools that read every file under a folder they are given.
+SEARCH_COMMANDS = _words("grep egrep fgrep rg ag")
+_GLOB_CHARS = frozenset("*?[{")
 FILE_COMMANDS = _words(
     "mkdir touch cp mv rm rmdir ln chmod tee truncate install patch del erase copy move md rd"
 )
@@ -400,6 +403,8 @@ class Policy:
         self.project_commands = [list(c) for c in project_commands if c]
         self.mcp_tools = {spec.name: spec for spec in mcp_tools}
         self.case_insensitive = paths.is_case_insensitive(self.workdir)
+        home = paths.resolve(os.path.expanduser("~"))
+        self.secret_homes = [paths.resolve(home / rel) for rel in SECRET_HOME_PATHS]
 
     # Public API ------------------------------------------------------------
 
@@ -435,8 +440,39 @@ class Policy:
         full = str(path).replace("\\", "/")
         if any(location.search(full) for location in SECRET_LOCATIONS):
             return True
+        if any(paths.is_within(Path(path), secret) for secret in self.secret_homes):
+            return True
         rel = paths.relative_posix(path, self.workdir)
         return bool(rel and paths.matches_any(rel, self.secret_paths, self.case_insensitive))
+
+    def _holds_secrets(self, folder: Path) -> bool:
+        """True when a search of ``folder`` would reach a credential store in the home folder."""
+        return any(
+            paths.is_within(secret, folder) and secret.exists() for secret in self.secret_homes
+        )
+
+    def _expand_path_argument(self, value: str) -> list[str] | None:
+        """The paths a shell argument can stand for: variables a path may use are filled in,
+        braces expanded and wildcards matched against the files that exist now (plus the
+        pattern itself). ``None`` when it uses a variable that cannot be known in advance."""
+        unknown = [
+            m.group(1)
+            for m in VARIABLE_REFERENCE.finditer(value)
+            if m.group(1) not in PATH_VARIABLES or m.group(1) not in os.environ
+        ]
+        if unknown:
+            return None
+        text = re.sub(
+            r"\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)",
+            lambda m: os.environ[m.group(1) or m.group(2)],
+            value,
+        )
+        found: list[str] = []
+        for candidate in _expand_braces(text):
+            found.append(candidate)
+            if any(char in candidate for char in "*?["):
+                found += glob.glob(os.path.expanduser(candidate), include_hidden=True)
+        return found
 
     def check_read(self, raw: str, cwd: Path | None = None) -> Decision:
         target = paths.resolve(raw, cwd or self.workdir)
@@ -546,6 +582,9 @@ class Policy:
         found = find_secrets(command)
         if found:
             return Decision.deny("command contains secret-like literals")
+        for reference in VARIABLE_REFERENCE.finditer(command):
+            if SECRET_VARIABLE.search(reference.group(1)):
+                return Decision.deny(f"${reference.group(1)} looks like a secret variable")
         # Here-document bodies are data on standard input; only an unquoted one's $(...) runs.
         command, scanned = split_heredocs(command)
         for start, inner in located_substitutions(scanned):
@@ -583,10 +622,21 @@ class Policy:
             return cwd
         return cwd
 
+    def _check_assignment(self, name: str, value: str, ctx: _Ctx) -> Decision:
+        """``NAME=value``, as a prefix, on its own or given to export and the like."""
+        if GIT_DANGEROUS_ENV.match(name):
+            return Decision.deny(f"setting {name} is not allowed")
+        if RUNTIME_VARIABLE.match(name):
+            # A search path or a program, which only levels that run code may change.
+            return self._require(Autonomy.MEDIUM, f"setting {name} can make commands run code")
+        # A path kept in a variable is judged now: it cannot be checked where it is used.
+        return self._check_args(["", value], ctx)
+
     def _decide_simple(self, cmd: SimpleCommand, ctx: _Ctx) -> Decision:
-        for name in cmd.assignments:
-            if GIT_DANGEROUS_ENV.match(name):
-                return Decision.deny(f"setting {name} is not allowed")
+        for name, value in cmd.assignments.items():
+            decision = self._check_assignment(name, value, ctx)
+            if not decision.allowed:
+                return decision
         for redirect in cmd.redirects:
             if redirect.is_fd_dup or not redirect.target:
                 continue
@@ -607,29 +657,66 @@ class Policy:
         return self._decide_argv(cmd.argv, ctx)
 
     def _check_args(self, argv: Sequence[str], ctx: _Ctx) -> Decision:
-        """Generic checks on every argument: secret files and denied roots."""
+        """Generic checks on every argument: secret files and denied roots. Wildcards and
+        braces are expanded first, and a path built from a variable that cannot be known in
+        advance is refused."""
         for arg in argv[1:]:
             if not arg or (arg.startswith("-") and "=" not in arg):
                 continue
-            value = arg.split("=", 1)[1] if arg.startswith("-") else arg
+            if arg.startswith("-") or re.match(r"^[A-Za-z_]\w*=", arg):
+                value = arg.split("=", 1)[1]
+            else:
+                value = arg
             if not value or "://" in value:
                 continue
-            name = value.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-            if name and self._is_secret_path(name):
-                return Decision.deny(f"{value} looks like a secret file")
-            looks_like_path = (
-                "/" in value or "\\" in value or value.startswith(("~", ".")) or value[1:3] == ":/"
-            )
-            if looks_like_path:
-                target = paths.resolve(value, ctx.cwd)
-                if self._is_secret_path(target):
-                    return Decision.deny(f"{value} looks like a secret file")
-                if paths.is_within(target, self.workdir):
-                    continue
-                for root in self.denied_roots:
-                    if paths.is_within(target, root):
-                        return Decision.deny(f"{value} is inside a protected location")
+            candidates: list[str] | None = [value]
+            if "$" in value or _GLOB_CHARS & set(value):
+                candidates = self._expand_path_argument(value)
+            if candidates is None:
+                if _looks_like_path(value):
+                    return Decision.deny(f"{value}: a path built from a variable cannot be checked")
+                continue
+            for candidate in candidates:
+                decision = self._check_path_argument(candidate, value, ctx)
+                if not decision.allowed:
+                    return decision
         return Decision.allow()
+
+    def _check_path_argument(self, value: str, shown: str, ctx: _Ctx) -> Decision:
+        name = value.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        if name and self._is_secret_path(name):
+            return Decision.deny(f"{shown} looks like a secret file")
+        if _looks_like_path(value):
+            target = paths.resolve(value, ctx.cwd)
+            if self._is_secret_path(target):
+                return Decision.deny(f"{shown} looks like a secret file")
+            if paths.is_within(target, self.workdir):
+                return Decision.allow()
+            for root in self.denied_roots:
+                if paths.is_within(target, root):
+                    return Decision.deny(f"{shown} is inside a protected location")
+        return Decision.allow()
+
+    def _decide_search(self, name: str, args: list[str], ctx: _Ctx) -> Decision | None:
+        """A recursive search reads every file under its folders: refuse one that would reach
+        the home folder's credential stores."""
+        recursive = name in ("rg", "ag") or any(
+            a in ("-r", "-R", "--recursive", "--dereference-recursive")
+            or a.startswith("--directories=rec")
+            or (a.startswith("-") and not a.startswith("--") and ("r" in a or "R" in a))
+            for a in args
+        )
+        if not recursive:
+            return None
+        folders = [
+            paths.resolve(os.path.expanduser(a), ctx.cwd)
+            for a in args
+            if not _is_option(a) and paths.resolve(os.path.expanduser(a), ctx.cwd).is_dir()
+        ] or [ctx.cwd]
+        for folder in folders:
+            if self._holds_secrets(folder):
+                return Decision.deny(f"searching {folder} would read credential files")
+        return None
 
     def _decide_argv(self, argv: list[str], ctx: _Ctx) -> Decision:
         name = command_name(argv[0])
@@ -691,7 +778,9 @@ class Policy:
             return self._decide_find(args, ctx)
         if name == "sed":
             if "--sandbox" not in args:
-                scripts, from_file = _sed_scripts(args)
+                scripts, from_file, problem = _sed_scripts(args)
+                if problem is not None:
+                    return Decision.deny(f"sed: {problem}")
                 if from_file:
                     return Decision.deny("sed -f: a script read from a file cannot be analysed")
                 if not all(_sed_is_plain(script) for script in scripts):
@@ -710,6 +799,19 @@ class Policy:
             return Decision.allow("printenv of named variables")
         if name in ENVIRONMENT_DUMPS and all(a in ("-p", "-x", "-px", "-xp") for a in args):
             return Decision.deny("printing the whole environment can expose secrets")
+        if name in DECLARE_COMMANDS:
+            for arg in args:
+                variable, _, value = arg.partition("=")
+                if SECRET_VARIABLE.search(variable):
+                    return Decision.deny(f"{variable} looks like a secret variable")
+                if _ and not variable.startswith("-"):
+                    decision = self._check_assignment(variable, value, ctx)
+                    if not decision.allowed:
+                        return decision
+        if name in SEARCH_COMMANDS:
+            searched = self._decide_search(name, args, ctx)
+            if searched is not None:
+                return searched
         special = self._decide_output_options(name, args, ctx)
         if special is not None:
             return special
@@ -868,6 +970,9 @@ class Policy:
         while i < len(args):
             token = args[i]
             if token in ("-exec", "-execdir", "-ok", "-okdir"):
+                for root in roots or ["."]:
+                    if self._holds_secrets(paths.resolve(os.path.expanduser(root), ctx.cwd)):
+                        return Decision.deny(f"find {token} under {root} would reach credentials")
                 end = i + 1
                 while end < len(args) and args[end] not in (";", "+"):
                     end += 1
@@ -903,9 +1008,10 @@ class Policy:
                 elif token in ("-S", "--split-string") and rest:
                     return self._decide_bash(rest[0], _Ctx(ctx.cwd, ctx.depth + 1))
                 elif "=" in token and not token.startswith("-"):
-                    var = token.split("=", 1)[0]
-                    if GIT_DANGEROUS_ENV.match(var):
-                        return Decision.deny(f"setting {var} is not allowed")
+                    var, value = token.split("=", 1)
+                    decision = self._check_assignment(var, value, ctx)
+                    if not decision.allowed:
+                        return decision
             if not rest:
                 return Decision.deny("printing the whole environment can expose secrets")
         elif name == "timeout":
@@ -1207,47 +1313,68 @@ def _sed_files(args: Sequence[str]) -> list[str]:
     return files if script_given else files[1:]
 
 
-def _sed_scripts(args: Sequence[str]) -> tuple[list[str], bool]:
-    """The scripts a sed command runs, and whether one is read from a file (-f). Short options
-    may be grouped (``-ne 'p'``), and -e or -f take the rest of the group or the next word."""
+# sed's long options, exactly as written: GNU sed also accepts any unambiguous abbreviation,
+# which is refused here so that every script is seen.
+_SED_LONG_FLAGS = _words(
+    "--quiet --silent --regexp-extended --separate --null-data --zero-terminated --posix "
+    "--debug --unbuffered --follow-symlinks --sandbox --in-place --help --version"
+)
+_SED_LONG_VALUES = frozenset(("--expression", "--file", "--line-length", "--in-place"))
+_SED_SHORT_FLAGS = frozenset("nsEruz")
+
+
+def _sed_scripts(args: Sequence[str]) -> tuple[list[str], bool, str | None]:
+    """The scripts a sed command runs, whether one is read from a file (-f), and a problem
+    when an option cannot be understood (then nothing else may be trusted). Short options may
+    be grouped (``-ne 'p'``); -e, -f and -l take the rest of the group or the next word."""
     scripts: list[str] = []
     from_file = False
     operands: list[str] = []
     i = 0
     while i < len(args):
         arg = args[i]
-        if arg in ("--expression", "--file"):
-            scripts += [] if arg == "--file" else args[i + 1 : i + 2]
-            from_file = from_file or arg == "--file"
-            i += 2
-            continue
-        if arg.startswith("--expression="):
-            scripts.append(arg.split("=", 1)[1])
-        elif arg.startswith("--file="):
-            from_file = True
+        if arg == "--":
+            operands += args[i + 1 :]
+            break
+        if arg.startswith("--"):
+            option, has_value, value = arg.partition("=")
+            if option not in _SED_LONG_FLAGS | _SED_LONG_VALUES:
+                return scripts, from_file, f"option {option} is not understood"
+            if option in ("--expression", "--file", "--line-length") and not has_value:
+                if i + 1 >= len(args):
+                    return scripts, from_file, f"option {option} needs a value"
+                i += 1
+                value = args[i]
+            if option == "--expression":
+                scripts.append(value)
+            elif option == "--file":
+                from_file = True
         elif arg == "-i" and i + 1 < len(args) and args[i + 1] == "":
-            i += 2
-            continue
-        elif arg.startswith("-") and not arg.startswith("--") and len(arg) > 1:
+            i += 1  # the empty backup suffix of BSD and macOS sed
+        elif arg.startswith("-") and len(arg) > 1:
             for j, letter in enumerate(arg[1:], start=1):
-                if letter in "ef":
+                if letter in "efl":
                     value = arg[j + 1 :]
-                    if not value and i + 1 < len(args):
+                    if not value:
+                        if i + 1 >= len(args):
+                            return scripts, from_file, f"option -{letter} needs a value"
                         i += 1
                         value = args[i]
                     if letter == "e":
                         scripts.append(value)
-                    else:
+                    elif letter == "f":
                         from_file = True
                     break
-                if letter in "il":
-                    break  # the rest of the group is the backup suffix or a line length
-        elif not arg.startswith("-"):
+                if letter == "i":
+                    break  # the rest of the group is the backup suffix
+                if letter not in _SED_SHORT_FLAGS:
+                    return scripts, from_file, f"option -{letter} is not understood"
+        else:
             operands.append(arg)
         i += 1
     if not scripts and not from_file and operands:
         scripts.append(operands[0])
-    return scripts, from_file
+    return scripts, from_file, None
 
 
 _SED_SIMPLE = frozenset("pdqQ=nNPDlhHgGxzF")
@@ -1339,6 +1466,32 @@ def _sed_is_plain(script: str) -> bool:
         else:
             return False
     return True
+
+
+def _looks_like_path(value: str) -> bool:
+    return "/" in value or "\\" in value or value.startswith(("~", ".")) or value[1:3] == ":/"
+
+
+def _expand_braces(text: str, limit: int = 256) -> list[str]:
+    """Shell brace expansion of ``{a,b}`` (``{1..3}`` ranges become a wildcard, which is
+    matched against the files that exist), up to ``limit`` results."""
+    match = re.search(r"\{([^{}]*)\}", text)
+    if match is None:
+        return [text]
+    body = match.group(1)
+    if "," in body:
+        parts = body.split(",")
+    elif ".." in body:
+        parts = ["*"]
+    else:
+        return [text]
+    found: list[str] = []
+    for part in parts:
+        for expanded in _expand_braces(text[: match.start()] + part + text[match.end() :], limit):
+            found.append(expanded)
+            if len(found) >= limit:
+                return found
+    return found
 
 
 def _short_or_long_value(args: Sequence[str], letter: str, long: str, *, valued: str) -> str | None:
