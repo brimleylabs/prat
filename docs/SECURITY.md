@@ -63,6 +63,15 @@ PRAT specifically (see "Not covered yet").
   system administration, `eval`, shells reading commands from standard input, `GIT_DIR`-style
   variables, writes outside the worktree, writes to `.git`, `.prat/` and protected paths, reads
   and writes of secret files, and any write or command containing a credential-shaped literal.
+- Read-only tools stay read-only. A `sed` script that runs a command or reads or writes another
+  file (`e`, `r`, `R`, `w`, `W`, `s///e`, `s///w`) is denied at every level, and so is one read
+  from a file. Output options (`sort -o`, `git log --output`, `tree -o`, a second operand to
+  `uniq` or `xxd`, `yq -i`) are judged as writes, and options that run a program (`rg --pre`,
+  `fd --exec`, `sort --compress-program`, `git grep -O`) as running it. `awk` needs `medium`.
+- Credential stores are secret wherever they are: `~/.ssh`, `~/.aws`, `~/.config/gh`, gcloud,
+  Azure, Docker and Kubernetes configuration, `~/.git-credentials`, `~/.claude.json`, `.pgpass`,
+  `/proc/*/environ` and similar, besides the secret file names. Printing the whole environment
+  (`env`, `printenv`, `export -p`) or a variable whose name looks like a credential is denied.
 - Background shell commands are denied (they would outlive the run).
 - `.prat/project.toml` is read from the committed default branch before the agent starts and is
   always protected, so an agent cannot rewrite its own rules for the current or a later run.
@@ -239,11 +248,15 @@ runs and merge branches, so it is treated as a remote-code-execution surface.
 
 - **No sandbox.** Agents and gate commands run as your user, with your environment variables,
   your network access and your file permissions. The policy is analysis of commands, not
-  confinement: at autonomy `medium` and above an agent may run scripts and inline interpreter
-  code, which can do anything you can. Container isolation with no network in the agent phase,
-  a domain allowlist and secrets only in the setup phase are planned for Phase 5. Until then,
-  keep autonomy at `low` for repositories you do not trust, and run PRAT as a user without
-  access to anything precious.
+  confinement. At `medium` and above an agent may run scripts and inline interpreter code,
+  which can do anything you can. At `low` it may edit files and run the project's own commands,
+  and those commands run code in the worktree: an agent that writes a `conftest.py` and then
+  runs the tests has run code of its choosing. So `low` limits what an agent asks for directly;
+  it does not contain the repository's code. Only `read_only` runs nothing from the repository.
+  Container isolation with no network in the agent phase, a domain allowlist and secrets only
+  in the setup phase are planned for Phase 5. Until then, use PRAT on code you trust. For a
+  repository you do not trust, keep autonomy at `read_only`, or run PRAT in a virtual machine
+  or container as a user with no credentials (no GitHub CLI login, cloud keys or SSH keys).
 - **Environment variables are inherited** by agents and gates, including any credentials in
   your shell, except PRAT's own: gates get no `PRAT_*`, `ANTHROPIC_*` or `CLAUDE_CODE_*`
   variables, and the agent's `PRAT_*` variables are blanked. Full secret stripping arrives with
@@ -251,8 +264,9 @@ runs and merge branches, so it is treated as a remote-code-execution surface.
 - **Database branches are a workspace, not a wall.** A card's agent gets the project database's
   own credentials, pointed at the card's branch. Those credentials can reach the default branch
   too, so an agent able to run SQL (or code that does) could change it without review. Use
-  credentials limited to what the agent should touch, and keep autonomy at `low` for data you
-  care about. Per-card database users confined with Dolt's branch permissions are planned.
+  credentials limited to what the agent should touch, and point PRAT at a copy of any data you
+  cannot afford to lose; at `low` the project's own commands, run on code the agent can edit,
+  can reach it too. Per-card database users confined with Dolt's branch permissions are planned.
 - **Reads outside the worktree** are allowed except under denied roots (your checkouts, agent
   clones, the PRAT home) and secret file names. An agent can read other files your user can
   read, including files in your home directory that do not look like secrets.

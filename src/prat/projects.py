@@ -55,9 +55,19 @@ DEFAULT_SECRET_PATHS: tuple[str, ...] = (
     "id_rsa*",
     "id_ecdsa*",
     "id_ed25519*",
+    "id_dsa*",
     ".netrc",
+    "_netrc",
     ".pypirc",
     ".npmrc",
+    ".git-credentials",
+    ".pgpass",
+    ".my.cnf",
+    ".vault-token",
+    ".claude.json",
+    ".credentials.json",
+    "*.keystore",
+    "*.jks",
 )
 SECRET_PATH_EXCEPTIONS: tuple[str, ...] = (".env.example", ".env.sample", ".env.template")
 

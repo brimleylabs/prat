@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -541,3 +542,128 @@ def test_here_documents_are_data(layout: dict[str, Path], command: str, allowed:
     (layout["work"] / "notes").mkdir(exist_ok=True)
     decision = bash(make_policy(layout, Autonomy.MEDIUM), command)
     assert decision.allowed is allowed, (command, decision.reason)
+
+
+# Read-only tools that can run programs, write files or reveal credentials ----------------
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "sed -n p README.md",
+        "sed -n '1,20p' README.md",
+        "sed 's/a/b/g' README.md",
+        "sed -n '/^def /p' src/app.py",
+        "sed -E 's#x/(y)#\1#;s/where/here/' README.md",
+        "sed -ne 's/a/b/p' README.md",
+        "sed -e 's/a/b/' -e '$d' README.md",
+        "sed '/start/,/end/{s/old/new/;p}' README.md",
+        "sed 'y/abc/xyz/' README.md",
+        "sed '1~2d' README.md",
+        "sed '$a' README.md",
+        "sort README.md",
+        "sort -k2 -t, data.csv",
+        "uniq data.txt",
+        "tree -L 2",
+        "git log --oneline -5",
+        "printenv PATH HOME",
+        "fd test",
+        "sed --sandbox 's/a/b/' README.md",
+    ],
+)
+def test_read_only_tools_used_to_read_are_allowed(layout: dict[str, Path], command: str) -> None:
+    decision = bash(make_policy(layout, Autonomy.READ_ONLY), command)
+    assert decision.allowed, (command, decision.reason)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # sed can run commands and read and write any file from inside its script.
+        "sed -n '1e git push --force origin HEAD' README.md",
+        "sed -n 'w /root/.bashrc' README.md",
+        "sed 's/x/y/w /tmp/out' README.md",
+        "sed 's/.*/id/e' README.md",
+        "sed '1r /etc/passwd' README.md",
+        "sed 'R ~/.aws/credentials' README.md",
+        "sed -n -e p -e 'W /tmp/x' README.md",
+        "sed --expression='1e id' README.md",
+        "sed -ne '1e id' README.md",
+        "sed -f script.sed README.md",
+        "sed '/x/{p;e id\n}' README.md",
+        # Output options of otherwise read-only tools.
+        "sort -o /tmp/out README.md",
+        "sort --output=/tmp/out README.md",
+        "sort -ro/tmp/out README.md",
+        "sort --compress-program=sh README.md",
+        "git log --output=/tmp/out",
+        "git diff --output /tmp/out",
+        "git grep -O'sh -c id' x",
+        "uniq data.txt /tmp/out",
+        "xxd README.md /tmp/out",
+        "tree -o /tmp/out",
+        "rg --pre ./run.sh pattern",
+        "fd . -x sh -c id",
+        "yq -i '.a = 1' /tmp/x.yaml",
+        # awk is a programming language.
+        "awk 'BEGIN{system(\"id\")}'",
+        # Credentials outside the project.
+        "cat ~/.aws/credentials",
+        "cat ~/.git-credentials",
+        "cat ~/.config/gh/hosts.yml",
+        "cat ~/.claude.json",
+        "cat ~/.ssh/config",
+        "cat ~/.docker/config.json",
+        "head ~/.kube/config",
+        "printenv",
+        "printenv GITHUB_TOKEN",
+        "env",
+        "export -p",
+        "declare -x",
+    ],
+)
+def test_read_only_tools_cannot_write_run_or_read_credentials(
+    layout: dict[str, Path], command: str
+) -> None:
+    decision = bash(make_policy(layout, Autonomy.READ_ONLY), command)
+    assert not decision.allowed, command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "sed -n '1e id' README.md",
+        "sed 'w /tmp/out' README.md",
+        "sort -o /tmp/out README.md",
+        "git log --output=/tmp/out",
+        "cat ~/.aws/credentials",
+        "cat /proc/self/environ" if os.name != "nt" else "cat ~/.git-credentials",
+        "printenv",
+    ],
+)
+def test_the_holes_stay_closed_at_high(layout: dict[str, Path], command: str) -> None:
+    decision = bash(make_policy(layout, Autonomy.HIGH), command)
+    assert not decision.allowed, command
+
+
+@pytest.mark.parametrize(
+    ("command", "allowed"),
+    [
+        ("sort -o sorted.txt data.txt", True),
+        ("git log --output=log.txt", True),
+        ("uniq data.txt out.txt", True),
+        ("sed -i 's/a/b/' notes.txt", True),
+        ("sed -i '1e id' notes.txt", False),
+        ("awk '{print $1}' data.txt", False),
+    ],
+)
+def test_writes_inside_the_worktree_need_low(
+    layout: dict[str, Path], command: str, allowed: bool
+) -> None:
+    decision = bash(make_policy(layout, Autonomy.LOW), command)
+    assert decision.allowed is allowed, (command, decision.reason)
+    assert not bash(make_policy(layout, Autonomy.READ_ONLY), command).allowed
+
+
+def test_awk_needs_medium(layout: dict[str, Path]) -> None:
+    assert bash(make_policy(layout, Autonomy.MEDIUM), "awk '{print $1}' data.txt").allowed

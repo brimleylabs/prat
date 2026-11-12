@@ -174,10 +174,45 @@ NETWORK_COMMANDS = _words(
 READ_ONLY_COMMANDS = _words(
     "ls dir cat type head tail less more wc grep egrep fgrep rg ag find fd tree pwd echo printf "
     "which where whereis file stat du df diff cmp sort uniq cut tr nl column basename dirname "
-    "realpath readlink date true false test [ printenv whoami uname id jq yq sed sha256sum "
+    "realpath readlink date true false test [ whoami uname id jq yq sed sha256sum "
     "sha1sum md5sum shasum xxd od hexdump strings cd pushd popd sleep seq expr tac rev fold fmt "
     "paste join comm git :"
 )
+# Credential stores outside any project, matched against the whole resolved path. A file's
+# name alone is judged by the secret path patterns of the project file.
+SECRET_LOCATIONS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.I)
+    for pattern in (
+        r"/\.ssh/",
+        r"/\.gnupg/",
+        r"/\.aws/(?:credentials|config|sso/)",
+        r"/\.azure/",
+        r"/\.config/gcloud/",
+        r"/\.config/gh/",
+        r"/\.config/glab-cli/",
+        r"/\.config/hub$",
+        r"/\.config/git/credentials$",
+        r"/\.git-credentials$",
+        r"/\.docker/config\.json$",
+        r"/\.kube/config$",
+        r"/\.claude\.json$",
+        r"/\.claude/\.credentials\.json$",
+        r"/\.pgpass$",
+        r"/\.my\.cnf$",
+        r"/\.vault-token$",
+        r"/\.cargo/credentials(?:\.toml)?$",
+        r"/\.gem/credentials$",
+        r"/\.composer/auth\.json$",
+        r"/\.terraform\.d/credentials\.tfrc\.json$",
+        r"^/proc/[^/]+/environ$",
+    )
+)
+# Environment variable names that usually hold a credential.
+SECRET_VARIABLE = re.compile(
+    r"TOKEN|SECRET|PASSW|PASSPHRASE|CREDENTIAL|(?:API|ACCESS|PRIVATE)_?KEY|COOKIE|SESSION", re.I
+)
+# Builtins that print every variable when given no names.
+ENVIRONMENT_DUMPS = _words("set export declare typeset")
 FILE_COMMANDS = _words(
     "mkdir touch cp mv rm rmdir ln chmod tee truncate install patch del erase copy move md rd"
 )
@@ -395,7 +430,12 @@ class Policy:
             return False
         if paths.matches_any(name, self.secret_paths, self.case_insensitive):
             return True
-        rel = paths.relative_posix(path, self.workdir) if Path(path).is_absolute() else None
+        if not Path(path).is_absolute():
+            return False
+        full = str(path).replace("\\", "/")
+        if any(location.search(full) for location in SECRET_LOCATIONS):
+            return True
+        rel = paths.relative_posix(path, self.workdir)
         return bool(rel and paths.matches_any(rel, self.secret_paths, self.case_insensitive))
 
     def check_read(self, raw: str, cwd: Path | None = None) -> Decision:
@@ -582,6 +622,8 @@ class Policy:
             )
             if looks_like_path:
                 target = paths.resolve(value, ctx.cwd)
+                if self._is_secret_path(target):
+                    return Decision.deny(f"{value} looks like a secret file")
                 if paths.is_within(target, self.workdir):
                     continue
                 for root in self.denied_roots:
@@ -647,8 +689,30 @@ class Policy:
             return Decision.allow("change directory")
         if name == "find":
             return self._decide_find(args, ctx)
-        if name == "sed" and any(a == "-i" or a.startswith(("-i", "--in-place")) for a in args):
-            return self._decide_file_command("sed", _sed_files(args), ctx)
+        if name == "sed":
+            if "--sandbox" not in args:
+                scripts, from_file = _sed_scripts(args)
+                if from_file:
+                    return Decision.deny("sed -f: a script read from a file cannot be analysed")
+                if not all(_sed_is_plain(script) for script in scripts):
+                    return Decision.deny(
+                        "sed scripts that run commands or read or write other files "
+                        "(e, r, R, w, W, s///e, s///w) are not allowed"
+                    )
+            if any(a == "-i" or a.startswith(("-i", "--in-place")) for a in args):
+                return self._decide_file_command("sed", _sed_files(args), ctx)
+        if name == "printenv":
+            if not args:
+                return Decision.deny("printing the whole environment can expose secrets")
+            for arg in args:
+                if SECRET_VARIABLE.search(arg):
+                    return Decision.deny(f"{arg} looks like a secret variable")
+            return Decision.allow("printenv of named variables")
+        if name in ENVIRONMENT_DUMPS and all(a in ("-p", "-x", "-px", "-xp") for a in args):
+            return Decision.deny("printing the whole environment can expose secrets")
+        special = self._decide_output_options(name, args, ctx)
+        if special is not None:
+            return special
         if name in READ_ONLY_COMMANDS:
             return Decision.allow(f"{name} is read only")
         if len(args) == 1 and args[0] in ("--version", "-V", "version", "--help", "-h"):
@@ -656,10 +720,46 @@ class Policy:
         if name in FILE_COMMANDS:
             return self._decide_file_command(name, args, ctx)
         if name in ("awk", "gawk", "mawk"):
-            return self._require(Autonomy.LOW, "awk can run commands")
+            # system(), pipes and print > file make awk a programming language, not a filter.
+            return self._require(Autonomy.MEDIUM, "awk can run commands and write files")
         if self._is_project_command(argv):
             return self._require(Autonomy.LOW, "project command")
         return self._require(Autonomy.MEDIUM, f"{name} is not on the allow list for this level")
+
+    def _decide_output_options(self, name: str, args: list[str], ctx: _Ctx) -> Decision | None:
+        """Options that turn an otherwise read-only tool into one that writes a file or runs a
+        program. ``None`` when the tool is used only to read."""
+        if name == "sort":
+            if any(a.startswith("--compress-program") for a in args):
+                return self._require(Autonomy.MEDIUM, "sort --compress-program runs a program")
+            target = _short_or_long_value(args, "o", "--output", valued="kotST")
+            return None if target is None else self._require_write(target, ctx, "sort -o")
+        if name == "tree":
+            target = _short_or_long_value(args, "o", "--output", valued="LPIo")
+            return None if target is None else self._require_write(target, ctx, "tree -o")
+        if name == "uniq":
+            operands = _operands(args, valued=("-f", "-s", "-w", "--skip-fields", "--skip-chars"))
+            return None if len(operands) < 2 else self._require_write(operands[1], ctx, "uniq")
+        if name == "xxd":
+            operands = _operands(args, valued=("-c", "-g", "-l", "-o", "-s", "-n", "-C"))
+            return None if len(operands) < 2 else self._require_write(operands[1], ctx, "xxd")
+        if name == "yq" and any(a == "-i" or a.startswith("--inplace") for a in args):
+            for target in _operands(args)[1:]:
+                decision = self._require_write(target, ctx, "yq -i")
+                if not decision.allowed:
+                    return decision
+            return Decision.allow("yq -i inside the worktree")
+        if name in ("rg", "ag") and any(a == "--pre" or a.startswith("--pre=") for a in args):
+            return self._require(Autonomy.MEDIUM, f"{name} --pre runs a program")
+        if name in ("fd", "fdfind"):
+            for i, arg in enumerate(args):
+                if arg in ("-x", "--exec", "-X", "--exec-batch"):
+                    inner = [a for a in args[i + 1 :] if a not in ("{}", ";")] or ["true"]
+                    decision = self._decide_argv(inner, _Ctx(ctx.cwd, ctx.depth + 1))
+                    if not decision.allowed:
+                        return Decision.deny(f"{name} {arg}: {decision.reason}")
+                    return self._require(Autonomy.LOW, f"{name} {arg}")
+        return None
 
     def _require(self, level: Autonomy, what: str) -> Decision:
         if self.autonomy.at_least(level):
@@ -807,7 +907,7 @@ class Policy:
                     if GIT_DANGEROUS_ENV.match(var):
                         return Decision.deny(f"setting {var} is not allowed")
             if not rest:
-                return Decision.allow("env listing")
+                return Decision.deny("printing the whole environment can expose secrets")
         elif name == "timeout":
             while rest and rest[0].startswith("-"):
                 token = rest.pop(0)
@@ -1005,6 +1105,13 @@ class Policy:
             return Decision.deny(GIT_ALWAYS_DENIED["push"])
         if sub in GIT_NETWORK:
             return self._require(Autonomy.HIGH, f"git {sub} uses the network")
+        if sub == "grep" and any(a.startswith(("-O", "--open-files-in-pager")) for a in rest):
+            return Decision.deny("git grep -O runs a pager program")
+        output = _option_value(rest, ("--output",))
+        folder = _option_value(rest, ("--output-directory",) + (("-o",) * (sub == "format-patch")))
+        if output is not None or folder is not None:
+            written = output if output is not None else str(Path(folder or ".") / "_")
+            return self._require_write(written, ctx, f"git {sub} --output")
         if sub in GIT_READ_ONLY:
             return Decision.allow(f"git {sub} is read only")
         if sub in GIT_LOCAL_WRITE:
@@ -1098,6 +1205,176 @@ def _sed_files(args: Sequence[str]) -> list[str]:
             files.append(arg)
         i += 1
     return files if script_given else files[1:]
+
+
+def _sed_scripts(args: Sequence[str]) -> tuple[list[str], bool]:
+    """The scripts a sed command runs, and whether one is read from a file (-f). Short options
+    may be grouped (``-ne 'p'``), and -e or -f take the rest of the group or the next word."""
+    scripts: list[str] = []
+    from_file = False
+    operands: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in ("--expression", "--file"):
+            scripts += [] if arg == "--file" else args[i + 1 : i + 2]
+            from_file = from_file or arg == "--file"
+            i += 2
+            continue
+        if arg.startswith("--expression="):
+            scripts.append(arg.split("=", 1)[1])
+        elif arg.startswith("--file="):
+            from_file = True
+        elif arg == "-i" and i + 1 < len(args) and args[i + 1] == "":
+            i += 2
+            continue
+        elif arg.startswith("-") and not arg.startswith("--") and len(arg) > 1:
+            for j, letter in enumerate(arg[1:], start=1):
+                if letter in "ef":
+                    value = arg[j + 1 :]
+                    if not value and i + 1 < len(args):
+                        i += 1
+                        value = args[i]
+                    if letter == "e":
+                        scripts.append(value)
+                    else:
+                        from_file = True
+                    break
+                if letter in "il":
+                    break  # the rest of the group is the backup suffix or a line length
+        elif not arg.startswith("-"):
+            operands.append(arg)
+        i += 1
+    if not scripts and not from_file and operands:
+        scripts.append(operands[0])
+    return scripts, from_file
+
+
+_SED_SIMPLE = frozenset("pdqQ=nNPDlhHgGxzF")
+_SED_S_FLAGS = frozenset("gpiImM0123456789 \t")
+
+
+def _sed_is_plain(script: str) -> bool:
+    """True when a sed script only edits the text it reads. Commands that run a program (e,
+    s///e) or read or write another file (r, R, w, W, s///w) make it not plain, and so does
+    anything this parser does not understand."""
+    s, n, i = script, len(script), 0
+
+    def past(start: int, delim: str) -> int:
+        """The index after the closing delimiter of a regex or replacement, or -1."""
+        j = start
+        while j < n:
+            if s[j] == "\\":
+                j += 2
+                continue
+            if s[j] == delim:
+                return j + 1
+            if s[j] == "\n":
+                return -1
+            j += 1
+        return -1
+
+    def address(j: int) -> int:
+        if j < n and (s[j].isdigit() or s[j] == "$"):
+            j += 1
+            while j < n and (s[j].isdigit() or s[j] == "~"):
+                j += 1
+            return j
+        if j < n and s[j] in "+~" and j + 1 < n and s[j + 1].isdigit():
+            j += 1
+            while j < n and s[j].isdigit():
+                j += 1
+            return j
+        if j < n and (s[j] == "/" or (s[j] == "\\" and j + 1 < n)):
+            j = past(j + 1, "/") if s[j] == "/" else past(j + 2, s[j + 1])
+            while 0 <= j < n and s[j] in "IM":
+                j += 1
+        return j
+
+    def to_end_of_command(j: int) -> int:
+        while j < n and s[j] not in ";\n}":
+            j += 1
+        return j
+
+    while i < n:
+        if s[i] in " \t\n;":
+            i += 1
+            continue
+        i = address(i)
+        if 0 <= i < n and s[i] == ",":
+            i = address(i + 1)
+        if i < 0:
+            return False
+        while i < n and s[i] in " \t!":
+            i += 1
+        if i >= n:
+            return True
+        command = s[i]
+        if command in "{}":
+            i += 1
+        elif command in _SED_SIMPLE:
+            i += 1
+            while i < n and s[i].isdigit():
+                i += 1
+        elif command in ":btTv":
+            i = to_end_of_command(i + 1)
+        elif command in "aic":
+            # Text to append, insert or change, up to an unescaped end of line.
+            i += 1
+            while i < n and s[i] != "\n":
+                i += 2 if s[i] == "\\" else 1
+        elif command in "sy":
+            if i + 1 >= n or s[i + 1] in "\\\n":
+                return False
+            delim = s[i + 1]
+            i = past(i + 2, delim)
+            i = past(i, delim) if i >= 0 else -1
+            if i < 0:
+                return False
+            if command == "s":
+                end = to_end_of_command(i)
+                if any(flag not in _SED_S_FLAGS for flag in s[i:end]):
+                    return False
+                i = end
+        else:
+            return False
+    return True
+
+
+def _short_or_long_value(args: Sequence[str], letter: str, long: str, *, valued: str) -> str | None:
+    """The value of an option given as ``long VALUE``, ``long=VALUE``, ``-xVALUE`` or ``-x
+    VALUE``, also inside a group of short options. ``valued`` lists the short options that take
+    a value, so the rest of a group after one of them is that value."""
+    for i, arg in enumerate(args):
+        if arg == long:
+            return args[i + 1] if i + 1 < len(args) else ""
+        if arg.startswith(long + "="):
+            return arg.split("=", 1)[1]
+        if arg.startswith("-") and not arg.startswith("--"):
+            for j, found in enumerate(arg[1:], start=1):
+                if found in valued:
+                    if found == letter:
+                        return arg[j + 1 :] or (args[i + 1] if i + 1 < len(args) else "")
+                    break
+    return None
+
+
+def _operands(args: Sequence[str], valued: Sequence[str] = ()) -> list[str]:
+    """The arguments that are not options, skipping the values of ``valued`` options."""
+    found: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--":
+            found += args[i + 1 :]
+            break
+        if arg in valued:
+            i += 2
+            continue
+        if not _is_option(arg):
+            found.append(arg)
+        i += 1
+    return found
 
 
 def _option_value(args: Sequence[str], names: Sequence[str]) -> str | None:

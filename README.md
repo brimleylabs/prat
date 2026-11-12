@@ -206,6 +206,11 @@ denies every form of push on top. Gates and environments run with PRAT's own key
 their environment. The web UI listens on loopback, signs in with one-time links, and checks the
 origin and a CSRF token on every change. Details: [docs/SECURITY.md](docs/SECURITY.md).
 
+The policy is analysis, not a sandbox. From `low` up, the project's own commands run code the
+agent can edit, so they can do what you can. Point PRAT at code you trust, or run it in a
+virtual machine or container as a user with no credentials. Container isolation is on the
+roadmap.
+
 ## Your data, on a branch
 
 <p align="center"><img alt="A card works on its own branch of the code and of the database; approval merges the data, then the code" src="docs/images/prat-data.svg" width="100%"></p>
