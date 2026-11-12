@@ -68,6 +68,15 @@ PRAT specifically (see "Not covered yet").
   from a file. Output options (`sort -o`, `git log --output`, `tree -o`, a second operand to
   `uniq` or `xxd`, `yq -i`) are judged as writes, and options that run a program (`rg --pre`,
   `fd --exec`, `sort --compress-program`, `git grep -O`) as running it. `awk` needs `medium`.
+  sed options must be spelled out in full (GNU sed's abbreviations such as `--expr` are
+  refused) and option values such as `-l 5` are read as values, so every script is seen.
+- Variables that make a later command run other code (`PATH`, `LESSOPEN`, `PAGER`,
+  `GIT_PAGER`, `EDITOR`, `LD_PRELOAD`, `PYTHONSTARTUP`, `NODE_OPTIONS` and the like) need
+  `medium`, however they are set. A path in a variable is judged where it is assigned.
+- Paths are judged after the shell would expand them: wildcards and braces against the files
+  that exist, and `$HOME`-style variables; a path built from any other variable is refused.
+  A recursive search (`grep -r`, `rg`, `find -exec`) of a folder that holds a credential store
+  is refused, and so is any reference to a variable whose name looks like a credential.
 - Credential stores are secret wherever they are: `~/.ssh`, `~/.aws`, `~/.config/gh`, gcloud,
   Azure, Docker and Kubernetes configuration, `~/.git-credentials`, `~/.claude.json`, `.pgpass`,
   `/proc/*/environ` and similar, besides the secret file names. Printing the whole environment
@@ -251,17 +260,27 @@ everything that runs a project's code for a card runs in a fresh container: the 
 commands, the gates, the setup checks and the project's environments. Each container:
 
 - mounts only the card's worktree, read-write, and the clone's git directory, read-only, at the
-  same paths as on this machine, plus a home folder of its own for caches;
+  same paths as on this machine, plus a home folder of its own for caches. The worktree's own
+  `.git` (the file that tells git where the repository is) is mounted read-only on top;
 - sees none of your files outside those mounts and none of your environment variables, so no
   SSH keys, cloud credentials, GitHub CLI login or API keys;
-- runs as your user id with every capability dropped and no new privileges;
+- runs as your user id with every capability dropped, no new privileges, and limits on memory,
+  CPU and processes (`sandbox_memory`, `sandbox_cpus`);
 - has no network. A project database on this machine is reached through a relay container on a
   private network with no route out, and only the ports the card's own variables name;
 - is removed when its command ends, times out or is cancelled; whatever a card left behind is
   removed when its step ends.
 
 The agent's plain `git` commands stay on this machine, where the policy judges them, so a
-container never writes the git directory and cannot plant a hook. The setup card installs
+container never writes the git directory. A container can still write anything else in the
+worktree, so git on this machine treats the worktree as hostile:
+
+- the agent's git commands name the card's git directory outright (`GIT_DIR`, `GIT_WORK_TREE`),
+  so a `.git` folder planted in a subfolder is never found;
+- every git command PRAT or the agent runs here switches off settings that run a program or
+  look inside submodules (`core.fsmonitor`, submodule recursion), ahead of any config file;
+- after each step that ran containers, PRAT checks that the `.git` file is unchanged and that
+  no `.git` appeared anywhere below the worktree's top; if one did, the run fails. The setup card installs
 dependencies, so its containers have the network; so do environments, which the browser must
 reach. A project chooses its image with `[sandbox] image = "..."` in its project file; it needs
 `sh`, and `socat` for environments. If the sandbox is configured but cannot run, the card fails:
@@ -282,6 +301,10 @@ PRAT never falls back to running the commands on this machine.
   your shell, except PRAT's own: gates get no `PRAT_*`, `ANTHROPIC_*` or `CLAUDE_CODE_*`
   variables, and the agent's `PRAT_*` variables are blanked. With the sandbox, containers get
   only the variables PRAT passes.
+- **The policy is guardrails, not a boundary.** It analyses commands before they run and stops
+  a cooperative agent's mistakes and the obvious misuses, but a list of rules about a shell
+  cannot be complete: reviews keep finding routes it does not know. For code you do not trust,
+  the boundary is the sandbox.
 - **What the sandbox leaves on this machine.** The agent's file tools (read, write, edit,
   search) and git commands it runs on their own are judged by the policy and run here, as does
   the Claude Code process, which needs the network to reach the model. The setup card's

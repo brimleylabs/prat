@@ -253,3 +253,40 @@ async def test_a_card_runs_its_commands_and_gates_in_the_sandbox(
     branch = git(Path(project.agent_path), "branch", "--list", f"card/{card_id}-*")
     shown = git(Path(project.agent_path), "show", f"{branch.strip(' *+')}:where.txt")
     assert shown == "True"
+
+
+def test_a_container_cannot_repoint_git_and_a_planted_git_is_noticed(root: Path) -> None:
+    clone = root / "clone"
+    clone.mkdir()
+    git(clone, "init", "-q", "-b", "main")
+    (clone / "app.py").write_text("x = 1\n", encoding="utf-8")
+    git(clone, "add", "-A")
+    git(clone, "commit", "-q", "-m", "start")
+    work = root / "card"
+    git(clone, "worktree", "add", "-q", "-b", "card", str(work))
+    box = Sandbox.create(
+        docker="docker",
+        image=IMAGE,
+        relay_image=IMAGE,
+        name=f"git-{root.name}",
+        workdir=work,
+        home=root / "home",
+        network=False,
+    )
+    pointer = (work / ".git").read_text(encoding="utf-8")
+    try:
+        attack = subprocess.run(
+            box.run_argv(
+                ["sh", "-c", "echo 'gitdir: /tmp/fake' > .git; mkdir -p sub/.git"],
+                cwd=work,
+            ),
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        assert "Read-only file system" in attack.stderr
+        assert (work / ".git").read_text(encoding="utf-8") == pointer
+        assert box.tampered() == "sub/.git appeared in the worktree"
+    finally:
+        box.cleanup()

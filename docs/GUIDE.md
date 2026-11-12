@@ -299,6 +299,7 @@ variables:
 | `web_session_hours` | 12 | Session lifetime; sessions are kept in the database and survive a restart |
 | `sandbox` | `off` | `docker` runs a card's commands, gates and environments in containers (see below) |
 | `sandbox_image`, `docker_path` | `prat-sandbox:1`, `docker` | The default image, and the docker command |
+| `sandbox_memory`, `sandbox_cpus` | `4g`, 2 | Limits for each container |
 
 ### The sandbox
 

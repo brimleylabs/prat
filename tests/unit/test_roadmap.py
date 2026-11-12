@@ -12,7 +12,7 @@ REPO_ROADMAP = Path(__file__).resolve().parents[2] / "docs" / "ROADMAP.md"
 def test_prats_own_roadmap_parses() -> None:
     items = parse_roadmap(REPO_ROADMAP.read_text(encoding="utf-8"))
     titles = [item.title for item in items]
-    assert len(items) == 17
+    assert len(items) == 16
     assert titles[0] == "Evaluation harness"
     assert titles[-1] == "Provenance on every run"
     assert not any("manual" in title.casefold() for title in titles)

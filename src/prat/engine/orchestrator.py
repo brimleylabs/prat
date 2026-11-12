@@ -1382,8 +1382,9 @@ class Engine:
                 "project": ctx.project_slug,
                 "role": str(role),
             },
-            # The project's own database settings, pointed at the card's branch.
-            env=env,
+            # The project's own database settings, pointed at the card's branch. With the
+            # sandbox, git commands that stay on this machine get the git directory by name.
+            env={**env, **sandbox.host_git_env()} if sandbox is not None else env,
             shell=(
                 functools.partial(sandbox.shell, cwd=ctx.worktree_path, env=env)
                 if sandbox is not None
@@ -1443,6 +1444,7 @@ class Engine:
             if sandbox is not None:
                 # Commands the agent's runtime gave up on leave their containers behind.
                 await asyncio.to_thread(sandbox.cleanup)
+        tampered = await asyncio.to_thread(sandbox.tampered) if sandbox is not None else None
 
         detail: dict[str, Any] = {
             "session_id": active.session_id,
@@ -1454,6 +1456,22 @@ class Engine:
         }
         if knowledge.ids:
             detail["knowledge"] = knowledge.ids
+        if tampered is not None:
+            detail["sandbox"] = tampered
+            record_error(
+                self.db,
+                "sandbox",
+                "git_tampered",
+                f"a container changed what git on this machine reads: {tampered}",
+                detail={"run_id": ctx.run_id, "card_id": ctx.card_id},
+            )
+            return StepResult(
+                StepStatus.FAILED,
+                detail,
+                RunStatus.FAILED,
+                f"sandbox: {tampered}",
+                "the sandbox was tampered with",
+            )
         if outcome is None:
             return StepResult(
                 StepStatus.FAILED,
@@ -1602,6 +1620,9 @@ class Engine:
                 gates += [check.as_gate() for check in checks]
             if sandbox is not None:
                 await asyncio.to_thread(sandbox.cleanup)
+                problem = await asyncio.to_thread(sandbox.tampered)
+                if problem is not None:
+                    gates = [*gates, sandbox_gate(f"a container changed what git reads: {problem}")]
             # Gates must not leave changes behind that a later commit would pick up.
             await asyncio.to_thread(_reset_worktree, worktree)
         for gate in gates:

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from prat.proc import run_tree
+from prat.sandbox import host_git_config_env
 
 GIT_ENV_DEFAULTS: Mapping[str, str] = {
     "GIT_TERMINAL_PROMPT": "0",
@@ -70,6 +71,9 @@ class Git:
             ):
                 env.pop(key)
         env.update(GIT_ENV_DEFAULTS)
+        # Nothing in a repository's own settings may make PRAT's git run a program: agents,
+        # and with the sandbox containers, can write the folders PRAT runs git in.
+        env.update(host_git_config_env())
         return env
 
     def run(self, *args: str, check: bool = True, input_text: str | None = None) -> GitResult:

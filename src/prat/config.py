@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     sandbox: Literal["off", "docker"] = "off"
     sandbox_image: str = "prat-sandbox:1"
     docker_path: str = "docker"
+    # Limits for each container.
+    sandbox_memory: str = Field(default="4g", pattern=r"^\d+[bkmg]?$")
+    sandbox_cpus: float = Field(default=2.0, gt=0, le=256)
     # Role to model overrides, e.g. {builder = "claude-haiku-5-5"}.
     models: dict[str, str] = Field(default_factory=dict)
     # Loop detector: the same tool on the same target this many times within

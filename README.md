@@ -206,8 +206,9 @@ denies every form of push on top. Gates and environments run with PRAT's own key
 their environment. The web UI listens on loopback, signs in with one-time links, and checks the
 origin and a CSRF token on every change. Details: [docs/SECURITY.md](docs/SECURITY.md).
 
-The policy is analysis, not confinement: from `low` up, the project's own commands run code the
-agent can edit. For code you do not trust, turn on the **sandbox** (macOS and Linux):
+The policy is guardrails for a cooperative agent, not a security boundary: from `low` up, the
+project's own commands run code the agent can edit. For code you do not trust, turn on the
+**sandbox** (macOS and Linux):
 
 ```toml
 sandbox = "docker"        # in ~/.prat/config.toml, after `prat sandbox build`
@@ -216,9 +217,10 @@ sandbox = "docker"        # in ~/.prat/config.toml, after `prat sandbox build`
 Then the agent's shell commands, the gates, the setup checks and the environments each run in
 a fresh container that sees only the card's worktree, runs as you with every capability
 dropped, gets none of your environment variables or credentials, and has no network except
-a relay to the project's own databases. Plain `git` commands stay outside, judged by the policy,
-so a container never writes the repository's git data. If the sandbox cannot run, the card
-fails rather than running the commands on your machine.
+a relay to the project's own databases. Plain `git` commands stay outside, judged by the policy
+and pinned to the card's real git directory with program-running settings off, and PRAT checks
+after every container that nothing planted a `.git` git would trust. If the sandbox cannot
+run, the card fails rather than running the commands on your machine.
 
 ## Your data, on a branch
 

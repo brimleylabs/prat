@@ -132,6 +132,8 @@ def for_settings(
         home=settings.home,
         network=network,
         env=env,
+        memory=settings.sandbox_memory,
+        cpus=settings.sandbox_cpus,
     )
 
 
@@ -168,11 +170,32 @@ def _docker(docker: str, *args: str, timeout: float = DOCKER_TIMEOUT_SECONDS) ->
     return result.stdout.strip()
 
 
-def git_common_dir(worktree: Path) -> Path | None:
-    """The git directory a worktree shares with its clone, if it has one."""
+# Settings for every git command PRAT or the agent runs on this machine in a folder a container
+# could write: nothing in that folder may make git run a program. ``core.fsmonitor`` names a
+# program; checking a submodule's working tree would read that submodule's own settings.
+HOST_GIT_CONFIG: tuple[tuple[str, str], ...] = (
+    ("core.fsmonitor", "false"),
+    ("diff.ignoreSubmodules", "dirty"),
+    ("submodule.recurse", "false"),
+    ("status.submoduleSummary", "false"),
+)
+
+
+def host_git_config_env() -> dict[str, str]:
+    """:data:`HOST_GIT_CONFIG` as ``GIT_CONFIG_COUNT`` variables, which outrank every file."""
+    env = {"GIT_CONFIG_COUNT": str(len(HOST_GIT_CONFIG))}
+    for i, (key, value) in enumerate(HOST_GIT_CONFIG):
+        env[f"GIT_CONFIG_KEY_{i}"] = key
+        env[f"GIT_CONFIG_VALUE_{i}"] = value
+    return env
+
+
+def git_common_dir(worktree: Path, which: str = "--git-common-dir") -> Path | None:
+    """The git directory a worktree shares with its clone (or, with ``--absolute-git-dir``,
+    its own), if it has one."""
     try:
         result = subprocess.run(
-            ["git", "-C", str(worktree), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            ["git", "-C", str(worktree), "rev-parse", "--path-format=absolute", which],
             capture_output=True,
             text=True,
             timeout=30,
@@ -197,6 +220,11 @@ class Sandbox:
     git_dir: Path | None = None
     relay_image: str = ""
     db_ports: tuple[int, ...] = ()
+    # The worktree's own git directory, and its .git file as it was before any container ran.
+    own_git_dir: Path | None = None
+    git_pointer: str | None = None
+    memory: str = "4g"
+    cpus: float = 2.0
     _prepared: bool = field(default=False, init=False, repr=False)
 
     @classmethod
@@ -211,8 +239,11 @@ class Sandbox:
         home: Path,
         network: bool,
         env: Mapping[str, str] | None = None,
+        memory: str = "4g",
+        cpus: float = 2.0,
     ) -> Sandbox:
         prefix = "prat-" + _NAME.sub("-", name.lower()).strip("-.")[:60]
+        pointer = workdir / ".git"
         return cls(
             docker=docker,
             image=image,
@@ -223,6 +254,10 @@ class Sandbox:
             git_dir=git_common_dir(workdir),
             relay_image=relay_image or image,
             db_ports=loopback_ports(env or {}),
+            own_git_dir=git_common_dir(workdir, "--absolute-git-dir"),
+            git_pointer=pointer.read_text(encoding="utf-8") if pointer.is_file() else None,
+            memory=memory,
+            cpus=cpus,
         )
 
     @property
@@ -335,7 +370,7 @@ class Sandbox:
             "--network", "bridge" if publish is not None else self.network_name,
             "--user", user,
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-            "--pids-limit", "2048",
+            "--pids-limit", "2048", "--memory", self.memory, "--cpus", str(self.cpus),
             "--env-file", str(env_path),
             "-v", f"{self.workdir}:{self.workdir}",
             "-v", f"{self.home_dir}:{CONTAINER_HOME}",
@@ -343,6 +378,11 @@ class Sandbox:
         ]  # fmt: skip
         if self.git_dir is not None and not self.git_dir.is_relative_to(self.workdir):
             command += ["-v", f"{self.git_dir}:{self.git_dir}:ro"]
+        dot_git = self.workdir / ".git"
+        if dot_git.exists():
+            # The worktree's .git (a pointer file, or a clone's whole git directory) decides
+            # what git on this machine reads: a container must not be able to change it.
+            command += ["-v", f"{dot_git}:{dot_git}:ro"]
         if direct:
             command += ["--add-host", "host.docker.internal:host-gateway"]
         if name is not None:
@@ -354,6 +394,34 @@ class Sandbox:
             )
             return [*command, self.image, "sh", "-c", relay, "prat-environment", *argv]
         return [*command, self.image, *argv]
+
+    def host_git_env(self) -> dict[str, str]:
+        """Variables for git commands the agent runs on this machine in the worktree: the git
+        directory is named outright, so no ``.git`` a container planted in a subfolder is ever
+        found, and nothing in the repository's settings can run a program."""
+        env = host_git_config_env()
+        if self.own_git_dir is not None:
+            env.update(GIT_DIR=str(self.own_git_dir), GIT_WORK_TREE=str(self.workdir))
+        return env
+
+    def tampered(self) -> str | None:
+        """What a container changed that git on this machine would trust, or ``None``: the
+        worktree's .git file, or a .git anywhere below the worktree's top."""
+        pointer = self.workdir / ".git"
+        if self.git_pointer is not None:
+            try:
+                now = pointer.read_text(encoding="utf-8") if pointer.is_file() else None
+            except OSError:
+                now = None
+            if now != self.git_pointer:
+                return "the worktree's .git file was changed"
+        for folder, dirs, files in os.walk(self.workdir):
+            top = Path(folder) == self.workdir
+            if not top and (".git" in dirs or ".git" in files):
+                relative = Path(folder).relative_to(self.workdir).as_posix()
+                return f"{relative}/.git appeared in the worktree"
+            dirs[:] = [d for d in dirs if d != ".git"]
+        return None
 
     def shell(self, command: str, *, cwd: Path, env: Mapping[str, str] | None = None) -> str:
         """A shell command line that runs ``command`` in this sandbox, for the agent's shell."""
