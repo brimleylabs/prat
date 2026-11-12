@@ -40,7 +40,6 @@ dev = [
 
 [project.scripts]
 prat = "prat.cli:main"
-# The name before PRAT, kept so existing scripts and services keep working.
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prat"]
@@ -78,7 +77,7 @@ ignore = [
 python_version = "3.12"
 strict = true
 warn_unreachable = true
-packages = ["PRAT"]
+packages = ["prat"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
