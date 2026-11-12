@@ -96,7 +96,8 @@ async def test_the_setup_card_proposes_a_project_file_that_prat_proves(
     engine, _ = make_engine(settings, db, FakeRuntime(script_for))
     result = await engine.run_card(card_id)
 
-    assert result.card_status is CardStatus.REVIEW, result
+    failed = {g["name"]: g["output_tail"] for g in gates_of(run_of(db, card_id)) if not g["passed"]}
+    assert result.card_status is CardStatus.REVIEW, (result, failed)
     task = seen[0]
     assert task.metadata["role"] == "setup"
     assert "only agent allowed to write the project's .prat/ folder" in task.system_prompt
