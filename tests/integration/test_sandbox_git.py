@@ -27,6 +27,8 @@ def worktree(tmp_path: Path) -> Path:
     clone = tmp_path / "clone"
     clone.mkdir()
     git(clone, "init", "-q", "-b", "main")
+    git(clone, "config", "user.name", "Test Person")
+    git(clone, "config", "user.email", "person@example.invalid")
     (clone / "app.py").write_text("x = 1\n", encoding="utf-8")
     git(clone, "add", "-A")
     git(clone, "commit", "-q", "-m", "start")

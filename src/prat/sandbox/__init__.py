@@ -363,7 +363,9 @@ class Sandbox:
         self.prepare()
         direct = self.network or publish is not None
         env_path = self.env_file(env or {}, tag, direct=direct)
-        user = f"{os.getuid()}:{os.getgid()}" if hasattr(os, "getuid") else "1000:1000"
+        # Linux and macOS only (see supported()); looked up by name for type checks elsewhere.
+        uid, gid = getattr(os, "getuid", lambda: 1000)(), getattr(os, "getgid", lambda: 1000)()
+        user = f"{uid}:{gid}"
         command = [
             self.docker, "run", "--rm", "-i", "--init",
             "--label", self.label,
