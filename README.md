@@ -52,7 +52,6 @@ What PRAT did on real projects in its last week of development, start to finish:
 | **A schema change on its own branch** | The next card added a column. It ran on its own Doltgres branch while `main` stayed untouched, review showed exactly that one schema change, and approval merged the data, then the code. |
 | **A security upgrade, proven live** | A card cleared 90+ known advisories from a production app's dependencies. The reviewer marked it met only after seeing the server start and answer `/health`, from the commands PRAT recorded, not from the agent's say-so. |
 | **Knowledge that corrects itself** | One overnight pass checked 380 facts across four projects in under five minutes: 32 brought up to date, the false ones retired, 72 duplicate pairs merged into single entries. A guard put back three facts an over-eager merge had lost. |
-| **Bugs found upstream** | Running real applications on Doltgres turned up four bugs in Doltgres, Dolt and go-mysql-server. Each now has a fix, a failing test and an open pull request. |
 
 ## The four words
 
