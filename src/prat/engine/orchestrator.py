@@ -131,8 +131,11 @@ SANDBOX_NOTE = """
 Your shell commands run in a fresh container that sees only this worktree, at the same path.
 It {network} network access; the project's databases are reachable at the addresses in your
 environment. Nothing you start survives the command, and `cd` does not carry over between
-commands. Run git commands on their own (not combined with other commands): they run on this
-machine, where the repository's git data is writable.
+commands. The repository's git data is read-only there: read it freely (`git status`,
+`git diff`, `git log`, `git show`), but do not stage, commit, stash, switch branches or use
+any other git command that writes. This replaces the rule about committing: PRAT commits
+everything you leave in the worktree when you finish. To undo a change to a file, write the
+old content back (`git show HEAD:path > path`).
 """
 
 
@@ -1382,9 +1385,8 @@ class Engine:
                 "project": ctx.project_slug,
                 "role": str(role),
             },
-            # The project's own database settings, pointed at the card's branch. With the
-            # sandbox, git commands that stay on this machine get the git directory by name.
-            env={**env, **sandbox.host_git_env()} if sandbox is not None else env,
+            # The project's own database settings, pointed at the card's branch.
+            env=env,
             shell=(
                 functools.partial(sandbox.shell, cwd=ctx.worktree_path, env=env)
                 if sandbox is not None

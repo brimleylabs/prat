@@ -638,6 +638,8 @@ def test_read_only_tools_cannot_write_run_or_read_credentials(
         "git log --output=/tmp/out",
         "cat ~/.aws/credentials",
         "cat /proc/self/environ" if os.name != "nt" else "cat ~/.git-credentials",
+        "cat /proc/self/task/1/environ" if os.name != "nt" else "cat ~/.netrc",
+        "cat /proc/thread-self/environ" if os.name != "nt" else "cat ~/.pgpass",
         "printenv",
     ],
 )

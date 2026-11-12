@@ -192,7 +192,7 @@ SECRET_HOME_PATHS: tuple[str, ...] = (
     ".composer/auth.json", ".terraform.d/credentials.tfrc.json", "Library/Keychains",
 )  # fmt: skip
 # Secret wherever they are.
-SECRET_LOCATIONS: tuple[re.Pattern[str], ...] = (re.compile(r"^/proc/[^/]+/environ$"),)
+SECRET_LOCATIONS: tuple[re.Pattern[str], ...] = (re.compile(r"^/proc/(?:.+/)?environ$"),)
 # Environment variable names that usually hold a credential.
 SECRET_VARIABLE = re.compile(
     r"TOKEN|SECRET|PASSW|PASSPHRASE|CREDENTIAL|(?:API|ACCESS|PRIVATE)_?KEY|COOKIE|SESSION", re.I

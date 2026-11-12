@@ -317,8 +317,10 @@ sandbox = "docker"            # in config.toml
 
 From then on the agent's shell commands, the gates, the setup checks and the environments run
 in containers that see only the card's worktree, with no network (project databases on this
-machine are reached through a relay) and none of your environment variables. Plain `git`
-commands stay outside. A project that needs other runtimes names its own image:
+machine are reached through a relay) and none of your environment variables. The agent's git
+commands run there too, where the repository's git data is read-only: it can read status,
+diffs and history, and PRAT commits its work when the step ends (one commit per step, with
+PRAT's message). A project that needs other runtimes names its own image:
 
 ```toml
 [sandbox]                     # in .prat/project.toml

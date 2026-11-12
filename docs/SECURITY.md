@@ -271,14 +271,22 @@ commands, the gates, the setup checks and the project's environments. Each conta
 - is removed when its command ends, times out or is cancelled; whatever a card left behind is
   removed when its step ends.
 
-The agent's plain `git` commands stay on this machine, where the policy judges them, so a
-container never writes the git directory. A container can still write anything else in the
-worktree, so git on this machine treats the worktree as hostile:
+No command the agent writes runs on this machine, git included. Git has many ways to run a
+program (`rebase --exec`, `bisect run`, hooks found through `--git-dir`, editors, pagers,
+aliases, merge strategies), so the agent's git commands go into the container like every
+other command. There the repository's git data is read-only: the agent reads status, diffs
+and history, and a command that would write (`add`, `commit`, `rebase`, `stash`) fails. PRAT
+commits the work itself when the step ends, one commit per step.
 
-- the agent's git commands name the card's git directory outright (`GIT_DIR`, `GIT_WORK_TREE`),
-  so a `.git` folder planted in a subfolder is never found;
-- every git command PRAT or the agent runs here switches off settings that run a program or
-  look inside submodules (`core.fsmonitor`, submodule recursion), ahead of any config file;
+That leaves PRAT's own git on this machine: a fixed set of commands (`add --all`,
+`commit --no-verify`, `diff`, `merge`) that take no option or path from the agent. A container
+can write anything in the worktree except `.git`, so those commands treat the worktree as
+hostile:
+
+- every git command PRAT runs switches off settings that run a program or look inside
+  submodules (`core.fsmonitor`, submodule recursion), ahead of any config file;
+- PRAT's commits skip commit hooks, and the hooks folder and the repository's settings are
+  in the git directory, which a container cannot write;
 - after each step that ran containers, PRAT checks that the `.git` file is unchanged and that
   no `.git` appeared anywhere below the worktree's top; if one did, the run fails. The setup card installs
 dependencies, so its containers have the network; so do environments, which the browser must
@@ -306,8 +314,10 @@ PRAT never falls back to running the commands on this machine.
   cannot be complete: reviews keep finding routes it does not know. For code you do not trust,
   the boundary is the sandbox.
 - **What the sandbox leaves on this machine.** The agent's file tools (read, write, edit,
-  search) and git commands it runs on their own are judged by the policy and run here, as does
-  the Claude Code process, which needs the network to reach the model. The setup card's
+  search) are judged by the policy and run here, as does the Claude Code process, which needs
+  the network to reach the model. PRAT's own git commands run here on files a container
+  wrote; a filter or diff program named in your own git settings (Git LFS, for example) would
+  be given those files to process. The setup card's
   containers and environments have the network, and through the container gateway can reach
   services listening on this machine. The sandbox runs on macOS and Linux only, and its
   strength is Docker's.

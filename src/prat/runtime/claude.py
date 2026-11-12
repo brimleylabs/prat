@@ -248,14 +248,13 @@ def tool_calls_for(tool_name: str, tool_input: Mapping[str, Any]) -> list[ToolCa
 def sandboxed_input(
     tool_name: str, tool_input: Any, shell: Callable[[str], str] | None
 ) -> dict[str, Any] | None:
-    """The Bash tool's input with the command moved into the sandbox, or ``None`` to run the
-    call as it is. Commands made only of git stay on this machine (prat.sandbox)."""
-    from prat.sandbox import runs_on_host
-
+    """The Bash tool's input with the command moved into the sandbox, or ``None`` when there
+    is no sandbox. Every command moves, git included: with a sandbox, nothing the agent writes
+    runs on this machine (prat.sandbox)."""
     if shell is None or tool_name != "Bash" or not isinstance(tool_input, Mapping):
         return None
     command = tool_input.get("command")
-    if not isinstance(command, str) or not command.strip() or runs_on_host(command):
+    if not isinstance(command, str) or not command.strip():
         return None
     return {**tool_input, "command": shell(command)}
 

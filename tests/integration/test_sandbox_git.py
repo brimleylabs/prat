@@ -2,7 +2,8 @@
 
 A container can write the whole worktree. Git finds its repository by looking for ``.git``,
 so a planted ``.git`` folder with ``core.fsmonitor`` set would make the next git command on
-this machine run a program. PRAT's git and the agent's git commands must ignore it.
+this machine run a program. PRAT's own git must ignore it, and PRAT must notice it. (The
+agent's git commands never run on this machine with the sandbox: see test_sandbox_docker.)
 """
 
 from __future__ import annotations
@@ -70,7 +71,7 @@ def test_prats_git_does_not_run_planted_programs(tmp_path: Path) -> None:
     assert not marker.exists()
 
 
-def test_the_agents_git_is_pinned_to_the_real_repository(tmp_path: Path) -> None:
+def test_a_planted_git_folder_is_noticed(tmp_path: Path) -> None:
     work = worktree(tmp_path)
     box = Sandbox.create(
         docker="docker",
@@ -83,9 +84,9 @@ def test_the_agents_git_is_pinned_to_the_real_repository(tmp_path: Path) -> None
     )
     marker = tmp_path / "ran"
     plant(work / "sub", marker)
-    env = {**os.environ, **box.host_git_env()}
-    for args in (["status"], ["-C", "sub", "status"], ["-C", "sub", "add", "-A"]):
-        subprocess.run(["git", *args], cwd=work, env=env, capture_output=True, check=False)
+    # PRAT's own commit of the step's work, as far as git lets it go.
+    Git(work).run("add", "--all", check=False)
+    Git(work).run("commit", "--quiet", "--no-verify", "-m", "PRAT: save work", check=False)
     assert not marker.exists()
     assert box.tampered() == "sub/.git appeared in the worktree"
 

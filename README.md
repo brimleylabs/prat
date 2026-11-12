@@ -217,10 +217,11 @@ sandbox = "docker"        # in ~/.prat/config.toml, after `prat sandbox build`
 Then the agent's shell commands, the gates, the setup checks and the environments each run in
 a fresh container that sees only the card's worktree, runs as you with every capability
 dropped, gets none of your environment variables or credentials, and has no network except
-a relay to the project's own databases. Plain `git` commands stay outside, judged by the policy
-and pinned to the card's real git directory with program-running settings off, and PRAT checks
-after every container that nothing planted a `.git` git would trust. If the sandbox cannot
-run, the card fails rather than running the commands on your machine.
+a relay to the project's own databases. No command the agent writes runs on your machine,
+git included: in the container the repository's git data is read-only, and PRAT commits the
+work itself when the step ends. PRAT's own git runs with program-running settings off and
+checks after every container that nothing planted a `.git` git would trust. If the sandbox
+cannot run, the card fails rather than running the commands on your machine.
 
 ## Your data, on a branch
 

@@ -15,8 +15,10 @@ checks and the project's environments. Each container
 The setup card is the exception: it installs dependencies, so its containers have the
 network. Environments have it too, because the browser must reach them.
 
-Git commands the agent runs on their own stay on this machine, where the policy judges them,
-so a container never needs to write the git directory.
+No command the agent writes runs on this machine, git included. In a container the
+repository's git data is read-only: the agent reads it (status, diff, log) and PRAT itself
+commits the work when the step ends, with commands of its own that name no file or option the
+agent chose.
 """
 
 from __future__ import annotations
@@ -32,8 +34,6 @@ from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
-
-from prat.policy.shell import ShellParseError, split_commands
 
 if TYPE_CHECKING:
     from prat.config import Settings
@@ -92,17 +92,6 @@ def loopback_ports(values: Mapping[str, str]) -> tuple[int, ...]:
     """The ports of every address on this machine named in ``values``."""
     found = {int(m.group(1)) for value in values.values() for m in _LOOPBACK.finditer(value)}
     return tuple(sorted(p for p in found if 0 < p < 65536))
-
-
-def runs_on_host(command: str) -> bool:
-    """True when a shell command is only git commands, which stay on this machine."""
-    try:
-        commands = split_commands(command)
-    except ShellParseError:
-        return False
-    return bool(commands) and all(
-        c.argv and Path(c.argv[0]).name in ("git", "git.exe") and not c.redirects for c in commands
-    )
 
 
 def for_settings(
@@ -170,8 +159,8 @@ def _docker(docker: str, *args: str, timeout: float = DOCKER_TIMEOUT_SECONDS) ->
     return result.stdout.strip()
 
 
-# Settings for every git command PRAT or the agent runs on this machine in a folder a container
-# could write: nothing in that folder may make git run a program. ``core.fsmonitor`` names a
+# Settings for every git command PRAT runs on this machine in a folder a container could
+# write: nothing in that folder may make git run a program. ``core.fsmonitor`` names a
 # program; checking a submodule's working tree would read that submodule's own settings.
 HOST_GIT_CONFIG: tuple[tuple[str, str], ...] = (
     ("core.fsmonitor", "false"),
@@ -190,12 +179,11 @@ def host_git_config_env() -> dict[str, str]:
     return env
 
 
-def git_common_dir(worktree: Path, which: str = "--git-common-dir") -> Path | None:
-    """The git directory a worktree shares with its clone (or, with ``--absolute-git-dir``,
-    its own), if it has one."""
+def git_common_dir(worktree: Path) -> Path | None:
+    """The git directory a worktree shares with its clone, if it has one."""
     try:
         result = subprocess.run(
-            ["git", "-C", str(worktree), "rev-parse", "--path-format=absolute", which],
+            ["git", "-C", str(worktree), "rev-parse", "--path-format=absolute", "--git-common-dir"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -220,8 +208,7 @@ class Sandbox:
     git_dir: Path | None = None
     relay_image: str = ""
     db_ports: tuple[int, ...] = ()
-    # The worktree's own git directory, and its .git file as it was before any container ran.
-    own_git_dir: Path | None = None
+    # The worktree's .git file as it was before any container ran.
     git_pointer: str | None = None
     memory: str = "4g"
     cpus: float = 2.0
@@ -254,7 +241,6 @@ class Sandbox:
             git_dir=git_common_dir(workdir),
             relay_image=relay_image or image,
             db_ports=loopback_ports(env or {}),
-            own_git_dir=git_common_dir(workdir, "--absolute-git-dir"),
             git_pointer=pointer.read_text(encoding="utf-8") if pointer.is_file() else None,
             memory=memory,
             cpus=cpus,
@@ -397,15 +383,6 @@ class Sandbox:
             return [*command, self.image, "sh", "-c", relay, "prat-environment", *argv]
         return [*command, self.image, *argv]
 
-    def host_git_env(self) -> dict[str, str]:
-        """Variables for git commands the agent runs on this machine in the worktree: the git
-        directory is named outright, so no ``.git`` a container planted in a subfolder is ever
-        found, and nothing in the repository's settings can run a program."""
-        env = host_git_config_env()
-        if self.own_git_dir is not None:
-            env.update(GIT_DIR=str(self.own_git_dir), GIT_WORK_TREE=str(self.workdir))
-        return env
-
     def tampered(self) -> str | None:
         """What a container changed that git on this machine would trust, or ``None``: the
         worktree's .git file, or a .git anywhere below the worktree's top."""
@@ -426,5 +403,6 @@ class Sandbox:
         return None
 
     def shell(self, command: str, *, cwd: Path, env: Mapping[str, str] | None = None) -> str:
-        """A shell command line that runs ``command`` in this sandbox, for the agent's shell."""
+        """A shell command line that runs ``command`` in this sandbox, for the agent's shell.
+        Every command goes through here, git included: none runs on this machine."""
         return shlex.join(self.run_argv(["sh", "-c", command], cwd=cwd, env=env, tag="shell"))

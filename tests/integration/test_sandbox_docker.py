@@ -255,15 +255,17 @@ async def test_a_card_runs_its_commands_and_gates_in_the_sandbox(
     assert shown == "True"
 
 
-def test_a_container_cannot_repoint_git_and_a_planted_git_is_noticed(root: Path) -> None:
+def card_worktree(root: Path) -> tuple[Path, Sandbox]:
+    """A clone with two commits, a card's worktree of it, and the worktree's sandbox."""
     clone = root / "clone"
     clone.mkdir()
     git(clone, "init", "-q", "-b", "main")
     git(clone, "config", "user.name", "Test Person")
     git(clone, "config", "user.email", "person@example.invalid")
-    (clone / "app.py").write_text("x = 1\n", encoding="utf-8")
-    git(clone, "add", "-A")
-    git(clone, "commit", "-q", "-m", "start")
+    for value, message in ((1, "start"), (2, "second")):
+        (clone / "app.py").write_text(f"x = {value}\n", encoding="utf-8")
+        git(clone, "add", "-A")
+        git(clone, "commit", "-q", "-m", message)
     work = root / "card"
     git(clone, "worktree", "add", "-q", "-b", "card", str(work))
     box = Sandbox.create(
@@ -275,6 +277,81 @@ def test_a_container_cannot_repoint_git_and_a_planted_git_is_noticed(root: Path)
         home=root / "home",
         network=False,
     )
+    return work, box
+
+
+def agent_shell(box: Sandbox, command: str) -> subprocess.CompletedProcess[str]:
+    """Run ``command`` the way the agent's shell tool does with the sandbox on."""
+    return subprocess.run(
+        ["sh", "-c", box.shell(command, cwd=box.workdir)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+
+
+def test_the_agents_git_reads_the_repository_and_cannot_write_it(root: Path) -> None:
+    work, box = card_worktree(root)
+    head = git(work, "rev-parse", "HEAD")
+    (work / "app.py").write_text("x = 3\n", encoding="utf-8")
+    try:
+        read = agent_shell(box, "git status --short && git log --format=%s -1 && git diff --stat")
+        assert read.returncode == 0, read.stderr
+        assert "app.py" in read.stdout and "second" in read.stdout
+        shown = agent_shell(box, "git show HEAD:app.py")
+        assert shown.stdout == "x = 2\n", shown.stderr
+        write = agent_shell(box, "git add -A && git commit -m 'from the container'")
+        assert write.returncode != 0
+        assert "Read-only file system" in write.stderr
+    finally:
+        box.cleanup()
+    assert git(work, "rev-parse", "HEAD") == head
+    assert git(work, "diff", "--cached", "--name-only") == ""
+    assert box.tampered() is None
+
+
+# Records where it ran. Git commands that exist to run a program get this one.
+PLANTED = """#!/bin/sh
+if test -f /.dockerenv; then echo container; else echo host; fi >> "{where}"
+"""
+
+GIT_COMMANDS_THAT_RUN_A_PROGRAM = [
+    "git rebase --exec ./planted.sh HEAD~1",
+    "git bisect start HEAD HEAD~1; git bisect run ./planted.sh",
+    "git init -q --bare planted-git && cp planted.sh planted-git/hooks/pre-commit && "
+    "git -c user.name=a -c user.email=a@example.invalid --git-dir=planted-git "
+    "commit --allow-empty -m x",
+    "EDITOR=./planted.sh git commit --allow-empty",
+    "GIT_EDITOR=./planted.sh git commit --amend",
+    "cp planted.sh git-merge-planted; PATH=$PWD:$PATH git merge -s planted HEAD~1",
+    "git -c core.fsmonitor=./planted.sh status",
+    "git -c core.pager=./planted.sh -p log -1",
+    "git -c alias.x='!./planted.sh' x",
+    "git difftool -y -x ./planted.sh HEAD~1",
+]
+
+
+def test_git_commands_that_run_a_program_run_it_in_the_container(root: Path) -> None:
+    work, box = card_worktree(root)
+    head = git(work, "rev-parse", "HEAD")
+    where = work / "where.txt"
+    script = work / "planted.sh"
+    script.write_text(PLANTED.format(where=where), encoding="utf-8")
+    script.chmod(0o755)
+    try:
+        for command in GIT_COMMANDS_THAT_RUN_A_PROGRAM:
+            agent_shell(box, command)
+    finally:
+        box.cleanup()
+    ran = where.read_text(encoding="utf-8").split()
+    assert ran, "none of the commands ran the program: the test proves nothing"
+    assert set(ran) == {"container"}
+    assert git(work, "rev-parse", "HEAD") == head
+
+
+def test_a_container_cannot_repoint_git_and_a_planted_git_is_noticed(root: Path) -> None:
+    work, box = card_worktree(root)
     pointer = (work / ".git").read_text(encoding="utf-8")
     try:
         attack = subprocess.run(

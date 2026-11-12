@@ -53,7 +53,6 @@ from prat.runtime.base import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from prat.sandbox import runs_on_host
 
 Op = Literal[
     "text",
@@ -329,7 +328,7 @@ class FakeRuntime:
             return True, "edited"
         if step.op == "bash":
             command = self._command(step.command or "")
-            if shell is not None and not runs_on_host(command):
+            if shell is not None:
                 # As the Claude runtime does: the approved command runs in the sandbox.
                 command = shlex.join(["sh", "-c", shell(command)])
             return await asyncio.to_thread(self._run_command, command, workdir, env)

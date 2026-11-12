@@ -17,7 +17,6 @@ from prat.sandbox import (
     Sandbox,
     for_settings,
     loopback_ports,
-    runs_on_host,
 )
 
 DB_URL = "postgresql://app:pw@127.0.0.1:5480/shop"
@@ -53,20 +52,26 @@ def test_loopback_ports_are_found_in_addresses() -> None:
 
 
 @pytest.mark.parametrize(
-    ("command", "host"),
+    "command",
     [
-        ("git status", True),
-        ("git add -A && git commit -m 'x'", True),
-        ("/usr/bin/git log --oneline", True),
-        ("git status && pytest", False),
-        ("git log > out.txt", False),
-        ("pytest -q", False),
-        ("echo 'unterminated", False),
-        ("", False),
+        "pytest -q",
+        "git status",
+        "git add -A && git commit -m 'x'",
+        "/usr/bin/git log --oneline",
+        "git rebase --exec ./planted.sh HEAD~1",
+        "git bisect run ./planted.sh",
+        "git --git-dir=planted commit -m x",
+        "EDITOR=./planted.sh git commit",
+        "echo 'unterminated",
     ],
 )
-def test_only_plain_git_commands_stay_on_the_host(command: str, host: bool) -> None:
-    assert runs_on_host(command) is host
+def test_no_command_stays_on_the_host(command: str) -> None:
+    def shell(text: str) -> str:
+        return f"SANDBOXED {text}"
+
+    assert sandboxed_input("Bash", {"command": command}, shell) == {
+        "command": f"SANDBOXED {command}"
+    }
 
 
 def test_without_databases_the_container_has_no_network(tmp_path: Path) -> None:
@@ -159,7 +164,7 @@ def test_the_policy_hook_moves_approved_shell_commands_into_the_sandbox() -> Non
 
     moved = sandboxed_input("Bash", {"command": "pytest -q", "timeout": 5}, shell)
     assert moved == {"command": "SANDBOXED pytest -q", "timeout": 5}
-    assert sandboxed_input("Bash", {"command": "git status"}, shell) is None
+    assert sandboxed_input("Bash", {"command": "  "}, shell) is None
     assert sandboxed_input("Read", {"file_path": "a.py"}, shell) is None
     assert sandboxed_input("Bash", {"command": "pytest"}, None) is None
 
