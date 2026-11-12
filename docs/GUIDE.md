@@ -15,8 +15,8 @@ never pushes.
 **Status: pre-release.** Phases 1 to 3 are in place: the Claude Agent SDK runs the builder, an
 optional planner and a read-only reviewer, every tool call goes through PRAT's policy, a card
 goes from ready to a local merge with a real model, and a web UI (`prat serve`) shows the board,
-live sessions, replays and reviews. Container isolation comes in a later phase (see
-[docs/ARCHITECTURE.md](ARCHITECTURE.md#roadmap) and [docs/SECURITY.md](SECURITY.md)).
+live sessions, replays and reviews. An optional sandbox runs a card's commands in containers
+(see [The sandbox](#the-sandbox) and [docs/SECURITY.md](SECURITY.md)).
 Interfaces may change without notice.
 
 ![The board in the web UI](images/board-1440-dark.png)
@@ -297,6 +297,37 @@ variables:
 | `project_database_url` | unset | A Doltgres server PRAT may create project databases on; never printed |
 | `web_public_url` | unset | The URL people open, when it differs from host and port (reverse proxy) |
 | `web_session_hours` | 12 | Session lifetime; sessions are kept in the database and survive a restart |
+| `sandbox` | `off` | `docker` runs a card's commands, gates and environments in containers (see below) |
+| `sandbox_image`, `docker_path` | `prat-sandbox:1`, `docker` | The default image, and the docker command |
+
+### The sandbox
+
+On macOS or Linux with Docker (Docker Desktop, Colima or the Docker Engine), build PRAT's image
+once and turn the sandbox on:
+
+```bash
+prat sandbox build            # Python 3.12, Node 22, build tools, database clients
+prat sandbox check            # docker answers and the image is there
+```
+
+```toml
+sandbox = "docker"            # in config.toml
+```
+
+From then on the agent's shell commands, the gates, the setup checks and the environments run
+in containers that see only the card's worktree, with no network (project databases on this
+machine are reached through a relay) and none of your environment variables. Plain `git`
+commands stay outside. A project that needs other runtimes names its own image:
+
+```toml
+[sandbox]                     # in .prat/project.toml
+image = "php:8.3-cli"         # needs sh, and socat for environments
+```
+
+With Colima, the container runtime shares only your home folder, so keep the PRAT home and
+`projects_dir` inside it (the defaults are). The setup card's containers have the network, to
+install dependencies; install them into the worktree (a virtual environment, `node_modules`)
+so the card's later containers find them. Details: [SECURITY.md](SECURITY.md#the-sandbox).
 
 Models per role, overridable in `[models]` here or in a project file (the project wins):
 

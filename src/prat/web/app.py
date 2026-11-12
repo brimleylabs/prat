@@ -36,6 +36,7 @@ from prat.environments import EnvironmentManager
 from prat.errors import record_error
 from prat.improve.scheduler import ImproveScheduler
 from prat.runtime.auth import AuthStatus, check_auth
+from prat.sandbox import environment_sandboxes
 from prat.web import views
 from prat.web.icons import LOGO, icon
 from prat.web.security import SecurityMiddleware, WebSecurity, security_config
@@ -210,7 +211,7 @@ def create_app(
         templates=make_templates(),
         auth_checker=auth_checker,
         improve=ImproveScheduler(db, settings, engine) if improve else None,
-        environments=EnvironmentManager(settings.home),
+        environments=EnvironmentManager(settings.home, environment_sandboxes(settings)),
         dreams=(
             DreamScheduler(db, settings, lambda: engine.runtime, runtime_name=runtime_name)
             if dreams

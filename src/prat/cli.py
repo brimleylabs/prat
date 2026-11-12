@@ -7,7 +7,7 @@ import contextlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 from rich.console import Console
@@ -47,6 +47,9 @@ from prat.projects import (
 )
 from prat.runtime import AgentRuntime, FakeRuntime, FakeScript
 
+if TYPE_CHECKING:
+    from prat.environments import EnvironmentManager
+
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="PRAT: one agent per card.")
 db_app = typer.Typer(no_args_is_help=True, help="Database management.")
 project_app = typer.Typer(no_args_is_help=True, help="Register and inspect projects.")
@@ -55,6 +58,9 @@ auth_app = typer.Typer(no_args_is_help=True, help="Agent runtime authentication.
 store_app = typer.Typer(no_args_is_help=True, help="PRAT's store: SQLite or Dolt, and its history.")
 improve_app = typer.Typer(no_args_is_help=True, help="Self-improvement: PRAT working on itself.")
 env_app = typer.Typer(no_args_is_help=True, help="Start, stop and check a project's environments.")
+sandbox_app = typer.Typer(
+    no_args_is_help=True, help="The sandbox: containers for a card's commands."
+)
 knowledge_app = typer.Typer(
     no_args_is_help=True, help="What PRAT has learned about each project, and its graph."
 )
@@ -76,6 +82,7 @@ app.add_typer(auth_app, name="auth")
 app.add_typer(improve_app, name="improve")
 app.add_typer(overlay_app, name="overlay")
 app.add_typer(env_app, name="env")
+app.add_typer(sandbox_app, name="sandbox")
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(dream_app, name="dream")
 app.add_typer(store_app, name="store")
@@ -850,6 +857,47 @@ def _improve_settings(db: Database, **changes: object) -> None:
             raise _fail(str(exc)) from exc
 
 
+def _environment_manager(settings: Settings) -> EnvironmentManager:
+    from prat.environments import EnvironmentManager
+    from prat.sandbox import environment_sandboxes
+
+    return EnvironmentManager(settings.home, environment_sandboxes(settings))
+
+
+@sandbox_app.command("check")
+def sandbox_check(ctx: typer.Context) -> None:
+    """Whether the sandbox can run here: docker, and the image."""
+    from prat import sandbox
+
+    settings = _settings(ctx)
+    problem = sandbox.check(settings.docker_path, settings.sandbox_image)
+    state = "on" if settings.sandbox == "docker" else 'off (sandbox = "docker" turns it on)'
+    console.print(f"sandbox: {state}")
+    if problem is not None:
+        raise _fail(problem)
+    console.print(f"image {settings.sandbox_image} is ready")
+
+
+@sandbox_app.command("build")
+def sandbox_build(ctx: typer.Context) -> None:
+    """Build PRAT's sandbox image (Python, Node, build tools, database clients)."""
+    import subprocess
+
+    from prat import sandbox
+
+    settings = _settings(ctx)
+    if not sandbox.supported():
+        raise _fail("the sandbox runs on macOS and Linux only")
+    dockerfile = sandbox.dockerfile()
+    command = [
+        settings.docker_path, "build", "-t", settings.sandbox_image,
+        "-f", str(dockerfile), str(dockerfile.parent),
+    ]  # fmt: skip
+    if subprocess.run(command, check=False).returncode != 0:
+        raise _fail("docker build failed")
+    console.print(f"built {settings.sandbox_image}")
+
+
 def _environments(
     ctx: typer.Context, slug: str
 ) -> tuple[Settings, Path, list[Environment], dict[str, str]]:
@@ -876,10 +924,9 @@ def _environment(envs: list[Environment], name: str) -> Environment:
 @env_app.command("list")
 def env_list(ctx: typer.Context, slug: str) -> None:
     """A project's environments, whether each is running, and its links."""
-    from prat.environments import EnvironmentManager
 
     settings, _, envs, _variables = _environments(ctx, slug)
-    manager = EnvironmentManager(settings.home)
+    manager = _environment_manager(settings)
     table = _table("name", "label", "state", "port", "links")
     for env in envs:
         view = manager.view(slug, env)
@@ -891,12 +938,12 @@ def env_list(ctx: typer.Context, slug: str) -> None:
 @env_app.command("start")
 def env_start(ctx: typer.Context, slug: str, name: str) -> None:
     """Start an environment in your checkout. It keeps running after this command ends."""
-    from prat.environments import EnvironmentError, EnvironmentManager
+    from prat.environments import EnvironmentError
 
     settings, checkout, envs, variables = _environments(ctx, slug)
     env = _environment(envs, name)
     try:
-        view = EnvironmentManager(settings.home).start(slug, env, checkout, extra_env=variables)
+        view = _environment_manager(settings).start(slug, env, checkout, extra_env=variables)
     except EnvironmentError as exc:
         raise _fail(str(exc)) from exc
     console.print(f"{escape(env.title)} started (process {view.pid}, port {view.port or 'none'})")
@@ -907,22 +954,20 @@ def env_start(ctx: typer.Context, slug: str, name: str) -> None:
 @env_app.command("stop")
 def env_stop(ctx: typer.Context, slug: str, name: str) -> None:
     """Stop an environment and everything it started."""
-    from prat.environments import EnvironmentManager
 
     settings, _, envs, _variables = _environments(ctx, slug)
     env = _environment(envs, name)
-    EnvironmentManager(settings.home).stop(slug, env)
+    _environment_manager(settings).stop(slug, env)
     console.print(f"{escape(env.title)} stopped")
 
 
 @env_app.command("log")
 def env_log(ctx: typer.Context, slug: str, name: str) -> None:
     """The end of an environment's output."""
-    from prat.environments import EnvironmentManager
 
     settings, _, envs, _variables = _environments(ctx, slug)
     env = _environment(envs, name)
-    typer.echo(EnvironmentManager(settings.home).view(slug, env).log_tail, nl=False)
+    typer.echo(_environment_manager(settings).view(slug, env).log_tail, nl=False)
 
 
 @overlay_app.command("init")

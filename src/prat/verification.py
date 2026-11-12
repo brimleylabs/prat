@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import threading
 import time
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -33,6 +34,7 @@ from prat.projects import (
     command_argv,
     command_text,
 )
+from prat.sandbox import Sandbox, SandboxError
 
 OUTPUT_TAIL_CHARS = 4000
 
@@ -90,15 +92,26 @@ def run_command(
     log_path: Path,
     stop: threading.Event | None = None,
     env: dict[str, str] | None = None,
+    sandbox: Sandbox | None = None,
 ) -> tuple[int | None, bool, bool, str]:
     """Run ``argv`` with output to ``log_path``.
 
     Returns ``(exit_code, timed_out, cancelled, error)``. ``exit_code`` is
     ``None`` when the process could not start or was stopped. On a timeout or
     a stop the whole process tree is killed, on every platform (``prat.proc``).
+    With a sandbox, ``argv`` runs in a container that gets only ``env``; on a timeout or a
+    stop that container is removed.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     argv = list(argv)
+    container: str | None = None
+    if sandbox is not None:
+        container = f"{sandbox.prefix}-gate-{uuid.uuid4().hex[:8]}"
+        try:
+            argv = sandbox.run_argv(argv, cwd=cwd, env=env, name=container, tag="gate")
+        except (OSError, SandboxError) as exc:
+            return None, False, False, f"sandbox: {exc}"
+        env = None
     resolved = shutil.which(argv[0], path=os.environ.get("PATH")) if argv else None
     if resolved is None and argv and (cwd / argv[0]).exists():
         resolved = str(cwd / argv[0])
@@ -128,6 +141,8 @@ def run_command(
                     # The gate and everything it started: workers, shells, servers.
                     tree.kill()
                     proc.wait()
+                    if sandbox is not None and container is not None:
+                        sandbox.remove(container)
                     return None, not cancelled, cancelled, ""
                 time.sleep(0.05)
 
@@ -156,14 +171,16 @@ def run_gates(
     stop: threading.Event | None = None,
     timeout: float | None = None,
     env: Mapping[str, str] | None = None,
+    sandbox: Sandbox | None = None,
 ) -> list[GateResult]:
     """Run the configured gates in order, stopping at the first failure.
 
     ``env`` adds to (or replaces) variables of PRAT's own environment, for
-    example to point the project's database at the card's branch.
+    example to point the project's database at the card's branch. With a sandbox the gates
+    run in containers that see ``env`` and nothing of PRAT's environment.
     """
     results: list[GateResult] = []
-    gate_env = gate_environment(env)
+    gate_env = dict(env or {}) if sandbox is not None else gate_environment(env)
     gate_names = list(names) if names is not None else list(spec.verify.gates)
     limit = timeout if timeout is not None else spec.verify.timeout_seconds
     for name in gate_names:
@@ -176,7 +193,13 @@ def run_gates(
         log_path = log_dir / f"gate-{name}.log"
         started = time.monotonic()
         code, timed_out, cancelled, error = run_command(
-            command_argv(command), cwd, timeout=limit, log_path=log_path, stop=stop, env=gate_env
+            command_argv(command),
+            cwd,
+            timeout=limit,
+            log_path=log_path,
+            stop=stop,
+            env=gate_env,
+            sandbox=sandbox,
         )
         duration = time.monotonic() - started
         output = error or _tail(log_path)

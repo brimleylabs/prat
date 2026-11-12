@@ -357,6 +357,18 @@ def _clean_patterns(values: list[str]) -> list[str]:
     return cleaned
 
 
+class SandboxSpec(BaseModel):
+    """How this project's commands run when the installation uses the sandbox."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # A container image with the project's runtimes, e.g. "php:8.3-cli". It needs sh, and
+    # socat for environments. Default: PRAT's own image (Python, Node and build tools).
+    image: (
+        Annotated[str, Field(max_length=200, pattern=r"^[A-Za-z0-9][A-Za-z0-9._/:@-]*$")] | None
+    ) = None
+
+
 class ProjectSpec(BaseModel):
     """Validated contents of ``.prat/project.toml``."""
 
@@ -383,6 +395,8 @@ class ProjectSpec(BaseModel):
     workspace: Workspace = Field(default_factory=Workspace)
     # Ways to run the project, started and stopped from PRAT.
     environment: list[Environment] = Field(default_factory=list, max_length=20)
+    # The container image the sandbox runs this project's commands in.
+    sandbox: SandboxSpec = Field(default_factory=SandboxSpec)
 
     @field_validator("environment")
     @classmethod

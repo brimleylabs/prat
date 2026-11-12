@@ -105,6 +105,12 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     # Claude Code executable. Default: the one bundled with claude-agent-sdk.
     claude_cli_path: Path | None = None
+    # Sandbox (prat.sandbox): "off" runs a project's commands on this machine; "docker" runs a
+    # card's shell commands, gates, setup checks and environments in containers with no
+    # network and no credentials (macOS and Linux).
+    sandbox: Literal["off", "docker"] = "off"
+    sandbox_image: str = "prat-sandbox:1"
+    docker_path: str = "docker"
     # Role to model overrides, e.g. {builder = "claude-haiku-5-5"}.
     models: dict[str, str] = Field(default_factory=dict)
     # Loop detector: the same tool on the same target this many times within
@@ -221,6 +227,11 @@ gate_timeout_seconds = 900
 # "claude_login" (personal use only: your own Claude Code login on your own
 # plan; PRAT never touches the credentials). See the README before changing it.
 auth_mode = "api_key"
+
+# Sandbox: "docker" runs a card's commands, gates and environments in containers with no
+# network and no credentials (macOS and Linux; build the image with `prat sandbox build`).
+# sandbox = "off"
+# sandbox_image = "prat-sandbox:1"
 
 # Web UI (prat serve). Loopback only unless web_allow_remote is true; put TLS in front then.
 # web_host = "127.0.0.1"

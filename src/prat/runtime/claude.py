@@ -245,6 +245,21 @@ def tool_calls_for(tool_name: str, tool_input: Mapping[str, Any]) -> list[ToolCa
     return Decision.deny(f"tool {tool_name} is not available to PRAT agents")
 
 
+def sandboxed_input(
+    tool_name: str, tool_input: Any, shell: Callable[[str], str] | None
+) -> dict[str, Any] | None:
+    """The Bash tool's input with the command moved into the sandbox, or ``None`` to run the
+    call as it is. Commands made only of git stay on this machine (prat.sandbox)."""
+    from prat.sandbox import runs_on_host
+
+    if shell is None or tool_name != "Bash" or not isinstance(tool_input, Mapping):
+        return None
+    command = tool_input.get("command")
+    if not isinstance(command, str) or not command.strip() or runs_on_host(command):
+        return None
+    return {**tool_input, "command": shell(command)}
+
+
 def judge(
     policy: Callable[[ToolCall], Decision],
     tool_name: str,
@@ -478,13 +493,15 @@ class ClaudeRuntime:
             name = str(data.get("tool_name") or "")
             decision = judge(policy, name, data.get("tool_input"), task.allowed_tools)
             if decision.allowed:
-                return {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "allow",
-                        "permissionDecisionReason": decision.reason,
-                    }
+                allowed: dict[str, Any] = {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                    "permissionDecisionReason": decision.reason,
                 }
+                rewritten = sandboxed_input(name, data.get("tool_input"), task.shell)
+                if rewritten is not None:
+                    allowed["updatedInput"] = rewritten
+                return cast(HookJSONOutput, {"hookSpecificOutput": allowed})
             call_id = tool_use_id or str(data.get("tool_use_id") or "")
             if call_id:
                 recorded[call_id] = decision.reason

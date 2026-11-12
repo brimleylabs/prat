@@ -125,18 +125,6 @@ Acceptance criteria:
 - the docs build into a static site from the docs folder
 - the install is tested on all three operating systems
 
-## Container sandbox profile
-
-Effort: high
-
-An optional profile that runs the agent phase in a container with the network off. The local
-profile stays supported and remains the default.
-
-Acceptance criteria:
-- a project can choose the container profile in its project file
-- during the agent phase the container has no network access
-- without a container runtime, PRAT explains the missing requirement and uses the local profile only when the project allows it
-
 ## Workspace provider interface (manual)
 
 Effort: high

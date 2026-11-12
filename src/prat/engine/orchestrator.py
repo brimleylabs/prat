@@ -104,6 +104,8 @@ from prat.runtime import (
     event_to_dict,
 )
 from prat.runtime.loop import LoopDetector
+from prat.sandbox import Sandbox, SandboxError, environment_sandboxes
+from prat.sandbox import for_settings as sandbox_for
 from prat.setup_agent import (
     DATABASE_VARIABLE,
     SETUP_TASK,
@@ -121,6 +123,33 @@ from prat.workspace.dolt_branch import branch_name, providers_for
 from prat.workspace.postgres_copy import is_doltgres
 
 log = logging.getLogger(__name__)
+
+# Added to the builder's instructions when its shell commands run in the sandbox.
+SANDBOX_NOTE = """
+
+# Sandbox
+Your shell commands run in a fresh container that sees only this worktree, at the same path.
+It {network} network access; the project's databases are reachable at the addresses in your
+environment. Nothing you start survives the command, and `cd` does not carry over between
+commands. Run git commands on their own (not combined with other commands): they run on this
+machine, where the repository's git data is writable.
+"""
+
+
+def sandbox_gate(problem: str) -> GateResult:
+    """A sandbox that cannot run, as a failed gate: the gates are never run without it."""
+    return GateResult(
+        name="sandbox",
+        command="start the sandbox",
+        exit_code=None,
+        passed=False,
+        timed_out=False,
+        cancelled=False,
+        duration_seconds=0.0,
+        output_tail=problem,
+        log_path="",
+    )
+
 
 MAX_REVIEW_DIFF_CHARS = 200_000
 # The reason on runs and queued cards stopped by a restart; resume_after_restart picks them up.
@@ -973,17 +1002,27 @@ class Engine:
             overrides={DATABASE_VARIABLE: address},
         )
         await asyncio.to_thread(_reset_worktree, ctx.worktree_path)
-        gates = await asyncio.to_thread(
-            functools.partial(
-                run_gates,
-                spec,
-                ctx.worktree_path,
-                ctx.run_dir,
-                stop=active.stop,
-                timeout=gate_seconds,
-                env=env,
+        try:
+            sandbox = await asyncio.to_thread(self._sandbox, ctx, env, spec)
+        except SandboxError as exc:
+            ctx.journal.append("verify.fallback", {"error": f"sandbox: {exc}"})
+            return None
+        try:
+            gates = await asyncio.to_thread(
+                functools.partial(
+                    run_gates,
+                    spec,
+                    ctx.worktree_path,
+                    ctx.run_dir,
+                    stop=active.stop,
+                    timeout=gate_seconds,
+                    env=env,
+                    sandbox=sandbox,
+                )
             )
-        )
+        finally:
+            if sandbox is not None:
+                await asyncio.to_thread(sandbox.cleanup)
         ctx.journal.append(
             "verify.fallback", {"passed": all(g.passed for g in gates), "gates": len(gates)}
         )
@@ -1218,6 +1257,20 @@ class Engine:
         detail["plan"] = result.plan
         return StepResult(detail=detail)
 
+    def _sandbox(
+        self, ctx: _Ctx, env: Mapping[str, str], spec: ProjectSpec | None = None
+    ) -> Sandbox | None:
+        """The card's sandbox when the installation uses one. The setup card installs
+        dependencies, so its containers have the network; no other card's do."""
+        return sandbox_for(
+            self.settings,
+            name=f"{ctx.project_slug}-card-{ctx.card_id}",
+            workdir=ctx.worktree_path,
+            network=ctx.is_setup,
+            env=env,
+            image=(spec or ctx.project_spec).sandbox.image,
+        )
+
     def _policy(self, ctx: _Ctx, autonomy: Autonomy | None = None) -> Policy:
         with self.db.session() as session:
             roots = [Path(p.checkout_path) for p in store.list_projects(session)]
@@ -1303,6 +1356,18 @@ class Engine:
                 knowledge=knowledge.text,
             )
             task_prompt = builder_task_prompt(feedback=ctx.feedback, plan=ctx.plan)
+        try:
+            sandbox = await asyncio.to_thread(self._sandbox, ctx, env)
+        except SandboxError as exc:
+            return StepResult(
+                StepStatus.FAILED,
+                {"sandbox": str(exc)},
+                RunStatus.FAILED,
+                f"sandbox: {exc}",
+                "sandbox unavailable",
+            )
+        if sandbox is not None:
+            system_prompt += SANDBOX_NOTE.format(network="has" if sandbox.network else "has no")
         task = AgentTask(
             prompt=task_prompt,
             system_prompt=system_prompt,
@@ -1319,6 +1384,11 @@ class Engine:
             },
             # The project's own database settings, pointed at the card's branch.
             env=env,
+            shell=(
+                functools.partial(sandbox.shell, cwd=ctx.worktree_path, env=env)
+                if sandbox is not None
+                else None
+            ),
         )
         journal.append(
             "execute.model",
@@ -1326,6 +1396,7 @@ class Engine:
                 "model": model,
                 "tools": sorted(tools),
                 "repo_instructions": [item.name for item in instructions],
+                "sandbox": sandbox.image if sandbox is not None else None,
             },
         )
         if ctx.session_id:
@@ -1369,6 +1440,9 @@ class Engine:
             closer = getattr(stream, "aclose", None)
             if closer is not None:
                 await closer()
+            if sandbox is not None:
+                # Commands the agent's runtime gave up on leave their containers behind.
+                await asyncio.to_thread(sandbox.cleanup)
 
         detail: dict[str, Any] = {
             "session_id": active.session_id,
@@ -1488,17 +1562,23 @@ class Engine:
         if not findings and proposal_problem is not None:
             gates = [problem_gate(proposal_problem)]
         elif not findings:
-            gates = await asyncio.to_thread(
-                functools.partial(
-                    run_gates,
-                    gate_spec,
-                    worktree,
-                    ctx.run_dir,
-                    stop=active.stop,
-                    timeout=timeout,
-                    env=gate_env or None,
+            try:
+                sandbox = await asyncio.to_thread(self._sandbox, ctx, gate_env, gate_spec)
+            except SandboxError as exc:
+                sandbox, gates = None, [sandbox_gate(str(exc))]
+            if not gates:
+                gates = await asyncio.to_thread(
+                    functools.partial(
+                        run_gates,
+                        gate_spec,
+                        worktree,
+                        ctx.run_dir,
+                        stop=active.stop,
+                        timeout=timeout,
+                        env=gate_env or None,
+                        sandbox=sandbox,
+                    )
                 )
-            )
             failed = [g for g in gates if not g.passed and not g.cancelled]
             if ctx.is_setup and failed and _uses_project_database(gate_spec):
                 retried = await self._try_fallback(ctx, gate_spec, active, timeout, failed)
@@ -1508,7 +1588,9 @@ class Engine:
                 checks = await asyncio.to_thread(
                     functools.partial(
                         check_environments,
-                        EnvironmentManager(self.settings.home),
+                        EnvironmentManager(
+                            self.settings.home, environment_sandboxes(self.settings)
+                        ),
                         ctx.project_slug,
                         gate_spec,
                         worktree,
@@ -1518,6 +1600,8 @@ class Engine:
                     )
                 )
                 gates += [check.as_gate() for check in checks]
+            if sandbox is not None:
+                await asyncio.to_thread(sandbox.cleanup)
             # Gates must not leave changes behind that a later commit would pick up.
             await asyncio.to_thread(_reset_worktree, worktree)
         for gate in gates:

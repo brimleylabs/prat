@@ -48,7 +48,7 @@ import time
 import tomllib
 import urllib.error
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
@@ -61,9 +61,13 @@ from prat.git import Git
 from prat.git.worktree import rmtree
 from prat.proc import ProcessTree, kill_pid_tree, process_started_at, run_tree, spawn
 from prat.projects import ENV_VAR_RE, Environment, EnvironmentLink, command_argv
+from prat.sandbox import Sandbox, SandboxError
 from prat.verification import gate_environment
 
 log = logging.getLogger(__name__)
+
+# (project slug, card id or None, folder, variables) -> the sandbox to run in, or None.
+SandboxFactory = Callable[[str, int | None, Path, Mapping[str, str]], Sandbox | None]
 
 STATE_DIR = "environments"
 LOG_TAIL_BYTES = 12_000
@@ -276,8 +280,11 @@ class EnvironmentView:
 class EnvironmentManager:
     """Starts, stops and reports on environments. One per PRAT server; thread safe."""
 
-    def __init__(self, home: Path) -> None:
+    def __init__(self, home: Path, sandboxes: SandboxFactory | None = None) -> None:
         self.home = home
+        # With the sandbox on: the sandbox an environment of (project, card, folder, variables)
+        # runs in, or None to run it on this machine.
+        self.sandboxes = sandboxes
         self._trees: dict[str, ProcessTree] = {}
         self._lock = threading.Lock()
 
@@ -359,6 +366,26 @@ class EnvironmentManager:
             folder = self._dir(slug, key)
             folder.mkdir(parents=True, exist_ok=True)
             log_file = folder / "output.log"
+            container: dict[str, str] = {}
+            sandbox = self.sandboxes(slug, card_id, base, environ) if self.sandboxes else None
+            if sandbox is not None:
+                # The container sees only the environment's own variables, and answers on
+                # this machine's loopback address at the same port.
+                name = f"{sandbox.prefix}-env-{key}"[:120]
+                sandbox.remove(name)
+                try:
+                    argv = sandbox.run_argv(
+                        argv,
+                        cwd=cwd,
+                        env={**variables, **(extra_env or {})},
+                        name=name,
+                        publish=port,
+                        tag=f"env-{key}",
+                    )
+                except (OSError, SandboxError) as exc:
+                    raise EnvironmentError(f"could not start {env.title}: {exc}") from exc
+                container = {"container": name, "docker": sandbox.docker}
+                environ = gate_environment({})
             with log_file.open("ab") as out:
                 out.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} start: {argv}\n".encode())
                 out.flush()
@@ -385,6 +412,7 @@ class EnvironmentManager:
                     "port": port,
                     "cwd": str(cwd),
                     "card_id": card_id,
+                    **container,
                 },
             )
         return self.view(slug, env, card_id=card_id)
@@ -402,7 +430,8 @@ class EnvironmentManager:
             state = self._read_state(slug, key)
             tree = self._trees.pop(f"{slug}/{key}", None)
             alive = state is not None and self._alive(state)
-            if env.stop is not None and alive and state is not None:
+            in_container = state is not None and bool(state.get("container"))
+            if env.stop is not None and alive and state is not None and not in_container:
                 port = state.get("port")
                 argv = [_fill(arg, port) for arg in command_argv(env.stop)]
                 with contextlib.suppress(OSError, subprocess.SubprocessError):
@@ -417,6 +446,13 @@ class EnvironmentManager:
                 tree.close()
             elif alive and state is not None:
                 kill_pid_tree(int(state["pid"]))
+            if state is not None and in_container:
+                # Killing the docker client leaves the container running; remove it.
+                with contextlib.suppress(OSError, subprocess.SubprocessError):
+                    run_tree(
+                        [str(state.get("docker") or "docker"), "rm", "-f", str(state["container"])],
+                        timeout=STOP_COMMAND_SECONDS,
+                    )
             if state is not None:
                 deadline = time.monotonic() + 10
                 while self._alive(state) and time.monotonic() < deadline:

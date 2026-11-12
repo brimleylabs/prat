@@ -206,10 +206,19 @@ denies every form of push on top. Gates and environments run with PRAT's own key
 their environment. The web UI listens on loopback, signs in with one-time links, and checks the
 origin and a CSRF token on every change. Details: [docs/SECURITY.md](docs/SECURITY.md).
 
-The policy is analysis, not a sandbox. From `low` up, the project's own commands run code the
-agent can edit, so they can do what you can. Point PRAT at code you trust, or run it in a
-virtual machine or container as a user with no credentials. Container isolation is on the
-roadmap.
+The policy is analysis, not confinement: from `low` up, the project's own commands run code the
+agent can edit. For code you do not trust, turn on the **sandbox** (macOS and Linux):
+
+```toml
+sandbox = "docker"        # in ~/.prat/config.toml, after `prat sandbox build`
+```
+
+Then the agent's shell commands, the gates, the setup checks and the environments each run in
+a fresh container that sees only the card's worktree, runs as you with every capability
+dropped, gets none of your environment variables or credentials, and has no network except
+a relay to the project's own databases. Plain `git` commands stay outside, judged by the policy,
+so a container never writes the repository's git data. If the sandbox cannot run, the card
+fails rather than running the commands on your machine.
 
 ## Your data, on a branch
 
@@ -322,8 +331,8 @@ Doltgres for data. More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Pre-release, in daily use on real projects. The engine, policy, gates, reviewers, approvals,
 checkpoints, setup agent, data branches with the PostgreSQL fallback, knowledge and dreams, and
-the web UI are built and tested. Next: container isolation for agent sessions, per-card
-database users, and an evaluation harness. Interfaces may still change.
+the web UI are built and tested, and so is an optional container sandbox for macOS and Linux.
+Next: per-card database users and an evaluation harness. Interfaces may still change.
 
 ## Documentation
 

@@ -53,6 +53,7 @@ from prat.runtime.base import (
     ToolCallEvent,
     ToolResultEvent,
 )
+from prat.sandbox import runs_on_host
 
 Op = Literal[
     "text",
@@ -265,7 +266,7 @@ class FakeRuntime:
             yield ToolResultEvent(call_id, ok=False, denied=True, reason=decision.reason)
             return
         try:
-            ok, output = await self._execute(step, task.workdir, task.env)
+            ok, output = await self._execute(step, task.workdir, task.env, task.shell)
         except OSError as exc:
             ok, output = False, f"{type(exc).__name__}: {exc}"
         self.executed.append((step.op, step.path or step.command or step.tool or ""))
@@ -303,7 +304,11 @@ class FakeRuntime:
         return command.replace("{python}", shlex.quote(Path(sys.executable).as_posix()))
 
     async def _execute(
-        self, step: FakeStep, workdir: Path, env: Mapping[str, str] | None = None
+        self,
+        step: FakeStep,
+        workdir: Path,
+        env: Mapping[str, str] | None = None,
+        shell: Callable[[str], str] | None = None,
     ) -> tuple[bool, str]:
         if step.op == "read":
             target = workdir / (step.path or "")
@@ -323,9 +328,11 @@ class FakeRuntime:
             )
             return True, "edited"
         if step.op == "bash":
-            return await asyncio.to_thread(
-                self._run_command, self._command(step.command or ""), workdir, env
-            )
+            command = self._command(step.command or "")
+            if shell is not None and not runs_on_host(command):
+                # As the Claude runtime does: the approved command runs in the sandbox.
+                command = shlex.join(["sh", "-c", shell(command)])
+            return await asyncio.to_thread(self._run_command, command, workdir, env)
         if step.op == "web":
             # The scripted page or search result; nothing leaves the machine.
             return True, step.content or f"fake {step.tool} returned nothing"

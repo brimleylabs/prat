@@ -61,6 +61,9 @@ class AgentTask:
     # Extra environment for the agent's own tools (its shell commands), for example
     # the project's database pointed at the card's branch.
     env: Mapping[str, str] = field(default_factory=dict)
+    # With the sandbox, turns an approved shell command into the one that runs it in a
+    # container (prat.sandbox). ``None`` runs shell commands on this machine.
+    shell: Callable[[str], str] | None = None
 
 
 class Outcome(StrEnum):

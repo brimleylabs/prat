@@ -610,14 +610,15 @@ failed or blocked self card -> rework with the reason, abandoned after max_rewor
 
 ## Known limits
 
-- No sandbox beyond the worktree and the policy; agents and gates run with the user's
-  permissions and environment (see docs/SECURITY.md). A gate's process tree is killed on a
+- Without the sandbox (`sandbox = "off"`, the default) agents and gates run with the user's
+  permissions and environment; with `sandbox = "docker"` (`prat.sandbox`) a card's shell
+  commands, gates and environments run in containers (see docs/SECURITY.md). A gate's process tree is killed on a
   timeout or a cancel; a gate that ends normally and leaves a background process behind is not
   cleaned up, and the Claude Code process and its commands are stopped by the SDK, not by
   `proc.py`.
 - The policy is defence in depth. Inline interpreter code and scripts allowed at `medium` can do
-  anything the user can; structural controls (no push destination now, containers and secret
-  stripping in Phase 5) are what make that safe.
+  anything the user can; structural controls (no push destination, and the sandbox's containers
+  with no network and no inherited secrets) are what make that safe.
 - Cancelling across processes relies on the heartbeat, so it takes up to `heartbeat_seconds`.
 - Costs are estimates. Prices live in `model_registry.PRICES`; unknown models are priced as
   the most expensive known model.

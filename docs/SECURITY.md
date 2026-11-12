@@ -244,23 +244,50 @@ runs and merge branches, so it is treated as a remote-code-execution surface.
 - **No third-party code at run time.** htmx is vendored at a pinned version; there are no CDNs
   and no web fonts.
 
+## The sandbox
+
+With `sandbox = "docker"` in `config.toml` (macOS and Linux, after `prat sandbox build`),
+everything that runs a project's code for a card runs in a fresh container: the agent's shell
+commands, the gates, the setup checks and the project's environments. Each container:
+
+- mounts only the card's worktree, read-write, and the clone's git directory, read-only, at the
+  same paths as on this machine, plus a home folder of its own for caches;
+- sees none of your files outside those mounts and none of your environment variables, so no
+  SSH keys, cloud credentials, GitHub CLI login or API keys;
+- runs as your user id with every capability dropped and no new privileges;
+- has no network. A project database on this machine is reached through a relay container on a
+  private network with no route out, and only the ports the card's own variables name;
+- is removed when its command ends, times out or is cancelled; whatever a card left behind is
+  removed when its step ends.
+
+The agent's plain `git` commands stay on this machine, where the policy judges them, so a
+container never writes the git directory and cannot plant a hook. The setup card installs
+dependencies, so its containers have the network; so do environments, which the browser must
+reach. A project chooses its image with `[sandbox] image = "..."` in its project file; it needs
+`sh`, and `socat` for environments. If the sandbox is configured but cannot run, the card fails:
+PRAT never falls back to running the commands on this machine.
+
 ## Not covered yet
 
-- **No sandbox.** Agents and gate commands run as your user, with your environment variables,
-  your network access and your file permissions. The policy is analysis of commands, not
-  confinement. At `medium` and above an agent may run scripts and inline interpreter code,
-  which can do anything you can. At `low` it may edit files and run the project's own commands,
-  and those commands run code in the worktree: an agent that writes a `conftest.py` and then
-  runs the tests has run code of its choosing. So `low` limits what an agent asks for directly;
-  it does not contain the repository's code. Only `read_only` runs nothing from the repository.
-  Container isolation with no network in the agent phase, a domain allowlist and secrets only
-  in the setup phase are planned for Phase 5. Until then, use PRAT on code you trust. For a
-  repository you do not trust, keep autonomy at `read_only`, or run PRAT in a virtual machine
-  or container as a user with no credentials (no GitHub CLI login, cloud keys or SSH keys).
-- **Environment variables are inherited** by agents and gates, including any credentials in
+- **Without the sandbox, nothing is confined.** With `sandbox = "off"` (the default) agents and
+  gate commands run as your user, with your environment variables, your network access and
+  your file permissions. The policy is analysis of commands, not confinement. At `medium` and
+  above an agent may run scripts and inline interpreter code, which can do anything you can.
+  At `low` it may edit files and run the project's own commands, and those commands run code
+  in the worktree: an agent that writes a `conftest.py` and then runs the tests has run code of
+  its choosing. So `low` limits what an agent asks for directly; it does not contain the
+  repository's code. For a repository you do not trust, turn the sandbox on (see "The
+  sandbox"), or keep autonomy at `read_only`.
+- **Environment variables are inherited** without the sandbox, including any credentials in
   your shell, except PRAT's own: gates get no `PRAT_*`, `ANTHROPIC_*` or `CLAUDE_CODE_*`
-  variables, and the agent's `PRAT_*` variables are blanked. Full secret stripping arrives with
-  the sandbox.
+  variables, and the agent's `PRAT_*` variables are blanked. With the sandbox, containers get
+  only the variables PRAT passes.
+- **What the sandbox leaves on this machine.** The agent's file tools (read, write, edit,
+  search) and git commands it runs on their own are judged by the policy and run here, as does
+  the Claude Code process, which needs the network to reach the model. The setup card's
+  containers and environments have the network, and through the container gateway can reach
+  services listening on this machine. The sandbox runs on macOS and Linux only, and its
+  strength is Docker's.
 - **Database branches are a workspace, not a wall.** A card's agent gets the project database's
   own credentials, pointed at the card's branch. Those credentials can reach the default branch
   too, so an agent able to run SQL (or code that does) could change it without review. Use
