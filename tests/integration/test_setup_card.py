@@ -19,11 +19,14 @@ from prat.setup_agent import DATABASE_VARIABLE, add_setup_card, needs_setup
 
 pytestmark = pytest.mark.integration
 
+# A plain TCPServer: http.server.HTTPServer looks up the host's name (getfqdn) before it
+# listens, which can take longer than the check waits on some macOS machines.
 SERVER = (
-    "import http.server, sys\n"
+    "import http.server, socketserver, sys\n"
     "port = int(sys.argv[1])\n"
-    "http.server.HTTPServer(('127.0.0.1', port), http.server.SimpleHTTPRequestHandler)"
-    ".serve_forever()\n"
+    "server = socketserver.TCPServer(('127.0.0.1', port), http.server.SimpleHTTPRequestHandler)\n"
+    "print('listening on', port, flush=True)\n"
+    "server.serve_forever()\n"
 )
 
 
