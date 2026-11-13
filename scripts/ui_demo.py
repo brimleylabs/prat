@@ -266,7 +266,67 @@ class DemoReviewer:
 
 
 def demo_settings(home: Path, port: int) -> Settings:
-    return load_settings(home, web_port=port, max_concurrent_per_project=1, heartbeat_seconds=1)
+    # Lessons are written while seeding only, from the scripted teacher below.
+    return load_settings(
+        home, web_port=port, max_concurrent_per_project=1, heartbeat_seconds=1, lessons="off"
+    )
+
+
+# What the teacher writes for the word_count card. Its excerpts are the card's real diff.
+COUNT_LESSON = {
+    "title": "Counting words with one regular expression",
+    "idea": "A word is easier to define by what it is than by what separates it. Splitting on "
+    "spaces treats every gap as a boundary, so double spaces, tabs and punctuation all "
+    "miscount. Matching the word itself with a pattern, and counting the matches, makes the "
+    "definition explicit and testable: one or more word characters, optionally joined by a "
+    r"hyphen or an apostrophe to more word characters. In Python, \w is Unicode-aware by "
+    "default for str patterns, so accented letters count as letters without extra work.",
+    "happened": "The card asked for word_count(text) that counts 'one two  three' as 3, keeps "
+    "'well-known' and \"don't\" as one word each, and treats accented letters as part of "
+    "words. The change adds textkit/count.py with a compiled pattern and a one-line function, "
+    "three tests that pin each criterion, and a README bullet.",
+    "excerpts": [
+        {
+            "file": "textkit/count.py",
+            "code": r"""_WORD = re.compile(r"\w+(?:[-']\w+)*", re.UNICODE)""",
+            "note": r"The whole definition of a word. The group (?:[-']\w+)* repeats, so "
+            "'state-of-the-art' is one word too. Compiled once at import, not per call.",
+        },
+        {
+            "file": "textkit/count.py",
+            "code": "    return len(_WORD.findall(text))",
+            "note": "Count matches instead of splitting. An empty string has no matches, so "
+            "the empty case needs no special branch.",
+        },
+        {
+            "file": "tests/test_count.py",
+            "code": "def test_unicode_and_joined_words():",
+            "note": "One test per acceptance criterion, so a failure names the rule that broke.",
+        },
+    ],
+    "why": "Matching the word is the standard answer when the boundaries are messy, because the "
+    "pattern states the rule in one place and the tests can hold it to that rule. The choice "
+    r"of \w also settles the Unicode criterion for free. Where it departs from a naive "
+    "reading of the card: numbers such as 3.14 count as two words, because the dot is not a "
+    "joiner. The reviewer flagged that as a question the card does not answer.",
+    "alternatives": [
+        "text.split(): handles any whitespace, but counts 'well-known,' and punctuation "
+        "glued to words inconsistently, and cannot express the joiner rule.",
+        "A tokenizer library such as a natural language toolkit: handles far more cases, at "
+        "the cost of a dependency in a package that promises to have none.",
+    ],
+    "fits": "textkit is a dependency-free package where each helper gets its own module, a "
+    "test file and a README bullet. word_count follows that pattern next to slugify.",
+    "trap": "After the tests passed, the builder ran git push origin HEAD. PRAT denied it: "
+    "agents never push, and the change waits on the card for a person. Nothing was lost, "
+    "but it is a reminder that an agent will try to finish the job the way a person "
+    "would, so the rule has to be enforced, not requested.",
+    "question": "What does word_count return for 'rock-n-roll' and for \"'quoted'\", and why?",
+    "answer": "1 for 'rock-n-roll', because each hyphen is followed by word characters and the "
+    "group repeats. 1 for \"'quoted'\": the leading and trailing apostrophes are not "
+    "followed by word characters, so the match is just quoted.",
+    "tags": ["regular expressions", "unicode", "tokenizing"],
+}
 
 
 async def seed(settings: Settings, db: Database, root: Path) -> dict[str, int]:
@@ -384,6 +444,11 @@ async def seed(settings: Settings, db: Database, root: Path) -> dict[str, int]:
 
     def script_for(task: AgentTask) -> FakeScript:
         key = by_id.get(int(task.metadata.get("card_id", "0")), "")
+        if task.metadata.get("role") == "teacher":
+            lesson = json.dumps(COUNT_LESSON) if key == "count" else ""
+            return FakeScript.parse(
+                [{"op": "cost", "usd": 0.034}, {"op": "finish", "message": lesson}]
+            )
         return FakeScript.parse(plans.get(key, [{"op": "finish"}]))
 
     verdicts = {
@@ -443,13 +508,14 @@ async def seed(settings: Settings, db: Database, root: Path) -> dict[str, int]:
         ),
     }
     engine = Engine(
-        settings,
+        settings.model_copy(update={"lessons": "review"}),
         db,
         FakeRuntime(script_for, state_dir=settings.home / "fake-sessions"),
         reviewer=DemoReviewer(verdicts),
     )
     for key in ("slugify", "count", "whitespace", "durations", "titlecase"):
         await engine.run_card(ids[key])
+    await engine.lessons_written()
     await engine.approve(ids["slugify"])
     task = engine.submit(ids["cancelled"])
     await asyncio.sleep(1.0)

@@ -543,6 +543,8 @@ marked unchecked. The lesson shows on the card after the reviewer's verdict. It 
 `teacher` role (Sonnet by default, a few cents a card), counts toward the run's cost, and never
 holds up or fails a run.
 
+<p align="center"><img alt="A lesson on a card in review" src="images/lesson-1440-dark.png" width="72%"></p>
+
 Lessons are private. PRAT records nothing about who reads them. How much a lesson explains
 follows your own familiarity with the stack:
 

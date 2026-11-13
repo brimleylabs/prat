@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="540" viewBox="0 0 1280 540" role="img" aria-label="Every card that reaches review gets a lesson: PRAT's own records go to a teacher session, every code excerpt is checked against the diff, and the lesson has three layers: the idea, what happened here, and why this way">
+  <style>
+    .t { font-family: 'Segoe UI', Inter, system-ui, sans-serif; }
+    .m { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; }
+    .box { fill: #101930; stroke: #24314f; stroke-width: 1.5; }
+    .lit { fill: #14224a; stroke: #f6b73c; stroke-width: 2; }
+    .label { fill: #eef2f8; font-size: 19px; font-weight: 700; }
+    .item { fill: #eef2f8; font-size: 14.5px; font-weight: 600; }
+    .sub { fill: #9aa6bc; font-size: 12.5px; }
+    .rail { stroke: #24314f; stroke-width: 2.5; fill: none; }
+    .flow { stroke: #f6b73c; stroke-width: 2.5; fill: none; }
+    .num { fill: #14224a; stroke: #f6b73c; stroke-width: 1.5; }
+    .numt { fill: #f6b73c; font-size: 13px; font-weight: 700; }
+    .step { fill: #9aa6bc; font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em; }
+    .body { fill: #c9d2e3; font-size: 13.5px; }
+    .code { fill: #eef2f8; font-size: 12.5px; }
+    .ok { fill: #4ade80; font-size: 11.5px; }
+    .warn { fill: #fb923c; }
+  </style>
+  <defs>
+    <radialGradient id="glow" cx="1" cy="0" r="0.9"><stop offset="0" stop-color="#1d3a8a" stop-opacity="0.55"/><stop offset="1" stop-color="#0a1022" stop-opacity="0"/></radialGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#f6b73c"/></marker>
+  </defs>
+  <rect width="1280" height="540" rx="20" fill="#0a1022"/>
+  <rect width="1280" height="540" rx="20" fill="url(#glow)"/>
+  <text x="40" y="48" class="m" font-size="16" fill="#f6b73c">every card that reaches review comes with a lesson</text>
+
+  <!-- What PRAT already recorded -->
+  <text x="40" y="96" class="t step">WHAT PRAT ALREADY RECORDED</text>
+  <g class="t">
+    <g transform="translate(40 112)"><rect class="box" width="290" height="56" rx="12"/><text x="18" y="25" class="item">The diff</text><text x="18" y="43" class="sub">base to head, exactly what changed</text></g>
+    <g transform="translate(40 178)"><rect class="box" width="290" height="56" rx="12"/><text x="18" y="25" class="item">The builder's own account</text><text x="18" y="43" class="sub">and the plan, when there was one</text></g>
+    <g transform="translate(40 244)"><rect class="box" width="290" height="56" rx="12"/><text x="18" y="25" class="item">The reviewer's verdict</text><text x="18" y="43" class="sub">evidence per criterion, fix lists</text></g>
+    <g transform="translate(40 310)"><rect class="box" width="290" height="56" rx="12"/><text x="18" y="25" class="item">What went wrong on the way</text><text x="18" y="43" class="sub">failed checks, actions PRAT denied</text></g>
+    <g transform="translate(40 376)"><rect class="box" width="290" height="56" rx="12"/><text x="18" y="25" class="item">Project knowledge</text><text x="18" y="43" class="sub">how this part of the code base works</text></g>
+  </g>
+
+  <!-- Gather into the teacher -->
+  <path class="rail" d="M330 140 C 370 140, 370 272, 400 272"/>
+  <path class="rail" d="M330 206 C 365 206, 365 272, 400 272"/>
+  <path class="rail" d="M330 272 H400"/>
+  <path class="rail" d="M330 338 C 365 338, 365 272, 400 272"/>
+  <path class="rail" d="M330 404 C 370 404, 370 272, 400 272"/>
+
+  <g class="t" transform="translate(402 222)">
+    <rect class="lit" width="170" height="100" rx="14"/>
+    <text x="85" y="40" text-anchor="middle" class="label">Teacher</text>
+    <text x="85" y="62" text-anchor="middle" class="sub">one session, no tools</text>
+    <text x="85" y="80" text-anchor="middle" class="sub">Sonnet, a few cents</text>
+  </g>
+  <path class="flow" d="M572 272 H618" marker-end="url(#arrow)"/>
+
+  <g class="t" transform="translate(624 222)">
+    <rect class="box" width="170" height="100" rx="14"/>
+    <text x="85" y="40" text-anchor="middle" class="label">Checked</text>
+    <text x="85" y="62" text-anchor="middle" class="sub">every excerpt word for</text>
+    <text x="85" y="80" text-anchor="middle" class="sub">word in the real code</text>
+  </g>
+  <path class="flow" d="M794 272 H840" marker-end="url(#arrow)"/>
+
+  <!-- The lesson -->
+  <g class="t" transform="translate(846 84)">
+    <rect class="box" width="394" height="410" rx="16"/>
+    <text x="22" y="34" fill="#eef2f8" font-size="15.5" font-weight="700">Counting words with one regular expression</text>
+    <path d="M22 50 H372" stroke="#24314f" stroke-width="1.2"/>
+
+    <circle class="num" cx="33" cy="76" r="11"/><text x="33" y="80.5" text-anchor="middle" class="numt">1</text>
+    <text x="54" y="80.5" class="step">THE IDEA</text>
+    <text x="22" y="104" class="body">Match the word, not the gaps between words.</text>
+
+    <circle class="num" cx="33" cy="138" r="11"/><text x="33" y="142.5" text-anchor="middle" class="numt">2</text>
+    <text x="54" y="142.5" class="step">WHAT HAPPENED HERE</text>
+    <rect x="22" y="156" width="350" height="64" rx="9" fill="#0c1428" stroke="#24314f"/>
+    <text x="36" y="176" class="m sub" font-size="11.5">textkit/count.py</text>
+    <text x="358" y="176" text-anchor="end" class="m ok">checked</text>
+    <text x="36" y="203" class="m code">return len(_WORD.findall(text))</text>
+
+    <circle class="num" cx="33" cy="254" r="11"/><text x="33" y="258.5" text-anchor="middle" class="numt">3</text>
+    <text x="54" y="258.5" class="step">WHY THIS WAY</text>
+    <text x="22" y="282" class="body">The standard answer when boundaries are messy;</text>
+    <text x="22" y="301" class="body">split() would miscount punctuation and joiners.</text>
+
+    <rect x="22" y="324" width="350" height="34" rx="9" fill="#fb923c" fill-opacity="0.11" stroke="#fb923c" stroke-opacity="0.35"/>
+    <text x="36" y="346" class="warn" font-size="13" font-weight="700">The trap</text>
+    <text x="104" y="346" class="body" font-size="12.5">the agent tried to push; PRAT stopped it</text>
+
+    <rect x="22" y="366" width="350" height="30" rx="9" fill="#f6b73c" fill-opacity="0.12" stroke="#f6b73c" stroke-opacity="0.3"/>
+    <text x="36" y="386" fill="#f6b73c" font-size="12.5" font-weight="700">A question</text>
+    <text x="118" y="386" class="body" font-size="12.5">what does 'rock-n-roll' count as?</text>
+  </g>
+
+  <text x="40" y="482" class="m" font-size="13" fill="#9aa6bc">private to you: nothing records who reads it</text>
+  <text x="40" y="506" class="m" font-size="13" fill="#9aa6bc">depth follows your own familiarity with the stack</text>
+</svg>

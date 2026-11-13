@@ -22,6 +22,7 @@
   <a href="#how-a-card-moves">How it works</a> ·
   <a href="#whats-inside">What's inside</a> ·
   <a href="#safety-on-rails">Safety</a> ·
+  <a href="#a-lesson-on-every-card">Lessons</a> ·
   <a href="#knowledge-that-stays-true">Knowledge</a> ·
   <a href="docs/GUIDE.md">Guide</a>
 </p>
@@ -241,6 +242,14 @@ stays untouched. Review shows the schema and row changes next to the code diff. 
 merges the data first, then the code, both or neither, and every landed card can be undone.
 When an application needs SQL that Doltgres does not support yet, PRAT moves the project to
 PostgreSQL by itself and gives each card a copy instead of a branch.
+
+## A lesson on every card
+
+<p align="center"><img alt="Every card that reaches review gets a lesson: PRAT's own records go to a teacher session, every code excerpt is checked against the real code, and the lesson has three layers" src="docs/images/prat-lesson.svg" width="100%"></p>
+
+Agents write more of the code every month, and an engineer who stops reading it loses the skill that makes their review worth anything. So when a card reaches review, PRAT writes a short lesson from what it already recorded: the idea behind the change, what was done (quoting the real diff, every excerpt checked word for word), why it was done this way and what else could have been done, where it fits, the trap if something went wrong on the way, and one question to think about. It sits on the card under the reviewer's verdict, a few cents a card, and it is private: PRAT records nothing about who reads it. See [Lessons](docs/GUIDE.md#lessons).
+
+<p align="center"><img alt="A lesson on a card in review: the idea, what happened here with checked code excerpts, why this way, the trap and a question" src="docs/images/lesson-1440-dark.png" width="72%"></p>
 
 ## Knowledge that stays true
 
