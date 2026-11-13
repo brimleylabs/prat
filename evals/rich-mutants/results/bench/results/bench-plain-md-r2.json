@@ -1,0 +1,596 @@
+{
+  "format": 1,
+  "id": "20261113-115814-23ea-bench-plain-md-r2",
+  "label": "bench-plain-md-r2",
+  "created_at": "2026-11-13T12:03:18+00:00",
+  "prat_version": "0.1.0.dev0",
+  "suite": "<prat>\\evals\\rich-mutants\\cases\\test",
+  "runtime": "plain",
+  "reviewer": "none",
+  "sandbox": "off",
+  "overlay": false,
+  "knowledge": false,
+  "claude_md": true,
+  "models": {},
+  "duration_seconds": 303.8,
+  "cases": [
+    {
+      "name": "ansi-charset-escape",
+      "title": "AnsiDecoder leaves a stray character after a character set escape",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "ce1446766b72df3cc741b641944d8b3d6f294f84",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.94s\r\n"
+          },
+          "cost_usd": 0.1308953,
+          "duration_seconds": 60.86,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "bar-zero-size",
+      "title": "Bar with nothing to show crashes",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "984a6f422ae4006b85b4be481116c7e4df3b73f6",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 5.05s\r\n"
+          },
+          "cost_usd": 0.11521790000000001,
+          "duration_seconds": 61.08,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "color-parse-255",
+      "title": "Color.parse(\"color(255)\") is rejected",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "a0dc6b8bbc30c2a055161db1f8a31033b9ecdb37",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.91s\r\n"
+          },
+          "cost_usd": 0.07362479999999999,
+          "duration_seconds": 14.81,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "columns-exact-width",
+      "title": "Columns crashes when an item is exactly as wide as the space",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "5ae3c01993ca4aaf5c24b58b799230ec3fd4b64a",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n..........sss........................................................... [ 21%]\r\n.........ss.............s.......s....................................... [ 28%]\r\n........................................................................ [ 35%]\r\n.....s....sss..........................................s.s.............. [ 42%]\r\n....s................................................................... [ 50%]\r\n...................................s.................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n....................................ssss................................ [ 78%]\r\n........................................................................ [ 85%]\r\n.......................................................s.......s.......s [ 92%]\r\n.s...................................................................... [100%]\r\n985 passed, 23 skipped in 4.99s\r\n"
+          },
+          "cost_usd": 0.0912567,
+          "duration_seconds": 38.36,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "filesize-thousand-bytes",
+      "title": "1,000 bytes is shown as bytes, not 1.0 kB",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "28c9b2b5fa8952e6698e5fa2d4fe601951de906d",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.67s\r\n"
+          },
+          "cost_usd": 0.0847077,
+          "duration_seconds": 36.0,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "json-highlighter-string",
+      "title": "JSONHighlighter crashes on text that is only a string",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "dbf577d0adc7b4609e2f319093f6bcf83d087dbe",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 5.00s\r\n"
+          },
+          "cost_usd": 0.070781,
+          "duration_seconds": 14.69,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "live-exact-height",
+      "title": "Live cuts off content that exactly fits the terminal",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "d3dd331d2edaa216637a9a32ccef9969c6cfaa5f",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "pected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n.....s.................................................................. [ 49%]\r\n....................................s................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n.....................................ssss............................... [ 78%]\r\n........................................................................ [ 85%]\r\n........................................................s.......s....... [ 92%]\r\ns.s..................................................................... [ 99%]\r\n.                                                                        [100%]\r\n986 passed, 23 skipped in 4.87s\r\n"
+          },
+          "cost_usd": 0.1160733,
+          "duration_seconds": 50.47,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "markdown-list-numbers",
+      "title": "Markdown numbered lists have an extra space before each number",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "463acac950614d199e1f9f1585533ee32140b1b7",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.81s\r\n"
+          },
+          "cost_usd": 0.10136850000000003,
+          "duration_seconds": 40.74,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "progress-bar-complete-style",
+      "title": "A progress bar at exactly 100% is not drawn as finished",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "cb7ac743044827748cac05a4cb08e92870dbe2f1",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n..........sss........................................................... [ 21%]\r\n.........ss.............s.......s....................................... [ 28%]\r\n........................................................................ [ 35%]\r\n.....s....sss..........................................s.s.............. [ 42%]\r\n....s................................................................... [ 50%]\r\n...................................s.................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n....................................ssss................................ [ 78%]\r\n........................................................................ [ 85%]\r\n.......................................................s.......s.......s [ 92%]\r\n.s...................................................................... [100%]\r\n985 passed, 23 skipped in 4.88s\r\n"
+          },
+          "cost_usd": 0.07718599999999999,
+          "duration_seconds": 33.28,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "progress-finish-at-total",
+      "title": "A progress task that reaches exactly its total is not finished",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "e28a5776354897ea78f0964eb7b31390d4ea52d1",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.84s\r\n"
+          },
+          "cost_usd": 0.0911996,
+          "duration_seconds": 36.58,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "ratio-zero-last",
+      "title": "Sharing out width by ratios fails when the last ratio is 0",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "044ce49e68b4302ea0564e963c535098990b5056",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "pected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 49%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n......................................ssss.............................. [ 78%]\r\n........................................................................ [ 85%]\r\n.........................................................s.......s...... [ 92%]\r\n.s.s.................................................................... [ 99%]\r\n..                                                                       [100%]\r\n987 passed, 23 skipped in 4.70s\r\n"
+          },
+          "cost_usd": 0.0938699,
+          "duration_seconds": 39.59,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "rule-right-title",
+      "title": "Rule with a right-aligned title cuts the title short",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "7f6df5319ae6737083caef426a47dbd7320761a7",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.65s\r\n"
+          },
+          "cost_usd": 0.1152717,
+          "duration_seconds": 33.91,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "segment-split-wide-char",
+      "title": "Splitting a segment inside a double-width character gives the wrong widths",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "9f975fe0163b415ece294faac4cd766e1e2cbf90",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.71s\r\n"
+          },
+          "cost_usd": 0.10041529999999999,
+          "duration_seconds": 41.86,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "svg-export-height",
+      "title": "SVG export cuts the terminal one line short",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "dc6a71974f565fa6d818e25de26bedc3ea39b3c9",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.65s\r\n"
+          },
+          "cost_usd": 0.0952131,
+          "duration_seconds": 41.11,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "table-footer-extra-line",
+      "title": "Tables with a footer and row lines draw an extra line before the footer",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "bb8c2f4003d7998083a3095319c1d0fd44761ad5",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 5.27s\r\n"
+          },
+          "cost_usd": 0.19373529999999997,
+          "duration_seconds": 95.66,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "text-stylize-end-zero",
+      "title": "Text.stylize() with end=0 styles the whole text",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "a847148450e26872b39e027469312190bd537266",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n.......................................................s.......s.......s [ 92%]\r\n.s...................................................................... [100%]\r\n985 passed, 23 skipped in 4.62s\r\n"
+          },
+          "cost_usd": 0.08836090000000002,
+          "duration_seconds": 39.55,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "wrap-exact-word",
+      "title": "Wrapping words exactly as long as the width adds an empty line",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "7962f39f31a8f4f5200e025bf50c052d8da054ba",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 4.86s\r\n"
+          },
+          "cost_usd": 0.0991955,
+          "duration_seconds": 39.3,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    }
+  ]
+}

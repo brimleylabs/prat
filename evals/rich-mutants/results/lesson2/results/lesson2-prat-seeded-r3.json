@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "id": "20261113-121421-17b1-lesson2-prat-seeded-r3",
+  "label": "lesson2-prat-seeded-r3",
+  "created_at": "2026-11-13T12:15:12+00:00",
+  "prat_version": "0.1.0.dev0",
+  "suite": "<prat>\\evals\\rich-mutants\\cases\\lesson2",
+  "runtime": "claude",
+  "reviewer": "claude",
+  "sandbox": "off",
+  "overlay": false,
+  "knowledge": true,
+  "claude_md": false,
+  "models": {},
+  "duration_seconds": 51.0,
+  "cases": [
+    {
+      "name": "svg-export-width-regression",
+      "title": "SVG export makes the terminal's clipping area too wide",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": 1,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": null,
+          "steps": {
+            "prepare": "succeeded",
+            "plan": "skipped",
+            "execute": "succeeded",
+            "verify": "succeeded",
+            "critique": "succeeded",
+            "summarize": "succeeded",
+            "finalize": "succeeded"
+          },
+          "gates": [
+            {
+              "name": "test",
+              "passed": true,
+              "output": "tion\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n.....ss.............s.......s........................................... [ 28%]\r\n........................................................................ [ 35%]\r\n..s....sss..........................................s.s................. [ 42%]\r\n.s...................................................................... [ 50%]\r\n................................s....................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n.................................ssss................................... [ 78%]\r\n........................................................................ [ 85%]\r\n....................................................s.......s.......s.s. [ 93%]\r\n.....................................................................    [100%]\r\n982 passed, 23 skipped in 4.25s\r\n"
+            }
+          ],
+          "findings": [],
+          "verdict": "met",
+          "commit": "fbdf46157af56fc7cbf29c9c6e751a5783c939a4",
+          "check": {
+            "passed": false,
+            "exit_code": 1,
+            "timed_out": false,
+            "output": "<prat>\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:306: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\r\nThe event loop scope for asynchronous fixtures will default to the fixture scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n\r\n1005 deselected in 0.79s\r\nRULE: no passing test marked regression (pytest exit 5)\r\n"
+          },
+          "cost_usd": 0.1573951,
+          "duration_seconds": 46.25,
+          "policy": {
+            "calls": 8,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    }
+  ]
+}

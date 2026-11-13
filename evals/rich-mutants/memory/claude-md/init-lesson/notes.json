@@ -1,0 +1,8 @@
+{
+  "init": "/init",
+  "session": {
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 5
+  }
+}

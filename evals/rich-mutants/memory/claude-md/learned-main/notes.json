@@ -1,0 +1,38 @@
+[
+  {
+    "case": "cells-nul-width",
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 15
+  },
+  {
+    "case": "control-move-to-column",
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 11
+  },
+  {
+    "case": "justify-full-spaces",
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 10
+  },
+  {
+    "case": "markup-empty-text",
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 11
+  },
+  {
+    "case": "pretty-max-depth-attrs",
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 10
+  },
+  {
+    "case": "syntax-stylize-range",
+    "status": "succeeded",
+    "reason": "success",
+    "turns": 12
+  }
+]

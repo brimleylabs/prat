@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "id": "20261113-041635-700c-plain",
+  "label": "plain",
+  "created_at": "2026-11-13T04:16:51+00:00",
+  "prat_version": "0.1.0.dev0",
+  "suite": "<work>\\cases",
+  "runtime": "plain",
+  "reviewer": "none",
+  "sandbox": "off",
+  "overlay": false,
+  "knowledge": false,
+  "models": {},
+  "duration_seconds": 15.8,
+  "cases": [
+    {
+      "name": "partial-refund",
+      "title": "Partial refunds on coupon orders pay back too much",
+      "project": "tinyshop",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "c12fb9e321c5864dd0af6e7c8fa0599fcc0c1b75",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "...\r\n----------------------------------------------------------------------\r\nRan 3 tests in 0.000s\r\n\r\nOK\r\n"
+          },
+          "cost_usd": 0.0667419,
+          "duration_seconds": 14.95,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "weekend-delivery",
+      "title": "Confirmation emails promise weekend delivery",
+      "project": "tinyshop",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "16a7998abeff207a61539470c285716cfe74d883",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": ".\r\n----------------------------------------------------------------------\r\nRan 1 test in 0.000s\r\n\r\nOK\r\n"
+          },
+          "cost_usd": 0.0687535,
+          "duration_seconds": 15.11,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    }
+  ]
+}

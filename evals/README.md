@@ -5,10 +5,13 @@ Every case is a card, a starting codebase and a hidden check the agent never see
 
 | Set | Codebase | Cases | What it exercises |
 | --- | --- | --- | --- |
-| [rich](rich/) | [Rich](https://github.com/Textualize/rich), about 100 modules | 3 | finding a bug from its symptom in a real library |
+| [rich-mutants](rich-mutants/) | [Rich](https://github.com/Textualize/rich), about 100 modules | 25 | the pre-registered benchmark: bugs drawn by a seeded mutation sweep, 6 for learning, 17 for testing, 2 before-and-after-learning lessons |
+| [rich](rich/) | Rich | 3 | three hand-planted bugs, found from their symptoms |
 | [tinyshop](tinyshop/) | a small shop backend written for these cases, 23 files | 2 | tracing a symptom through several modules |
 
-Each set runs in seconds per case on a laptop, so a full comparison takes minutes.
+Each set runs in seconds per case on a laptop, so a full comparison takes minutes. The
+results and the write-up are in [docs/CASE-STUDY.md](../docs/CASE-STUDY.md);
+[exploratory/](exploratory/) holds the runs made before the benchmark's protocol was written.
 
 ## Running them
 

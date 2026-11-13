@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "id": "20261113-121638-ab55-lesson2-plain-md-r2",
+  "label": "lesson2-plain-md-r2",
+  "created_at": "2026-11-13T12:17:23+00:00",
+  "prat_version": "0.1.0.dev0",
+  "suite": "<prat>\\evals\\rich-mutants\\cases\\lesson2",
+  "runtime": "plain",
+  "reviewer": "none",
+  "sandbox": "off",
+  "overlay": false,
+  "knowledge": false,
+  "claude_md": true,
+  "models": {},
+  "duration_seconds": 44.6,
+  "cases": [
+    {
+      "name": "svg-export-width-regression",
+      "title": "SVG export makes the terminal's clipping area too wide",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "fff10b71dc0f14d2bb97110c2be094544196ad1d",
+          "check": {
+            "passed": false,
+            "exit_code": 1,
+            "timed_out": false,
+            "output": "<prat>\\.venv\\Lib\\site-packages\\pytest_asyncio\\plugin.py:306: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\r\nThe event loop scope for asynchronous fixtures will default to the fixture scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to \"function\" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n\r\n1005 deselected in 0.78s\r\nRULE: no passing test marked regression (pytest exit 5)\r\n"
+          },
+          "cost_usd": 0.13029599999999997,
+          "duration_seconds": 40.91,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    }
+  ]
+}

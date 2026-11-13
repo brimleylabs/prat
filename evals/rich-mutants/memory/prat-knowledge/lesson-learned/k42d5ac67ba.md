@@ -1,0 +1,19 @@
++++
+id = "k42d5ac67ba"
+kind = "layout"
+summary = "imgs/ holds 21 images and other assets"
+paths = ["imgs", "benchmarks/snippets.py", "rich/logging.py", "tests/test_markdown.py", "tests/test_markdown_no_hyperlinks.py"]
+status = "active"
+confidence = "observed"
+author = "scout"
+helped = 0
+hurt = 0
+created = "2026-11-13T05:41:04+00:00"
+last_verified = "2026-11-13T06:49:48+00:00"
+invalid_at = ""
+superseded_by = ""
+
+[[sources]]
+note = "deep scan, 20261113T053836"
++++
+imgs/ holds 21 assets files (16 .png, 5 .gif). Referred to in: benchmarks/snippets.py, rich/logging.py, tests/test_markdown.py, tests/test_markdown_no_hyperlinks.py.

@@ -70,6 +70,15 @@ prat eval run --runtime claude --label candidate
 prat eval compare
 ```
 
+We used it to compare PRAT with plain Claude Code on 17 bugs planted in
+[Rich](https://github.com/Textualize/rich), under a protocol published before any agent ran:
+473 runs, all reported. PRAT does not make the model a better programmer; both fixed the same
+bugs. What PRAT added was control and a record: it stopped a 26,500-line line-ending change
+that the tests passed, sent back fixes whose new test never ran the fixed code, kept the agent
+inside its worktree, and journaled every decision. Its knowledge base got the agent to the
+right code in fewer steps, and a rule a person taught once was followed in every later run.
+Read the [case study](docs/CASE-STUDY.md).
+
 ## The four words
 
 | | What happens | What keeps it honest |

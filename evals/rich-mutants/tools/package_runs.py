@@ -21,7 +21,9 @@ from pathlib import Path
 def variants(text: str) -> list[str]:
     forward = text.replace("\\", "/")
     back = forward.replace("/", "\\")
-    return sorted({text, forward, back, back.replace("\\", "\\\\")}, key=len, reverse=True)
+    # JSON inside JSON (a tool's output quoted in a journal) escapes backslashes again.
+    escaped = [back.replace("\\", "\\" * n) for n in (2, 4, 8)]
+    return sorted({text, forward, back, *escaped}, key=len, reverse=True)
 
 
 def scrub(data: str, pairs: list[tuple[str, str]]) -> str:
@@ -30,6 +32,24 @@ def scrub(data: str, pairs: list[tuple[str, str]]) -> str:
             data = data.replace(form, new)
             data = data.replace(form.lower(), new)
     return data
+
+
+# Claude Code's start-up message names the account's connected services and a local pipe; they
+# say nothing about the run, so they are left out.
+ACCOUNT_FIELDS = ("mcp_servers", "messaging_socket_path")
+
+
+def redact(line: str) -> str:
+    if '"subtype": "init"' not in line:
+        return line
+    event = json.loads(line)
+    init = event.get("data", {}).get("data")
+    if not isinstance(init, dict):
+        return line
+    for field in ACCOUNT_FIELDS:
+        if field in init:
+            init[field] = "(left out)"
+    return json.dumps(event)
 
 
 def main() -> None:
@@ -50,7 +70,8 @@ def main() -> None:
             text = scrub(result_file.read_text(encoding="utf-8"), pairs)
             (out / "results" / f"{label}.json").write_text(text, encoding="utf-8", newline="\n")
             for journal in sorted((folder / "journals").rglob("*.jsonl")):
-                data = scrub(journal.read_text(encoding="utf-8"), pairs).encode("utf-8")
+                lines = journal.read_text(encoding="utf-8").splitlines()
+                data = scrub("\n".join(map(redact, lines)) + "\n", pairs).encode("utf-8")
                 info = tarfile.TarInfo(f"{label}/{journal.relative_to(folder / 'journals').as_posix()}")
                 info.size = len(data)
                 archive.addfile(info, io.BytesIO(data))

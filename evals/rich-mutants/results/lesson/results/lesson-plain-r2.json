@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "id": "20261113-064632-10af-lesson-plain-r2",
+  "label": "lesson-plain-r2",
+  "created_at": "2026-11-13T06:47:42+00:00",
+  "prat_version": "0.1.0.dev0",
+  "suite": "<prat>\\evals\\rich-mutants\\cases\\lesson",
+  "runtime": "plain",
+  "reviewer": "none",
+  "sandbox": "off",
+  "overlay": false,
+  "knowledge": false,
+  "claude_md": false,
+  "models": {},
+  "duration_seconds": 69.5,
+  "cases": [
+    {
+      "name": "svg-export-width",
+      "title": "SVG export makes the terminal's clipping area too wide",
+      "project": "rich",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": null,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": "success",
+          "steps": {},
+          "gates": [],
+          "findings": [],
+          "verdict": null,
+          "commit": "7d688eb13bf03e1722830396b8795ed39da418df",
+          "check": {
+            "passed": false,
+            "exit_code": 1,
+            "timed_out": false,
+            "output": "on\", \"class\", \"module\", \"package\", \"session\". Set it to \"fixture-scope\" to keep the current behavior.\r\n\r\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\r\n........................................................................ [  7%]\r\n........................................................................ [ 14%]\r\n.........sss............................................................ [ 21%]\r\n........ss.............s.......s........................................ [ 28%]\r\n........................................................................ [ 35%]\r\n....s....sss..........................................s.s............... [ 42%]\r\n...s.................................................................... [ 50%]\r\n..................................s..................................... [ 57%]\r\n........................................................................ [ 64%]\r\n........................................................................ [ 71%]\r\n...................................ssss................................. [ 78%]\r\n........................................................................ [ 85%]\r\n......................................................s.......s.......s. [ 92%]\r\ns......................................................................  [100%]\r\n984 passed, 23 skipped in 5.06s\r\nCHANGELOG.md: this change under rich/ has no new entry under ## Unreleased.\r\nRich asks for every change to be described there (see CONTRIBUTING.md).\r\n"
+          },
+          "cost_usd": 0.1168505,
+          "duration_seconds": 60.88,
+          "policy": {
+            "calls": 0,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "format": 1,
+  "id": "20261113-041635-d019-prat",
+  "label": "prat",
+  "created_at": "2026-11-13T04:17:04+00:00",
+  "prat_version": "0.1.0.dev0",
+  "suite": "<work>\\cases",
+  "runtime": "claude",
+  "reviewer": "claude",
+  "sandbox": "off",
+  "overlay": false,
+  "knowledge": false,
+  "models": {},
+  "duration_seconds": 28.7,
+  "cases": [
+    {
+      "name": "partial-refund",
+      "title": "Partial refunds on coupon orders pay back too much",
+      "project": "tinyshop",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": 1,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": null,
+          "steps": {
+            "prepare": "succeeded",
+            "plan": "skipped",
+            "execute": "succeeded",
+            "verify": "succeeded",
+            "critique": "succeeded",
+            "summarize": "succeeded",
+            "finalize": "succeeded"
+          },
+          "gates": [
+            {
+              "name": "test",
+              "passed": true,
+              "output": "----------------------------------------------------------------------\r\nRan 6 tests in 0.000s\r\n\r\nOK\r\n"
+            }
+          ],
+          "findings": [],
+          "verdict": "met",
+          "commit": "3ce835b7946f488f876893e0316edcda31ddcbf5",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": "...\r\n----------------------------------------------------------------------\r\nRan 3 tests in 0.000s\r\n\r\nOK\r\n"
+          },
+          "cost_usd": 0.10579240000000001,
+          "duration_seconds": 27.27,
+          "policy": {
+            "calls": 6,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    },
+    {
+      "name": "weekend-delivery",
+      "title": "Confirmation emails promise weekend delivery",
+      "project": "tinyshop",
+      "has_check": true,
+      "attempts": [
+        {
+          "number": 1,
+          "run_id": 1,
+          "run_status": "succeeded",
+          "card_status": "review",
+          "reason": null,
+          "steps": {
+            "prepare": "succeeded",
+            "plan": "skipped",
+            "execute": "succeeded",
+            "verify": "succeeded",
+            "critique": "succeeded",
+            "summarize": "succeeded",
+            "finalize": "succeeded"
+          },
+          "gates": [
+            {
+              "name": "test",
+              "passed": true,
+              "output": "----------------------------------------------------------------------\r\nRan 6 tests in 0.000s\r\n\r\nOK\r\n"
+            }
+          ],
+          "findings": [],
+          "verdict": "met",
+          "commit": "24a5cb2a6fce4ef40448244b5ff675a2650f24f5",
+          "check": {
+            "passed": true,
+            "exit_code": 0,
+            "timed_out": false,
+            "output": ".\r\n----------------------------------------------------------------------\r\nRan 1 test in 0.000s\r\n\r\nOK\r\n"
+          },
+          "cost_usd": 0.10475749999999999,
+          "duration_seconds": 26.89,
+          "policy": {
+            "calls": 6,
+            "denied": 0
+          }
+        }
+      ],
+      "recorded": null,
+      "error": null
+    }
+  ]
+}
