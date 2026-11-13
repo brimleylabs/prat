@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/color.py:462:15:> to >= (test batch; see PROTOCOL.md).
+title = "Color.parse(\"color(255)\") is rejected"
+goal = "Color.parse(\"color(255)\") raises ColorParseError: color number must be <= 255. 255 is a valid 256-colour palette number (0 to 255) and should parse; only numbers above 255 should be rejected."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

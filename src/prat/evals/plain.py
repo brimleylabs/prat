@@ -52,7 +52,10 @@ async def run_plain(
     *,
     journal: Path | None = None,
     time_limit: float = SESSION_TIMEOUT_SECONDS,
+    prompt: str | None = None,
 ) -> PlainSession:
+    """Run the session. ``prompt`` replaces the card's text (for example to ask for a
+    CLAUDE.md, or to add an instruction after the card)."""
     from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
     from prat.runtime.auth import runtime_env
@@ -72,16 +75,17 @@ async def run_plain(
         },
         cli_path=settings.claude_cli_path,
     )
+    text = prompt if prompt is not None else plain_prompt(case, spec)
     log: Journal | None = None
     if journal is not None:
         journal.parent.mkdir(parents=True, exist_ok=True)
         log = Journal(journal, payload_limit=settings.journal_payload_limit)
-        log.append("plain.started", {"model": model, "prompt": plain_prompt(case, spec)})
+        log.append("plain.started", {"model": model, "prompt": text})
     outcome = {"status": "failed", "reason": "the session ended without a result"}
     totals = {"cost": 0.0, "turns": 0}
 
     async def drive() -> None:
-        async for message in query(prompt=plain_prompt(case, spec), options=options):
+        async for message in query(prompt=text, options=options):
             if log is not None:
                 log.append(f"plain.{type(message).__name__}", _as_data(message))
             if isinstance(message, ResultMessage):

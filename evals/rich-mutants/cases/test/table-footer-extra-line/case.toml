@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/table.py:909:45:>= to > (test batch; see PROTOCOL.md).
+title = "Tables with a footer and row lines draw an extra line before the footer"
+goal = "In a Table with show_footer=True and show_lines=True, an extra horizontal line is drawn between the last row and the footer, so the footer is preceded by two lines. There should be one line between the last row and the footer, as without show_lines."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

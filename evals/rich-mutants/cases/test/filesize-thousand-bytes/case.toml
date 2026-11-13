@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/filesize.py:28:9:< to <= (test batch; see PROTOCOL.md).
+title = "1,000 bytes is shown as bytes, not 1.0 kB"
+goal = "rich.filesize.decimal(1000) returns \"1,000 bytes\", but sizes switch to kB at 1,000 bytes, so it should return \"1.0 kB\". 999 and 1,001 bytes are right. File size columns in progress bars show the same mistake."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/progress_bar.py:181:44:>= to > (test batch; see PROTOCOL.md).
+title = "A progress bar at exactly 100% is not drawn as finished"
+goal = "A ProgressBar whose completed equals its total should be drawn in the finished style. It is drawn in the in-progress style until completed goes past the total, so a finished task's bar never changes colour in Progress."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

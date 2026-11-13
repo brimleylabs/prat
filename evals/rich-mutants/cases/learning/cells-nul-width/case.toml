@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/cells.py:74:13:> to >= (learning batch; see PROTOCOL.md).
+title = "The NUL character is counted as one cell wide"
+goal = "rich.cells.cell_len(\"\\x00\") returns 1, but NUL and the other zero-width control characters take no space in the terminal and should count as 0 cells. Text containing them is measured too wide."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

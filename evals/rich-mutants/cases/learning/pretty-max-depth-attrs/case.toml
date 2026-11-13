@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/pretty.py:737:64:drop + 1 (learning batch; see PROTOCOL.md).
+title = "pretty_repr() ignores max_depth inside attrs classes"
+goal = "With nested attrs classes, rich.pretty.pretty_repr(obj, max_depth=2) does not stop at the given depth. For a Foo holding a Bar holding a Foo it should give \"Foo(foo=Bar(bar=Foo(...)))\" but gives \"Foo(foo=Bar(bar=Foo(foo=[])))\". Dataclasses and plain containers are cut off correctly."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

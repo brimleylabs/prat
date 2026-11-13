@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/segment.py:132:47:drop - 1 (test batch; see PROTOCOL.md).
+title = "Splitting a segment inside a double-width character gives the wrong widths"
+goal = "Segment.split_cells(cut) on text with double-width characters (Japanese or Chinese) returns parts of the wrong cell widths when the cut falls in the middle of a double-width character: the first part comes out one cell too wide. The two parts' widths should add up to the original, with the first part exactly cut cells wide."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

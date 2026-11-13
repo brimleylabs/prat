@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/console.py:2582:29:drop + 1 (test batch; see PROTOCOL.md).
+title = "SVG export cuts the terminal one line short"
+goal = "Console.export_svg() makes the terminal's clipping area one line too short: exporting a single line gives a clip rectangle with height=\"-1.0\", so the text is clipped away. The clip height should cover every line of the export (23.4 for one line with the default font size)."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

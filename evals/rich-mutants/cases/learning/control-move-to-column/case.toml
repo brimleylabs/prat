@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/control.py:43:59:drop + 1 (learning batch; see PROTOCOL.md).
+title = "Control.move_to() puts the cursor one column to the left"
+goal = "Control.move_to(5, 10) should move the cursor to column 5 and row 10 (counting from 0), which is the escape sequence \"\\x1b[11;6H\". It produces \"\\x1b[11;5H\": the row is right but the column is one too small. Screen updates drawn at a position come out one column to the left."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

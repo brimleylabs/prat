@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/containers.py:143:33:drop + 1 (learning batch; see PROTOCOL.md).
+title = "Full justification piles the extra spaces into one gap"
+goal = "Text printed with justify=\"full\" should spread the extra spaces across the gaps between words. Instead all the extra space goes into the same gap, so one gap is very wide and the others have a single space."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

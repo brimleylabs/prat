@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/markup.py:86:11:> to >= (learning batch; see PROTOCOL.md).
+title = "Markup parsing reports empty text before a leading tag"
+goal = "Parsing console markup that starts with a tag, such as \"[foo]hello[/foo]\", reports an empty piece of text before the first tag, and before a tag that directly follows another one. Pieces of text should only be reported where there is text."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/columns.py:136:23:> to >= (test batch; see PROTOCOL.md).
+title = "Columns crashes when an item is exactly as wide as the space"
+goal = "Rendering Columns where an item is exactly as wide as the available width raises ZeroDivisionError: integer modulo by zero. It should render the item in a single column. It shows when printing the traceback of a recursive exception."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

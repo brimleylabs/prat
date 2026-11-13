@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/_wrap.py:54:15:> to >= (test batch; see PROTOCOL.md).
+title = "Wrapping words exactly as long as the width adds an empty line"
+goal = "Wrapping Text(\"foo bar baz\") to a width of 3 should give three lines, foo, bar and baz. It gives four: foo, bar, a line with a single space, and baz. A word exactly as long as the width should fit on its line."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

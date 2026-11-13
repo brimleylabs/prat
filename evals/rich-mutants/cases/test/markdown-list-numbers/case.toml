@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/markdown.py:407:44:drop - 1 (test batch; see PROTOCOL.md).
+title = "Markdown numbered lists have an extra space before each number"
+goal = "Rendering a numbered list with Markdown puts one space too many before each number: \" 1 lather\" comes out as \"  1 lather\", and the item text is pushed one column to the right. Bullet lists are right."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

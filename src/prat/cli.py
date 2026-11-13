@@ -1755,6 +1755,10 @@ def eval_run(
             "to give every case."
         ),
     ] = None,
+    claude_md: Annotated[
+        Path | None,
+        typer.Option(help="With --runtime plain: a CLAUDE.md to put in every case's repository."),
+    ] = None,
 ) -> None:
     """Run cases through PRAT, each in a home of its own, and score every attempt with the
     case's hidden check. Nothing touches your projects, cards or branches."""
@@ -1764,6 +1768,8 @@ def eval_run(
     if knowledge is not None and not (knowledge / "entries").is_dir():
         raise _fail(f"{knowledge} is not a knowledge folder (it has no entries/)")
     plain = runtime == "plain"
+    if claude_md is not None and (not plain or not claude_md.is_file()):
+        raise _fail("--claude-md needs --runtime plain and an existing file")
     builder: Literal["scripted", "claude", "plain"] = (
         "plain" if plain else _check_who("runtime", runtime)
     )
@@ -1792,6 +1798,7 @@ def eval_run(
         keep_work=keep_work,
         jobs=jobs,
         knowledge=knowledge.resolve() if knowledge is not None else None,
+        claude_md=claude_md.resolve() if claude_md is not None else None,
     )
 
     def progress(result: CaseResult) -> None:

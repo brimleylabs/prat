@@ -1,0 +1,122 @@
+{
+  "rich/syntax.py:791:16:drop + 1": {
+    "name": "syntax-stylize-range",
+    "title": "Syntax.stylize_range() styles the wrong characters after the first line",
+    "goal": "Styling a range of code with Syntax.stylize_range(style, (line, column), (line, column)) puts the style in the wrong place on every line after the first: it lands one character to the right of the columns asked for. On the first line it is right."
+  },
+  "rich/markup.py:86:11:> to >=": {
+    "name": "markup-empty-text",
+    "title": "Markup parsing reports empty text before a leading tag",
+    "goal": "Parsing console markup that starts with a tag, such as \"[foo]hello[/foo]\", reports an empty piece of text before the first tag, and before a tag that directly follows another one. Pieces of text should only be reported where there is text."
+  },
+  "rich/containers.py:143:33:drop + 1": {
+    "name": "justify-full-spaces",
+    "title": "Full justification piles the extra spaces into one gap",
+    "goal": "Text printed with justify=\"full\" should spread the extra spaces across the gaps between words. Instead all the extra space goes into the same gap, so one gap is very wide and the others have a single space."
+  },
+  "rich/control.py:43:59:drop + 1": {
+    "name": "control-move-to-column",
+    "title": "Control.move_to() puts the cursor one column to the left",
+    "goal": "Control.move_to(5, 10) should move the cursor to column 5 and row 10 (counting from 0), which is the escape sequence \"\\x1b[11;6H\". It produces \"\\x1b[11;5H\": the row is right but the column is one too small. Screen updates drawn at a position come out one column to the left."
+  },
+  "rich/pretty.py:737:64:drop + 1": {
+    "name": "pretty-max-depth-attrs",
+    "title": "pretty_repr() ignores max_depth inside attrs classes",
+    "goal": "With nested attrs classes, rich.pretty.pretty_repr(obj, max_depth=2) does not stop at the given depth. For a Foo holding a Bar holding a Foo it should give \"Foo(foo=Bar(bar=Foo(...)))\" but gives \"Foo(foo=Bar(bar=Foo(foo=[])))\". Dataclasses and plain containers are cut off correctly."
+  },
+  "rich/cells.py:74:13:> to >=": {
+    "name": "cells-nul-width",
+    "title": "The NUL character is counted as one cell wide",
+    "goal": "rich.cells.cell_len(\"\\x00\") returns 1, but NUL and the other zero-width control characters take no space in the terminal and should count as 0 cells. Text containing them is measured too wide."
+  },
+  "rich/text.py:464:15:< to <=": {
+    "name": "text-stylize-end-zero",
+    "title": "Text.stylize() with end=0 styles the whole text",
+    "goal": "Text.stylize(style, 0, 0) should style nothing (an empty range), but it styles the whole text; a negative end should keep counting from the end as it does now. It shows in Syntax with indent_guides=True, where some whole lines come out dimmed instead of only their guides."
+  },
+  "rich/progress.py:1463:20:>= to >": {
+    "name": "progress-finish-at-total",
+    "title": "A progress task that reaches exactly its total is not finished",
+    "goal": "When a task in Progress is advanced to exactly its total, it should be finished: its time remaining should read 0:00:00 and its finished time should be set. It keeps showing -:--:-- and its finished_time stays None; only going past the total finishes it."
+  },
+  "rich/filesize.py:28:9:< to <=": {
+    "name": "filesize-thousand-bytes",
+    "title": "1,000 bytes is shown as bytes, not 1.0 kB",
+    "goal": "rich.filesize.decimal(1000) returns \"1,000 bytes\", but sizes switch to kB at 1,000 bytes, so it should return \"1.0 kB\". 999 and 1,001 bytes are right. File size columns in progress bars show the same mistake."
+  },
+  "rich/table.py:909:45:>= to >": {
+    "name": "table-footer-extra-line",
+    "title": "Tables with a footer and row lines draw an extra line before the footer",
+    "goal": "In a Table with show_footer=True and show_lines=True, an extra horizontal line is drawn between the last row and the footer, so the footer is preceded by two lines. There should be one line between the last row and the footer, as without show_lines."
+  },
+  "rich/console.py:2582:29:drop + 1": {
+    "name": "svg-export-height",
+    "title": "SVG export cuts the terminal one line short",
+    "goal": "Console.export_svg() makes the terminal's clipping area one line too short: exporting a single line gives a clip rectangle with height=\"-1.0\", so the text is clipped away. The clip height should cover every line of the export (23.4 for one line with the default font size)."
+  },
+  "rich/segment.py:132:47:drop - 1": {
+    "name": "segment-split-wide-char",
+    "title": "Splitting a segment inside a double-width character gives the wrong widths",
+    "goal": "Segment.split_cells(cut) on text with double-width characters (Japanese or Chinese) returns parts of the wrong cell widths when the cut falls in the middle of a double-width character: the first part comes out one cell too wide. The two parts' widths should add up to the original, with the first part exactly cut cells wide."
+  },
+  "rich/color.py:462:15:> to >=": {
+    "name": "color-parse-255",
+    "title": "Color.parse(\"color(255)\") is rejected",
+    "goal": "Color.parse(\"color(255)\") raises ColorParseError: color number must be <= 255. 255 is a valid 256-colour palette number (0 to 255) and should parse; only numbers above 255 should be rejected."
+  },
+  "rich/markdown.py:407:44:drop - 1": {
+    "name": "markdown-list-numbers",
+    "title": "Markdown numbered lists have an extra space before each number",
+    "goal": "Rendering a numbered list with Markdown puts one space too many before each number: \" 1 lather\" comes out as \"  1 lather\", and the item text is pushed one column to the right. Bullet lists are right."
+  },
+  "rich/progress_bar.py:181:44:>= to >": {
+    "name": "progress-bar-complete-style",
+    "title": "A progress bar at exactly 100% is not drawn as finished",
+    "goal": "A ProgressBar whose completed equals its total should be drawn in the finished style. It is drawn in the in-progress style until completed goes past the total, so a finished task's bar never changes colour in Progress."
+  },
+  "rich/live_render.py:95:11:> to >=": {
+    "name": "live-exact-height",
+    "title": "Live cuts off content that exactly fits the terminal",
+    "goal": "With Live(vertical_overflow=\"ellipsis\"), content that is exactly as tall as the terminal is cut short and its last line replaced with an ellipsis, although it fits. Only content taller than the terminal should be cut."
+  },
+  "rich/rule.py:96:43:drop - 1": {
+    "name": "rule-right-title",
+    "title": "Rule with a right-aligned title cuts the title short",
+    "goal": "A Rule with align=\"right\" draws its line one character too long on the left, so the title loses its last character: \"foo\" is drawn as \"fo\" (with not enough room, the title is cut even shorter than it should be). Left and centre alignment are right."
+  },
+  "rich/highlighter.py:133:18:< to <=": {
+    "name": "json-highlighter-string",
+    "title": "JSONHighlighter crashes on text that is only a string",
+    "goal": "JSONHighlighter().highlight(Text('\"abc\"')) raises IndexError: string index out of range, and so does an empty JSON string, '\"\"'. Highlighting text that is a single JSON string should style it as a string."
+  },
+  "rich/columns.py:136:23:> to >=": {
+    "name": "columns-exact-width",
+    "title": "Columns crashes when an item is exactly as wide as the space",
+    "goal": "Rendering Columns where an item is exactly as wide as the available width raises ZeroDivisionError: integer modulo by zero. It should render the item in a single column. It shows when printing the traceback of a recursive exception."
+  },
+  "rich/bar.py:54:11:>= to >": {
+    "name": "bar-zero-size",
+    "title": "Bar with nothing to show crashes",
+    "goal": "Rendering Bar(size=0, begin=0, end=0) raises ZeroDivisionError: division by zero. A bar whose range is empty (begin equal to end) should render as an empty bar."
+  },
+  "rich/_ratio.py:133:11:> to >=": {
+    "name": "ratio-zero-last",
+    "title": "Sharing out width by ratios fails when the last ratio is 0",
+    "goal": "When Rich shares out a width between parts by ratios and the last ratio is 0, it fails with ZeroDivisionError. Sharing 10 cells out by the ratios [1, 0] should give [10, 0]: a part with ratio 0 gets nothing."
+  },
+  "rich/_wrap.py:54:15:> to >=": {
+    "name": "wrap-exact-word",
+    "title": "Wrapping words exactly as long as the width adds an empty line",
+    "goal": "Wrapping Text(\"foo bar baz\") to a width of 3 should give three lines, foo, bar and baz. It gives four: foo, bar, a line with a single space, and baz. A word exactly as long as the width should fit on its line."
+  },
+  "rich/ansi.py:48:27:drop + 1": {
+    "name": "ansi-charset-escape",
+    "title": "AnsiDecoder leaves a stray character after a character set escape",
+    "goal": "Decoding terminal output with AnsiDecoder leaves a stray character behind for character set escapes such as \"\\x1b(B\": \"\\x1b(BHallo\" decodes to \"BHallo\" instead of \"Hallo\", and coloured compiler output ending in \"\\x1b(B\\x1b[m\" gets a stray \"B\" at the end of the line."
+  },
+  "rich/console.py:2581:27:drop - 1": {
+    "name": "svg-export-width",
+    "title": "SVG export makes the terminal's clipping area too wide",
+    "goal": "Console.export_svg() makes the clipping rectangle around the terminal text one unit too wide: for a 100-column console it is width=\"1220.0\" where it should be 1219.0, so the clip runs past the last column. Its height is right."
+  }
+}

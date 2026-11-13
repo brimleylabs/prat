@@ -1,0 +1,333 @@
+[
+ {
+  "module": "rich/syntax.py",
+  "line": 791,
+  "col": 16,
+  "kind": "drop + 1",
+  "start": 31032,
+  "end": 31049,
+  "replacement": "match.start()",
+  "failing": [
+   "test_syntax::test_syntax_highlight_ranges"
+  ],
+  "batch": "learning"
+ },
+ {
+  "module": "rich/markup.py",
+  "line": 86,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 2417,
+  "end": 2418,
+  "replacement": ">=",
+  "failing": [
+   "test_markup::test_parse",
+   "test_markup::test_parse_link"
+  ],
+  "batch": "learning"
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 143,
+  "col": 33,
+  "kind": "drop + 1",
+  "start": 4887,
+  "end": 4896,
+  "replacement": "index",
+  "failing": [
+   "test_card::test_card_render"
+  ],
+  "batch": "learning"
+ },
+ {
+  "module": "rich/control.py",
+  "line": 43,
+  "col": 59,
+  "kind": "drop + 1",
+  "start": 1477,
+  "end": 1480,
+  "replacement": "x",
+  "failing": [
+   "test_console::test_screen_update_class",
+   "test_control::test_control_move_to"
+  ],
+  "batch": "learning"
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 737,
+  "col": 64,
+  "kind": "drop + 1",
+  "start": 27375,
+  "end": 27384,
+  "replacement": "depth",
+  "failing": [
+   "test_pretty::test_max_depth_attrs"
+  ],
+  "batch": "learning"
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 74,
+  "col": 13,
+  "kind": "> to >=",
+  "start": 2331,
+  "end": 2332,
+  "replacement": ">=",
+  "failing": [
+   "test_cells::test_get_character_cell_size[\\x00-0]",
+   "test_cells::test_non_printable"
+  ],
+  "batch": "learning"
+ },
+ {
+  "module": "rich/text.py",
+  "line": 464,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 16016,
+  "end": 16017,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_syntax::test_python_render_simple_indent_guides"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1463,
+  "col": 20,
+  "kind": ">= to >",
+  "start": 53030,
+  "end": 53032,
+  "replacement": ">",
+  "failing": [
+   "test_progress::test_render"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/filesize.py",
+  "line": 28,
+  "col": 9,
+  "kind": "< to <=",
+  "start": 756,
+  "end": 757,
+  "replacement": "<=",
+  "failing": [
+   "test_filesize::test_traditional"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/table.py",
+  "line": 909,
+  "col": 45,
+  "kind": ">= to >",
+  "start": 37649,
+  "end": 37651,
+  "replacement": ">",
+  "failing": [
+   "test_table::test_render_table"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2582,
+  "col": 29,
+  "kind": "drop + 1",
+  "start": 99235,
+  "end": 99240,
+  "replacement": "y",
+  "failing": [
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 132,
+  "col": 47,
+  "kind": "drop - 1",
+  "start": 3943,
+  "end": 3950,
+  "replacement": "pos",
+  "failing": [
+   "test_segment::test_split_cells_mixed[segment2]",
+   "test_segment::test_split_cells_mixed[segment3]"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/color.py",
+  "line": 462,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 12327,
+  "end": 12328,
+  "replacement": ">=",
+  "failing": [
+   "test_color::test_downgrade"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/markdown.py",
+  "line": 407,
+  "col": 44,
+  "kind": "drop - 1",
+  "start": 13007,
+  "end": 13023,
+  "replacement": "number_width",
+  "failing": [
+   "test_markdown::test_markdown_render",
+   "test_markdown_no_hyperlinks::test_markdown_render"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/progress_bar.py",
+  "line": 181,
+  "col": 44,
+  "kind": ">= to >",
+  "start": 6913,
+  "end": 6915,
+  "replacement": ">",
+  "failing": [
+   "test_progress::test_progress_track",
+   "test_progress::test_render",
+   "test_progress::test_track"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/live_render.py",
+  "line": 95,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 3056,
+  "end": 3057,
+  "replacement": ">=",
+  "failing": [
+   "test_live::test_growing_display_overflow_ellipsis",
+   "test_live::test_live_screen"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 96,
+  "col": 43,
+  "kind": "drop - 1",
+  "start": 3707,
+  "end": 3738,
+  "replacement": "width - title_text.cell_len",
+  "failing": [
+   "test_rule::test_rule_align",
+   "test_rule::test_rule_just_enough_width_available_for_title[right-\\u2500 AB\\u2026\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[right-\\u2500 \\u2026\\n]"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/highlighter.py",
+  "line": 133,
+  "col": 18,
+  "kind": "< to <=",
+  "start": 4709,
+  "end": 4710,
+  "replacement": "<=",
+  "failing": [
+   "test_highlighter::test_highlight_json_empty_string_only",
+   "test_highlighter::test_highlight_json_string_only"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 136,
+  "col": 23,
+  "kind": "> to >=",
+  "start": 5598,
+  "end": 5599,
+  "replacement": ">=",
+  "failing": [
+   "test_traceback::test_recursive_exception"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/bar.py",
+  "line": 54,
+  "col": 11,
+  "kind": ">= to >",
+  "start": 1845,
+  "end": 1847,
+  "replacement": ">",
+  "failing": [
+   "test_block_bar::test_zero_total"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/_ratio.py",
+  "line": 133,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 4874,
+  "end": 4875,
+  "replacement": ">=",
+  "failing": [
+   "test_tools::test_ratio_distribute"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/_wrap.py",
+  "line": 54,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 1871,
+  "end": 1872,
+  "replacement": ">=",
+  "failing": [
+   "test_text::test_wrap_3"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/ansi.py",
+  "line": 48,
+  "col": 27,
+  "kind": "drop + 1",
+  "start": 1085,
+  "end": 1092,
+  "replacement": "end",
+  "failing": [
+   "test_ansi::test_decode_issue_2688[\\x1b(BHal\\x1b(Jlo-Hallo]",
+   "test_ansi::test_decode_issue_2688[\\x1b(BHallo-Hallo]",
+   "test_ansi::test_decode_issue_2688[\\x1b(JHallo-Hallo]",
+   "test_ansi::test_decode_issue_2688[\\x1b[31mFound 4 errors in 2 files (checked 18 source files)\\x1b(B\\x1b[m\\n-Found 4 errors in 2 files (checked 18 source files)\\n]"
+  ],
+  "batch": "test"
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2581,
+  "col": 27,
+  "kind": "drop - 1",
+  "start": 99181,
+  "end": 99203,
+  "replacement": "char_width * width",
+  "failing": [
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ],
+  "batch": "lesson"
+ }
+]

@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/highlighter.py:133:18:< to <= (test batch; see PROTOCOL.md).
+title = "JSONHighlighter crashes on text that is only a string"
+goal = "JSONHighlighter().highlight(Text('\"abc\"')) raises IndexError: string index out of range, and so does an empty JSON string, '\"\"'. Highlighting text that is a single JSON string should style it as a string."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

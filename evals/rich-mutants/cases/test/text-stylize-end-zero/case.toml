@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/text.py:464:15:< to <= (test batch; see PROTOCOL.md).
+title = "Text.stylize() with end=0 styles the whole text"
+goal = "Text.stylize(style, 0, 0) should style nothing (an empty range), but it styles the whole text; a negative end should keep counting from the end as it does now. It shows in Syntax with indent_guides=True, where some whole lines come out dimmed instead of only their guides."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

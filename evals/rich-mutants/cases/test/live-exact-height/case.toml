@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/live_render.py:95:11:> to >= (test batch; see PROTOCOL.md).
+title = "Live cuts off content that exactly fits the terminal"
+goal = "With Live(vertical_overflow=\"ellipsis\"), content that is exactly as tall as the terminal is cut short and its last line replaced with an ellipsis, although it fits. Only content taller than the terminal should be cut."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

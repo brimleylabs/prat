@@ -173,6 +173,8 @@ class EvalResult(BaseModel):
     overlay: bool = False
     # PRAT's agents had the project's seeded knowledge.
     knowledge: bool = False
+    # Plain Claude Code had a CLAUDE.md in the repository.
+    claude_md: bool = False
     models: dict[str, str] = Field(default_factory=dict)
     duration_seconds: float = 0.0
     cases: list[CaseResult] = Field(default_factory=list)

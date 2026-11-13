@@ -174,6 +174,11 @@ def test_eval_commands(
     assert "left out (not in both): roman, slugify" in compared
     assert "unknown runtime" in cli("eval", "run", "--runtime", "other", code=1)
     assert "no such case" in cli("eval", "run", "--case", "nothing", code=1)
+    # CLAUDE.md is plain Claude Code's memory; PRAT's own is --knowledge.
+    memory = tmp_path / "CLAUDE.md"
+    memory.write_text("# notes\n", encoding="utf-8")
+    assert "--claude-md needs" in cli("eval", "run", "--claude-md", str(memory), code=1)
+    assert "not a knowledge folder" in cli("eval", "run", "--knowledge", str(tmp_path), code=1)
 
     # Export a finished card and run it.
     repo = repo_factory("acme-api", project_toml=DEFAULT_TOML)

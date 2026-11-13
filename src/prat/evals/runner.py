@@ -90,6 +90,9 @@ class EvalOptions:
     # A project's seeded knowledge folder ($PRAT_HOME/knowledge/projects/<slug>), given to
     # every case, as PRAT would know the project in use.
     knowledge: Path | None = None
+    # For plain Claude Code: a CLAUDE.md put in the repository before the session, Claude
+    # Code's own way of knowing a project.
+    claude_md: Path | None = None
 
 
 class ScriptedReviewer:
@@ -174,6 +177,7 @@ async def run_suite(
         sandbox=settings.sandbox,
         overlay=options.overlay and overlay_path(settings.home).is_dir(),
         knowledge=options.knowledge is not None and options.runtime != "plain",
+        claude_md=options.claude_md is not None and options.runtime == "plain",
         models=dict(settings.models),
         duration_seconds=round(time.monotonic() - started, 1),
         cases=results,
@@ -226,7 +230,9 @@ async def _run(
     )
     result.project = spec.name
     if options.runtime == "plain":
-        await _run_plain(scratch, case, spec, checkout, work, result, sandboxed, journals)
+        await _run_plain(
+            scratch, case, spec, checkout, work, result, sandboxed, journals, options.claude_md
+        )
         return
     agent_clone = work / "agent"
     db = Database(scratch.db_url)
@@ -290,11 +296,15 @@ async def _run_plain(
     result: CaseResult,
     sandboxed: bool,
     journals: Path | None,
+    claude_md: Path | None = None,
 ) -> None:
     """The baseline: plain Claude Code works on the card once, and whatever it leaves is
     handed over."""
     from prat.evals.plain import run_plain
 
+    if claude_md is not None:
+        await asyncio.to_thread(shutil.copyfile, claude_md, checkout / "CLAUDE.md")
+        await asyncio.to_thread(_commit_all, checkout, "CLAUDE.md")
     started = time.monotonic()
     journal = journals / "attempt-1.jsonl" if journals is not None else None
     session = await run_plain(scratch, case, spec, checkout, journal=journal)
