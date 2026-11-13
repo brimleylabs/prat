@@ -11,7 +11,7 @@ from prat.knowledge.codemap import CodeMap, pagerank, seeds_for
 from prat.knowledge.curator import Delta
 from prat.knowledge.entries import Entry, KnowledgeBase, Link, Source, new_id
 from prat.knowledge.librarian import CardEvidence, parse, prompt
-from prat.knowledge.select import HEADING, PREAMBLE, render, select
+from prat.knowledge.select import HEADING, PREAMBLE, render, score, select
 
 
 def entry(**kw: object) -> Entry:
@@ -178,6 +178,19 @@ def test_selection_prefers_relevant_confirmed_helpful_entries() -> None:
     assert tight.ids == [near.id]
     critic = select([general, near], role="critic", ranks=ranks)
     assert general.id not in critic.ids  # commands are for the builder, not the reviewer
+
+
+def test_a_note_about_a_whole_folder_does_not_crowd_out_one_about_the_file() -> None:
+    package = entry(summary="src holds the shop", paths=["src"])
+    rule = entry(summary="Every cart fix needs a regression test", paths=["src/cart.py"])
+    ranks = {"src/cart.py": 0.6, "src/admin.py": 0.01, "src/money.py": 0.3, "src/tax.py": 0.1}
+    room = len(HEADING) + len(PREAMBLE) + 4 + len(render(rule)) + 1
+    chosen = select([package, rule], role="builder", ranks=ranks, budget=room)
+    assert chosen.ids == [rule.id]
+    # A folder with one file is as specific as that file.
+    lone = {"lib/only.py": 0.5}
+    folder, file = entry(summary="Lib", paths=["lib"]), entry(summary="Only", paths=["lib/only.py"])
+    assert score(folder, lone, 0.5) == score(file, lone, 0.5)
 
 
 # The code map --------------------------------------------------------------------------------

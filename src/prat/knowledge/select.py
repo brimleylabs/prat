@@ -8,6 +8,7 @@ until the budget is spent. Each role sees the kinds it needs.
 
 from __future__ import annotations
 
+import math
 import posixpath
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -52,11 +53,13 @@ def _relevance(entry: Entry, ranks: Mapping[str, float], top: float) -> float:
         if path in ranks:
             best = max(best, ranks[path])
             continue
-        # A folder, or a path the map does not hold: the best file under it.
+        # A folder, or a path the map does not hold: the best file under it, discounted by how
+        # many files the folder holds. A note about a whole package is less specific than a note
+        # about the one file the card is about, and must not tie with it and crowd it out.
         prefix = path.rstrip("/") + "/"
         under = [rank for file, rank in ranks.items() if file.startswith(prefix)]
         if under:
-            best = max(best, max(under))
+            best = max(best, max(under) / (1 + math.log2(len(under))))
     return best / top
 
 
