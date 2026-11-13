@@ -1,0 +1,92 @@
+{
+ "1": {
+  "name": "slices-emoji-html",
+  "title": "Three regressions: Text slicing, splitting wide characters, HTML export classes",
+  "intro": "Three bugs have been reported since the last release. Fix all three.",
+  "symptoms": [
+   "Indexing a Text loses the style of the character: for Text(\"foo\") with a red span over its first character, text[0] returns a plain \"f\" with no spans; it should be Text(\"f\", spans=[Span(0, 1, \"red\")]).",
+   "rich.cells.split_text() goes wrong when the split falls inside a double-width character: split_text(\"\\U0001f4a9\\U0001f4a9xxxxxxxxxx\", 3) returns (\"\\U0001f4a9\", \"\\U0001f4a9xxxxxxxxxx\"); it should split the second emoji and pad both sides with a space, giving (\"\\U0001f4a9 \", \" xxxxxxxxxx\").",
+   "Console.export_html() numbers its style classes from r0; they used to start at r1 (the first style is \".r1 {font-weight: bold}\" in our saved exports), and the exported HTML no longer matches."
+  ],
+  "criteria": [
+   "indexing a Text keeps the styles of the character",
+   "split_text splits inside a double-width character as described",
+   "export_html numbers its style classes from r1"
+  ]
+ },
+ "2": {
+  "name": "highlight-tilde-ranges",
+  "title": "Three regressions: empty highlight spans, the tilde's width check, Syntax ranges on the wrong line",
+  "intro": "Three bugs have been reported since the last release. Fix all three.",
+  "symptoms": [
+   "Highlighters add empty spans for named groups that match nothing: ReprHighlighter on \"<foo>\" gives Span(4, 4, \"repr.tag_contents\") before the tag end, and complex numbers such as \"(3+2j)\" get similar empty spans. A group that matches an empty string should add no span.",
+   "The check that a string is made only of single-cell characters (the fast path for measuring plain text) answers False for \"~\", the last printable ASCII character; the last character of each single-width range is left out.",
+   "Syntax.stylize_range() styles the line after the one asked for: a range starting at line 1 is drawn on line 2 (line numbers are 1-based). Tracebacks, which mark code this way, are affected too."
+  ],
+  "criteria": [
+   "a highlighter adds no span for a group that matches nothing",
+   "\"~\" and the last character of each single-width range count as single-cell",
+   "stylize_range styles the lines it is given"
+  ]
+ },
+ "3": {
+  "name": "column-nul-kilobyte",
+  "title": "Three regressions: cursor column, zero-width characters, file sizes at the unit boundary",
+  "intro": "Three bugs have been reported since the last release. Fix all three.",
+  "symptoms": [
+   "Control.move_to_column(10, 20) produces \"\\x1b[10G\\x1b[20B\"; columns are 0-based in Rich and 1-based in the escape code, so it should be \"\\x1b[11G\\x1b[20B\".",
+   "Characters that should take no space are measured as one cell: cell_len(chr(0)) is 1 where every non-printable character below 32 should be 0, and console.rule(\"\\u6b22\\u8fce\\uff01\") on a 16-column console is no longer \"\\u2500\\u2500\\u2500\\u2500 \\u6b22\\u8fce\\uff01 \\u2500\\u2500\\u2500\\u2500\".",
+   "The download column of a progress bar keeps sizes exactly at a unit boundary in the smaller unit: 500 of 1,000 bytes shows \"500/1,000 bytes\" where it should show \"0.5/1.0 kB\", and the binary units have the same problem at 1,024."
+  ],
+  "criteria": [
+   "move_to_column produces the 1-based column",
+   "non-printable characters measure as zero cells and wide characters measure correctly",
+   "the download column uses the larger unit at a unit boundary"
+  ]
+ },
+ "4": {
+  "name": "row-linerange-recursion",
+  "title": "Three regressions: cursor row, the first line of a Syntax line range, a crash printing locals",
+  "intro": "Three bugs have been reported since the last release. Fix all three.",
+  "symptoms": [
+   "Control.move_to(x, y) puts the cursor one row too high: it produces \"\\x1b[10;6H\" for (5, 10) where it should produce \"\\x1b[11;6H\", so screen updates are drawn on the wrong rows.",
+   "A Syntax with a line_range shows the first line of the range without highlighting: with line_range=(2, 10) line 2 is plain text while lines 3 to 10 are coloured. It should be highlighted like the rest.",
+   "Printing a traceback with show_locals=True can crash inside Rich with \"ZeroDivisionError: integer modulo by zero\", raised while the Columns layout arranges the locals. We hit it printing an exception raised as its own cause (raise e from e) inside a pytest test."
+  ],
+  "criteria": [
+   "move_to puts the cursor on the right row",
+   "the first line of a line range is highlighted",
+   "that traceback prints without crashing"
+  ]
+ },
+ "5": {
+  "name": "pad-justify-export",
+  "title": "Three regressions: lines of exact length, full justification, empty export elements",
+  "intro": "Three bugs have been reported since the last release. Fix all three.",
+  "symptoms": [
+   "Segment.adjust_line_length() changes a line that already has the requested length: it should return the line as it is, but it appends an empty Segment(\"\"), so a Panel's render_lines() output has an extra empty segment on lines that fit exactly.",
+   "Wrapping Text with justify=\"full\" crashes with \"IndexError: list index out of range\" when a line needs extra spaces (the demo card, python -m rich, crashes this way).",
+   "Console.export_html() and Console.export_svg() produce extra empty elements where two styles meet: printing \"[bold red]a[/][green]b[/] c\" and exporting HTML gives <span class=\"r1\">a</span><span class=\"r2\"></span><span class=\"r3\">b</span>, with an empty span and an extra style class that should not be there."
+  ],
+  "criteria": [
+   "adjust_line_length leaves a line of the requested length unchanged",
+   "full justification works without crashing",
+   "export_html and export_svg match the saved exports again"
+  ]
+ },
+ "6": {
+  "name": "grid-edge-split-ranges",
+  "title": "Three regressions: grid padding at the edge, splitting at the end of text, Syntax range columns",
+  "intro": "Three bugs have been reported since the last release. Fix all three.",
+  "symptoms": [
+   "A table with pad_edge=False keeps the padding on the right of its last column: Table.grid(padding=(0, 1)) with three columns of \"aaa\" exports \"aaa aaa aaa \" where it should be \"aaa aaa aaa\", and Columns layouts change width because of it.",
+   "rich.cells.split_text() crashes with \"IndexError: list index out of range\" when asked to split exactly at the end of text that ends in a grapheme cluster: split_text(\"\\U0001f469\\u200d\\U0001f527\", 2) should return (\"\\U0001f469\\u200d\\U0001f527\", \"\").",
+   "Syntax.stylize_range() ignores the column it is given: every range starts one character before the start of its line instead of at the requested column."
+  ],
+  "criteria": [
+   "pad_edge=False removes the padding on the right of the last column",
+   "split_text at the end of the text returns the whole text and an empty string",
+   "stylize_range starts at the requested column"
+  ]
+ }
+}

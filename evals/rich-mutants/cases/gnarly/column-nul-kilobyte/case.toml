@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutants rich/control.py:41:61:drop + 1, rich/cells.py:72:11:< to <=, rich/filesize.py:47:11:< to <= (gnarly case 3; see ADDENDUM-4.md).
+title = "Three regressions: cursor column, zero-width characters, file sizes at the unit boundary"
+goal = "Three bugs have been reported since the last release. Fix all three.\n\n1. Control.move_to_column(10, 20) produces \"\\x1b[10G\\x1b[20B\"; columns are 0-based in Rich and 1-based in the escape code, so it should be \"\\x1b[11G\\x1b[20B\".\n2. Characters that should take no space are measured as one cell: cell_len(chr(0)) is 1 where every non-printable character below 32 should be 0, and console.rule(\"\\u6b22\\u8fce\\uff01\") on a 16-column console is no longer \"\\u2500\\u2500\\u2500\\u2500 \\u6b22\\u8fce\\uff01 \\u2500\\u2500\\u2500\\u2500\".\n3. The download column of a progress bar keeps sizes exactly at a unit boundary in the smaller unit: 500 of 1,000 bytes shows \"500/1,000 bytes\" where it should show \"0.5/1.0 kB\", and the binary units have the same problem at 1,024."
+acceptance_criteria = "- move_to_column produces the 1-based column\n- non-printable characters measure as zero cells and wide characters measure correctly\n- the download column uses the larger unit at a unit boundary\n- the existing tests still pass\n- a test covers each fix"
+complexity = "medium"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

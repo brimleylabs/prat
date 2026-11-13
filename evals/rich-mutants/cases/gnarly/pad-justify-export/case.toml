@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutants rich/segment.py:362:11:< to <=, rich/containers.py:141:31:drop - 1, rich/text.py:761:15:> to >= (gnarly case 5; see ADDENDUM-4.md).
+title = "Three regressions: lines of exact length, full justification, empty export elements"
+goal = "Three bugs have been reported since the last release. Fix all three.\n\n1. Segment.adjust_line_length() changes a line that already has the requested length: it should return the line as it is, but it appends an empty Segment(\"\"), so a Panel's render_lines() output has an extra empty segment on lines that fit exactly.\n2. Wrapping Text with justify=\"full\" crashes with \"IndexError: list index out of range\" when a line needs extra spaces (the demo card, python -m rich, crashes this way).\n3. Console.export_html() and Console.export_svg() produce extra empty elements where two styles meet: printing \"[bold red]a[/][green]b[/] c\" and exporting HTML gives <span class=\"r1\">a</span><span class=\"r2\"></span><span class=\"r3\">b</span>, with an empty span and an extra style class that should not be there."
+acceptance_criteria = "- adjust_line_length leaves a line of the requested length unchanged\n- full justification works without crashing\n- export_html and export_svg match the saved exports again\n- the existing tests still pass\n- a test covers each fix"
+complexity = "medium"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

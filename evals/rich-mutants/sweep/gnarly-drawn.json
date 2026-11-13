@@ -1,0 +1,359 @@
+{
+ "seed": 20261114,
+ "cases": [
+  {
+   "case": 1,
+   "bugs": [
+    {
+     "module": "rich/text.py",
+     "line": 194,
+     "col": 24,
+     "kind": ">= to >",
+     "start": 6092,
+     "end": 6094,
+     "replacement": ">",
+     "failing": [
+      "test_text::test_slice"
+     ]
+    },
+    {
+     "module": "rich/cells.py",
+     "line": 272,
+     "col": 42,
+     "kind": "drop - 1",
+     "start": 9904,
+     "end": 9914,
+     "replacement": "offset",
+     "failing": [
+      "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9xxxxxxxxxx-3-\\U0001f4a9 - xxxxxxxxxx]"
+     ]
+    },
+    {
+     "module": "rich/console.py",
+     "line": 2292,
+     "col": 63,
+     "kind": "drop + 1",
+     "start": 87320,
+     "end": 87335,
+     "replacement": "len(styles)",
+     "failing": [
+      "test_console::test_export_html"
+     ]
+    }
+   ]
+  },
+  {
+   "case": 2,
+   "bugs": [
+    {
+     "module": "rich/text.py",
+     "line": 617,
+     "col": 35,
+     "kind": "> to >=",
+     "start": 21847,
+     "end": 21848,
+     "replacement": ">=",
+     "failing": [
+      "test_highlighter::test_highlight_regex[ (-123123-2.1312342342423422e+25j) -spans21]",
+      "test_highlighter::test_highlight_regex[ (123456.4321-1234.5678j) -spans20]",
+      "test_highlighter::test_highlight_regex[ (3+2j) -spans19]",
+      "test_highlighter::test_highlight_regex[ (3.14+2.06j) -spans18]",
+      "test_highlighter::test_highlight_regex[( )-spans9]",
+      "test_highlighter::test_highlight_regex[<foo>-spans2]"
+     ]
+    },
+    {
+     "module": "rich/cells.py",
+     "line": 29,
+     "col": 48,
+     "kind": "drop + 1",
+     "start": 950,
+     "end": 958,
+     "replacement": "_end",
+     "failing": [
+      "test_cells::test_is_single_cell_widths"
+     ]
+    },
+    {
+     "module": "rich/syntax.py",
+     "line": 851,
+     "col": 17,
+     "kind": "drop - 1",
+     "start": 33495,
+     "end": 33510,
+     "replacement": "line_number",
+     "failing": [
+      "test_syntax::test_syntax_highlight_ranges",
+      "test_traceback::test_caused_exception",
+      "test_traceback::test_nested_exception"
+     ]
+    }
+   ]
+  },
+  {
+   "case": 3,
+   "bugs": [
+    {
+     "module": "rich/control.py",
+     "line": 41,
+     "col": 61,
+     "kind": "drop + 1",
+     "start": 1341,
+     "end": 1348,
+     "replacement": "param",
+     "failing": [
+      "test_control::test_move_to_column"
+     ]
+    },
+    {
+     "module": "rich/cells.py",
+     "line": 72,
+     "col": 11,
+     "kind": "< to <=",
+     "start": 2261,
+     "end": 2262,
+     "replacement": "<=",
+     "failing": [
+      "test_card::test_card_render",
+      "test_cells::test_get_character_cell_size[\\x00-0]",
+      "test_cells::test_non_printable",
+      "test_rule::test_rule_cjk"
+     ]
+    },
+    {
+     "module": "rich/filesize.py",
+     "line": 47,
+     "col": 11,
+     "kind": "< to <=",
+     "start": 1327,
+     "end": 1328,
+     "replacement": "<=",
+     "failing": [
+      "test_progress::test_download_progress_uses_binary_units",
+      "test_progress::test_download_progress_uses_decimal_units"
+     ]
+    }
+   ]
+  },
+  {
+   "case": 4,
+   "bugs": [
+    {
+     "module": "rich/control.py",
+     "line": 43,
+     "col": 53,
+     "kind": "drop + 1",
+     "start": 1471,
+     "end": 1474,
+     "replacement": "y",
+     "failing": [
+      "test_console::test_screen_update_class",
+      "test_control::test_control_move_to"
+     ]
+    },
+    {
+     "module": "rich/syntax.py",
+     "line": 511,
+     "col": 26,
+     "kind": "< to <=",
+     "start": 19602,
+     "end": 19603,
+     "replacement": "<=",
+     "failing": [
+      "test_syntax::test_option_no_wrap",
+      "test_syntax::test_python_render",
+      "test_syntax::test_python_render_indent_guides",
+      "test_syntax::test_python_render_line_range_indent_guides"
+     ]
+    },
+    {
+     "module": "rich/columns.py",
+     "line": 134,
+     "col": 24,
+     "kind": "drop - 1",
+     "start": 5523,
+     "end": 5538,
+     "replacement": "len(widths)",
+     "failing": [
+      "test_traceback::test_recursive_exception"
+     ]
+    }
+   ]
+  },
+  {
+   "case": 5,
+   "bugs": [
+    {
+     "module": "rich/segment.py",
+     "line": 362,
+     "col": 11,
+     "kind": "< to <=",
+     "start": 12220,
+     "end": 12221,
+     "replacement": "<=",
+     "failing": [
+      "test_panel::test_render_size",
+      "test_segment::test_adjust_line_length"
+     ]
+    },
+    {
+     "module": "rich/containers.py",
+     "line": 141,
+     "col": 31,
+     "kind": "drop - 1",
+     "start": 4782,
+     "end": 4805,
+     "replacement": "len(spaces) - index",
+     "failing": [
+      "test_card::test_card_render"
+     ]
+    },
+    {
+     "module": "rich/text.py",
+     "line": 761,
+     "col": 15,
+     "kind": "> to >=",
+     "start": 27137,
+     "end": 27138,
+     "replacement": ">=",
+     "failing": [
+      "test_console::test_export_html",
+      "test_console::test_export_html_inline",
+      "test_console::test_export_svg",
+      "test_console::test_export_svg_specified_unique_id",
+      "test_console::test_save_svg"
+     ]
+    }
+   ]
+  },
+  {
+   "case": 6,
+   "bugs": [
+    {
+     "module": "rich/table.py",
+     "line": 701,
+     "col": 31,
+     "kind": "drop - 1",
+     "start": 29592,
+     "end": 29613,
+     "replacement": "len(self.columns)",
+     "failing": [
+      "test_columns::test_render",
+      "test_table::test_padding_width"
+     ]
+    },
+    {
+     "module": "rich/cells.py",
+     "line": 261,
+     "col": 15,
+     "kind": ">= to >",
+     "start": 9399,
+     "end": 9401,
+     "replacement": ">",
+     "failing": [
+      "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527-2-\\U0001f469\\u200d\\U0001f527-]",
+      "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527x-3-\\U0001f469\\u200d\\U0001f527x-]",
+      "test_cells::test_split_text[\\U0001f4a9-2-\\U0001f4a9-]",
+      "test_cells::test_split_text[\\U0001f4a9x-3-\\U0001f4a9x-]"
+     ]
+    },
+    {
+     "module": "rich/syntax.py",
+     "line": 852,
+     "col": 35,
+     "kind": "drop + 1",
+     "start": 33547,
+     "end": 33561,
+     "replacement": "line_index",
+     "failing": [
+      "test_syntax::test_syntax_highlight_ranges"
+     ]
+    }
+   ]
+  }
+ ],
+ "walk": [
+  {
+   "mutant": "rich/text.py:573:39:>= to >",
+   "skipped": "same module or shared test"
+  },
+  {
+   "case": [
+    "rich/text.py:194:24:>= to >",
+    "rich/cells.py:272:42:drop - 1",
+    "rich/console.py:2292:63:drop + 1"
+   ],
+   "ok": true,
+   "visible": 0,
+   "hidden_with_bugs": 1,
+   "hidden_fixed": 0
+  },
+  {
+   "mutant": "rich/text.py:556:15:> to >=",
+   "skipped": "same module or shared test"
+  },
+  {
+   "mutant": "rich/text.py:551:11:< to <=",
+   "skipped": "same module or shared test"
+  },
+  {
+   "case": [
+    "rich/text.py:617:35:> to >=",
+    "rich/cells.py:29:48:drop + 1",
+    "rich/syntax.py:851:17:drop - 1"
+   ],
+   "ok": true,
+   "visible": 0,
+   "hidden_with_bugs": 1,
+   "hidden_fixed": 0
+  },
+  {
+   "case": [
+    "rich/control.py:41:61:drop + 1",
+    "rich/cells.py:72:11:< to <=",
+    "rich/filesize.py:47:11:< to <="
+   ],
+   "ok": true,
+   "visible": 0,
+   "hidden_with_bugs": 1,
+   "hidden_fixed": 0
+  },
+  {
+   "case": [
+    "rich/control.py:43:53:drop + 1",
+    "rich/syntax.py:511:26:< to <=",
+    "rich/columns.py:134:24:drop - 1"
+   ],
+   "ok": true,
+   "visible": 0,
+   "hidden_with_bugs": 1,
+   "hidden_fixed": 0
+  },
+  {
+   "case": [
+    "rich/segment.py:362:11:< to <=",
+    "rich/containers.py:141:31:drop - 1",
+    "rich/text.py:761:15:> to >="
+   ],
+   "ok": true,
+   "visible": 0,
+   "hidden_with_bugs": 1,
+   "hidden_fixed": 0
+  },
+  {
+   "mutant": "rich/cells.py:197:30:< to <=",
+   "skipped": "same module or shared test"
+  },
+  {
+   "case": [
+    "rich/table.py:701:31:drop - 1",
+    "rich/cells.py:261:15:>= to >",
+    "rich/syntax.py:852:35:drop + 1"
+   ],
+   "ok": true,
+   "visible": 0,
+   "hidden_with_bugs": 1,
+   "hidden_fixed": 0
+  }
+ ]
+}

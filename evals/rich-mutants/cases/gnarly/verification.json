@@ -1,0 +1,44 @@
+[
+ {
+  "case": "slices-emoji-html",
+  "ok": true,
+  "visible": 0,
+  "hidden_with_bugs": 1,
+  "hidden_fixed": 0
+ },
+ {
+  "case": "highlight-tilde-ranges",
+  "ok": true,
+  "visible": 0,
+  "hidden_with_bugs": 1,
+  "hidden_fixed": 0
+ },
+ {
+  "case": "column-nul-kilobyte",
+  "ok": true,
+  "visible": 0,
+  "hidden_with_bugs": 1,
+  "hidden_fixed": 0
+ },
+ {
+  "case": "row-linerange-recursion",
+  "ok": true,
+  "visible": 0,
+  "hidden_with_bugs": 1,
+  "hidden_fixed": 0
+ },
+ {
+  "case": "pad-justify-export",
+  "ok": true,
+  "visible": 0,
+  "hidden_with_bugs": 1,
+  "hidden_fixed": 0
+ },
+ {
+  "case": "grid-edge-split-ranges",
+  "ok": true,
+  "visible": 0,
+  "hidden_with_bugs": 1,
+  "hidden_fixed": 0
+ }
+]

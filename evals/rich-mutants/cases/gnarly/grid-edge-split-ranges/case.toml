@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutants rich/table.py:701:31:drop - 1, rich/cells.py:261:15:>= to >, rich/syntax.py:852:35:drop + 1 (gnarly case 6; see ADDENDUM-4.md).
+title = "Three regressions: grid padding at the edge, splitting at the end of text, Syntax range columns"
+goal = "Three bugs have been reported since the last release. Fix all three.\n\n1. A table with pad_edge=False keeps the padding on the right of its last column: Table.grid(padding=(0, 1)) with three columns of \"aaa\" exports \"aaa aaa aaa \" where it should be \"aaa aaa aaa\", and Columns layouts change width because of it.\n2. rich.cells.split_text() crashes with \"IndexError: list index out of range\" when asked to split exactly at the end of text that ends in a grapheme cluster: split_text(\"\\U0001f469\\u200d\\U0001f527\", 2) should return (\"\\U0001f469\\u200d\\U0001f527\", \"\").\n3. Syntax.stylize_range() ignores the column it is given: every range starts one character before the start of its line instead of at the requested column."
+acceptance_criteria = "- pad_edge=False removes the padding on the right of the last column\n- split_text at the end of the text returns the whole text and an empty string\n- stylize_range starts at the requested column\n- the existing tests still pass\n- a test covers each fix"
+complexity = "medium"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

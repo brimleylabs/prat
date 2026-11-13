@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutants rich/text.py:617:35:> to >=, rich/cells.py:29:48:drop + 1, rich/syntax.py:851:17:drop - 1 (gnarly case 2; see ADDENDUM-4.md).
+title = "Three regressions: empty highlight spans, the tilde's width check, Syntax ranges on the wrong line"
+goal = "Three bugs have been reported since the last release. Fix all three.\n\n1. Highlighters add empty spans for named groups that match nothing: ReprHighlighter on \"<foo>\" gives Span(4, 4, \"repr.tag_contents\") before the tag end, and complex numbers such as \"(3+2j)\" get similar empty spans. A group that matches an empty string should add no span.\n2. The check that a string is made only of single-cell characters (the fast path for measuring plain text) answers False for \"~\", the last printable ASCII character; the last character of each single-width range is left out.\n3. Syntax.stylize_range() styles the line after the one asked for: a range starting at line 1 is drawn on line 2 (line numbers are 1-based). Tracebacks, which mark code this way, are affected too."
+acceptance_criteria = "- a highlighter adds no span for a group that matches nothing\n- \"~\" and the last character of each single-width range count as single-cell\n- stylize_range styles the lines it is given\n- the existing tests still pass\n- a test covers each fix"
+complexity = "medium"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

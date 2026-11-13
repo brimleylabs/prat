@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutants rich/control.py:43:53:drop + 1, rich/syntax.py:511:26:< to <=, rich/columns.py:134:24:drop - 1 (gnarly case 4; see ADDENDUM-4.md).
+title = "Three regressions: cursor row, the first line of a Syntax line range, a crash printing locals"
+goal = "Three bugs have been reported since the last release. Fix all three.\n\n1. Control.move_to(x, y) puts the cursor one row too high: it produces \"\\x1b[10;6H\" for (5, 10) where it should produce \"\\x1b[11;6H\", so screen updates are drawn on the wrong rows.\n2. A Syntax with a line_range shows the first line of the range without highlighting: with line_range=(2, 10) line 2 is plain text while lines 3 to 10 are coloured. It should be highlighted like the rest.\n3. Printing a traceback with show_locals=True can crash inside Rich with \"ZeroDivisionError: integer modulo by zero\", raised while the Columns layout arranges the locals. We hit it printing an exception raised as its own cause (raise e from e) inside a pytest test."
+acceptance_criteria = "- move_to puts the cursor on the right row\n- the first line of a line range is highlighted\n- that traceback prints without crashing\n- the existing tests still pass\n- a test covers each fix"
+complexity = "medium"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutants rich/text.py:194:24:>= to >, rich/cells.py:272:42:drop - 1, rich/console.py:2292:63:drop + 1 (gnarly case 1; see ADDENDUM-4.md).
+title = "Three regressions: Text slicing, splitting wide characters, HTML export classes"
+goal = "Three bugs have been reported since the last release. Fix all three.\n\n1. Indexing a Text loses the style of the character: for Text(\"foo\") with a red span over its first character, text[0] returns a plain \"f\" with no spans; it should be Text(\"f\", spans=[Span(0, 1, \"red\")]).\n2. rich.cells.split_text() goes wrong when the split falls inside a double-width character: split_text(\"\\U0001f4a9\\U0001f4a9xxxxxxxxxx\", 3) returns (\"\\U0001f4a9\", \"\\U0001f4a9xxxxxxxxxx\"); it should split the second emoji and pad both sides with a space, giving (\"\\U0001f4a9 \", \" xxxxxxxxxx\").\n3. Console.export_html() numbers its style classes from r0; they used to start at r1 (the first style is \".r1 {font-weight: bold}\" in our saved exports), and the exported HTML no longer matches."
+acceptance_criteria = "- indexing a Text keeps the styles of the character\n- split_text splits inside a double-width character as described\n- export_html numbers its style classes from r1\n- the existing tests still pass\n- a test covers each fix"
+complexity = "medium"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300
