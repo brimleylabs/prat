@@ -128,9 +128,13 @@ def main() -> None:
     parser.add_argument("rich", type=Path)
     parser.add_argument("out", type=Path)
     parser.add_argument("--workers", type=int, default=6)
+    parser.add_argument("--draw-only", action="store_true", help="Draw again from OUT/mutants.json.")
     args = parser.parse_args()
     root, out = args.rich.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if args.draw_only:
+        draw(json.loads((out / "mutants.json").read_text(encoding="utf-8")), out)
+        return
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True).stdout.strip()
     if head != COMMIT:
         sys.exit(f"Rich is at {head}, the protocol needs {COMMIT}")
@@ -169,7 +173,14 @@ def main() -> None:
     with ThreadPoolExecutor(len(trees)) as pool:
         list(pool.map(lane_run, lanes))
     (out / "mutants.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
+    for tree in trees:
+        subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=root)
+    shutil.rmtree(work, ignore_errors=True)
+    draw(results, out)
 
+
+def draw(results: list[dict], out: Path) -> None:
+    """The seeded draw (PROTOCOL.md, with Addendum 1 and 2)."""
     qualifying = [
         m for m in results
         if not m.get("timeout") and "error" not in m and MIN_FAILING <= len(m["failing"]) <= MAX_FAILING
@@ -185,19 +196,17 @@ def main() -> None:
             break
     for i, mutant in enumerate(drawn):
         mutant["batch"] = "learning" if i < LEARNING else "test"
-    # Addendum 1: the lesson case is the next mutant in the same walk, from an unused module.
-    for mutant in qualifying[qualifying.index(drawn[-1]) + 1 :]:
-        if mutant["module"] not in used:
-            drawn.append({**mutant, "batch": "lesson"})
-            break
+    # The lesson case: the next mutant in the same walk from a module the draw did not use
+    # (Addendum 1), or, when every module is used, the next one whatever its module (Addendum 2).
+    rest = qualifying[qualifying.index(drawn[-1]) + 1 :]
+    lesson = next((m for m in rest if m["module"] not in used), rest[0] if rest else None)
+    if lesson is not None:
+        drawn.append({**lesson, "batch": "lesson"})
     (out / "drawn.json").write_text(json.dumps(drawn, indent=1), encoding="utf-8")
-    print(f"{len(qualifying)} qualifying; drew {len(drawn)}")
+    print(f"{len(qualifying)} qualifying in {len({m['module'] for m in qualifying})} modules; drew {len(drawn)}")
     for mutant in drawn:
         print(f"  {mutant['batch']:8} {mutant['module']}:{mutant['line']} {mutant['kind']} "
               f"({len(mutant['failing'])} failing)")  # fmt: skip
-    for tree in trees:
-        subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=root)
-    shutil.rmtree(work, ignore_errors=True)
 
 
 if __name__ == "__main__":

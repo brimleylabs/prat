@@ -1,0 +1,3138 @@
+[
+ {
+  "module": "rich/_ratio.py",
+  "line": 45,
+  "col": 11,
+  "kind": "<= to <",
+  "start": 1583,
+  "end": 1585,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/_ratio.py",
+  "line": 58,
+  "col": 15,
+  "kind": "<= to <",
+  "start": 2140,
+  "end": 2142,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/_ratio.py",
+  "line": 97,
+  "col": 21,
+  "kind": "> to >=",
+  "start": 3674,
+  "end": 3675,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/_ratio.py",
+  "line": 123,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 4551,
+  "end": 4552,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/_ratio.py",
+  "line": 133,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 4874,
+  "end": 4875,
+  "replacement": ">=",
+  "failing": [
+   "test_tools::test_ratio_distribute"
+  ]
+ },
+ {
+  "module": "rich/_wrap.py",
+  "line": 47,
+  "col": 36,
+  "kind": ">= to >",
+  "start": 1564,
+  "end": 1566,
+  "replacement": ">",
+  "failing": [
+   "test_card::test_card_render",
+   "test_columns::test_render",
+   "test_columns_align::test_align",
+   "test_inspect::test_broken_call_attr",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\r-\\\\r]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x07-\\\\a]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x08-\\\\b]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x0b-\\\\v]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x0c-\\\\f]",
+   "test_inspect::test_inspect_builtin_function_only_python311",
+   "test_inspect::test_inspect_integer",
+   "test_inspect::test_inspect_integer_with_value",
+   "test_inspect::test_inspect_module_with_class",
+   "test_inspect::test_render",
+   "test_log::test_log",
+   "test_markdown::test_inline_styles_in_table",
+   "test_markdown::test_inline_styles_with_justification",
+   "test_markdown::test_markdown_table",
+   "test_panel::test_render_panel[panel1-\\u256d\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u256e\\n\\u2502Hello, World\\u2502\\n\\u2570\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u256f\\n]",
+   "test_panel::test_render_panel[panel2-\\u256d\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u256e\\n\\u2502Hello, World\\u2502\\n\\u2570\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u256f\\n]",
+   "test_panel::test_render_panel[panel3-\\u256d\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u256e\\n\\u2502Hello,\\u2502\\n\\u2502World \\u2502\\n\\u2570\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u256f\\n]",
+   "test_pretty::test_indent_lines",
+   "test_progress::test_columns",
+   "test_rule::test_characters",
+   "test_rule::test_rule",
+   "test_rule::test_rule_align",
+   "test_rule::test_rule_cjk",
+   "test_rule::test_rule_just_enough_width_available_for_title[center-\\u2500 \\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[left-AB\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[right-\\u2500 AB\\u2026\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[left-\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[right-\\u2500 \\u2026\\n]",
+   "test_syntax::test_padding_plus_wrap",
+   "test_table::test_placement_table_box_elements[False-False-expected0]",
+   "test_table::test_placement_table_box_elements[False-True-expected2]",
+   "test_table::test_placement_table_box_elements[True-False-expected1]",
+   "test_table::test_placement_table_box_elements[True-True-expected3]",
+   "test_table::test_render_table",
+   "test_text::test_wrap_3",
+   "test_text::test_wrap_long_word_preceeded_by_word_of_full_line_length",
+   "test_text::test_wrap_long_words_followed_by_other_words",
+   "test_text::test_wrap_multi_codepoint",
+   "test_text::test_wrap_multiple_consecutive_spaces",
+   "test_text::test_wrap_overflow",
+   "test_traceback::test_print_exception_locals"
+  ]
+ },
+ {
+  "module": "rich/_wrap.py",
+  "line": 54,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 1871,
+  "end": 1872,
+  "replacement": ">=",
+  "failing": [
+   "test_text::test_wrap_3"
+  ]
+ },
+ {
+  "module": "rich/align.py",
+  "line": 162,
+  "col": 15,
+  "kind": "<= to <",
+  "start": 5401,
+  "end": 5403,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/align.py",
+  "line": 207,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 6951,
+  "end": 6952,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/align.py",
+  "line": 284,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 9889,
+  "end": 9890,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/align.py",
+  "line": 289,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 10051,
+  "end": 10052,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/ansi.py",
+  "line": 44,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 943,
+  "end": 944,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/ansi.py",
+  "line": 48,
+  "col": 27,
+  "kind": "drop + 1",
+  "start": 1085,
+  "end": 1092,
+  "replacement": "end",
+  "failing": [
+   "test_ansi::test_decode_issue_2688[\\x1b(BHal\\x1b(Jlo-Hallo]",
+   "test_ansi::test_decode_issue_2688[\\x1b(BHallo-Hallo]",
+   "test_ansi::test_decode_issue_2688[\\x1b(JHallo-Hallo]",
+   "test_ansi::test_decode_issue_2688[\\x1b[31mFound 4 errors in 2 files (checked 18 source files)\\x1b(B\\x1b[m\\n-Found 4 errors in 2 files (checked 18 source files)\\n]"
+  ]
+ },
+ {
+  "module": "rich/ansi.py",
+  "line": 55,
+  "col": 7,
+  "kind": "< to <=",
+  "start": 1308,
+  "end": 1309,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/bar.py",
+  "line": 54,
+  "col": 11,
+  "kind": ">= to >",
+  "start": 1845,
+  "end": 1847,
+  "replacement": ">",
+  "failing": [
+   "test_block_bar::test_zero_total"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 29,
+  "col": 48,
+  "kind": "drop + 1",
+  "start": 950,
+  "end": 958,
+  "replacement": "_end",
+  "failing": [
+   "test_cells::test_is_single_cell_widths"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 58,
+  "col": 21,
+  "kind": "< to <=",
+  "start": 1859,
+  "end": 1860,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_markdown::test_inline_styles_in_table",
+   "test_markdown::test_markdown_render",
+   "test_markdown::test_markdown_table",
+   "test_markdown_no_hyperlinks::test_markdown_render",
+   "test_rule::test_rule",
+   "test_rule::test_rule_cjk",
+   "test_rule::test_rule_just_enough_width_available_for_title[center-\\u2500 \\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[left-AB\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[left-\\u2026 \\u2500\\n]",
+   "test_segment::test_split_cells_doubles",
+   "test_segment::test_split_cells_mixed[segment0]",
+   "test_segment::test_split_cells_mixed[segment1]",
+   "test_segment::test_split_cells_mixed[segment2]",
+   "test_segment::test_split_cells_mixed[segment3]",
+   "test_segment::test_split_cells_mixed[segment4]",
+   "test_segment::test_split_cells_mixed[segment5]",
+   "test_segment::test_split_cells_mixed[segment6]",
+   "test_segment::test_split_cells_mixed[segment7]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9        \\U0001f4a9-expected_spans11]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9      \\U0001f4a9-expected_spans10]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 58,
+  "col": 39,
+  "kind": "<= to <",
+  "start": 1873,
+  "end": 1875,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 58,
+  "col": 40,
+  "kind": "< to <=",
+  "start": 1886,
+  "end": 1887,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 63,
+  "col": 7,
+  "kind": "> to >=",
+  "start": 2014,
+  "end": 2015,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 67,
+  "col": 18,
+  "kind": "drop - 1",
+  "start": 2091,
+  "end": 2105,
+  "replacement": "len(table)",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 69,
+  "col": 10,
+  "kind": "<= to <",
+  "start": 2131,
+  "end": 2133,
+  "replacement": "<",
+  "failing": [
+   "test_card::test_card_render",
+   "test_cells::test_get_character_cell_size[\\U000e01f0-0]",
+   "test_rule::test_rule_cjk"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 72,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 2261,
+  "end": 2262,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_cells::test_get_character_cell_size[\\x00-0]",
+   "test_cells::test_non_printable",
+   "test_rule::test_rule_cjk"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 73,
+  "col": 26,
+  "kind": "drop - 1",
+  "start": 2297,
+  "end": 2306,
+  "replacement": "index",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 74,
+  "col": 13,
+  "kind": "> to >=",
+  "start": 2331,
+  "end": 2332,
+  "replacement": ">=",
+  "failing": [
+   "test_cells::test_get_character_cell_size[\\x00-0]",
+   "test_cells::test_non_printable"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 75,
+  "col": 26,
+  "kind": "drop + 1",
+  "start": 2365,
+  "end": 2374,
+  "replacement": "index",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 108,
+  "col": 7,
+  "kind": "< to <=",
+  "start": 3398,
+  "end": 3399,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 144,
+  "col": 10,
+  "kind": "< to <=",
+  "start": 4491,
+  "end": 4492,
+  "replacement": "<=",
+  "failing": [
+   "test_cells::test_split_graphemes[\\U0001f469\\u200d\\U0001f527-expected_spans5-2]",
+   "test_cells::test_split_graphemes[\\u200d\\u200d-expected_spans18-0]",
+   "test_cells::test_split_graphemes[\\u200d\\ufe0f-expected_spans20-0]",
+   "test_cells::test_split_graphemes[\\u267b\\u267b\\ufe0f-expected_spans12-3]",
+   "test_cells::test_split_graphemes[\\u267b\\ufe0f-expected_spans11-2]",
+   "test_cells::test_split_graphemes[\\u2b07\\ufe0f-expected_spans9-2]",
+   "test_cells::test_split_graphemes[\\ufe0f-expected_spans15-0]",
+   "test_cells::test_split_graphemes[\\ufe0f\\ufe0f-expected_spans16-0]",
+   "test_cells::test_split_graphemes[\\x1b\\ufe0f-expected_spans19-0]",
+   "test_cells::test_split_graphemes[a\\U0001f469\\u200d\\U0001f527-expected_spans6-3]",
+   "test_cells::test_split_graphemes[a\\U0001f469\\u200d\\U0001f527b-expected_spans7-4]",
+   "test_cells::test_zwj",
+   "test_emoji::test_variant_non_default",
+   "test_text::test_wrap_long_multi_codepoint",
+   "test_text::test_wrap_multi_codepoint"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 187,
+  "col": 10,
+  "kind": "< to <=",
+  "start": 6324,
+  "end": 6325,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_cells::test_chop_cells_double_width_boundary",
+   "test_cells::test_chop_cells_mixed_width",
+   "test_cells::test_chop_cells_zero_width[\\x1b-expected1]",
+   "test_cells::test_chop_cells_zero_width[\\x1b\\x1b-expected2]",
+   "test_cells::test_chop_cells_zero_width[\\x1b\\x1b\\x1b-expected3]",
+   "test_cells::test_chop_cells_zero_width[\\x1b\\x1b\\x1b\\x1b-expected4]",
+   "test_cells::test_set_cell_size",
+   "test_cells::test_set_cell_size_infinite",
+   "test_cells::test_split_graphemes[-expected_spans0-0]",
+   "test_cells::test_split_graphemes[\\U0001f469\\u200d\\U0001f527-expected_spans5-2]",
+   "test_cells::test_split_graphemes[\\U0001f4a9-expected_spans3-2]",
+   "test_cells::test_split_graphemes[\\u200d-expected_spans17-0]",
+   "test_cells::test_split_graphemes[\\u200d\\u200d-expected_spans18-0]",
+   "test_cells::test_split_graphemes[\\u200d\\ufe0f-expected_spans20-0]",
+   "test_cells::test_split_graphemes[\\u267b-expected_spans10-1]",
+   "test_cells::test_split_graphemes[\\u267b\\u267b\\ufe0f-expected_spans12-3]",
+   "test_cells::test_split_graphemes[\\u267b\\ufe0f-expected_spans11-2]",
+   "test_cells::test_split_graphemes[\\u2b07-expected_spans8-1]",
+   "test_cells::test_split_graphemes[\\u2b07\\ufe0f-expected_spans9-2]",
+   "test_cells::test_split_graphemes[\\u308f\\u3055\\u3073-expected_spans4-6]",
+   "test_cells::test_split_graphemes[\\ufe0f-expected_spans15-0]",
+   "test_cells::test_split_graphemes[\\ufe0f\\ufe0f-expected_spans16-0]",
+   "test_cells::test_split_graphemes[\\x1b-expected_spans13-0]",
+   "test_cells::test_split_graphemes[\\x1b\\ufe0f-expected_spans19-0]",
+   "test_cells::test_split_graphemes[\\x1b\\x1b-expected_spans14-0]",
+   "test_cells::test_split_graphemes[a-expected_spans1-1]",
+   "test_cells::test_split_graphemes[a\\U0001f469\\u200d\\U0001f527-expected_spans6-3]",
+   "test_cells::test_split_graphemes[a\\U0001f469\\u200d\\U0001f527b-expected_spans7-4]",
+   "test_cells::test_split_graphemes[ab-expected_spans2-2]",
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527-1- - ]",
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527-2-\\U0001f469\\u200d\\U0001f527-]",
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527x-1- - x]",
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527x-2-\\U0001f469\\u200d\\U0001f527-x]",
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527x-3-\\U0001f469\\u200d\\U0001f527x-]",
+   "test_cells::test_split_text[\\U0001f4a9-1- - ]",
+   "test_cells::test_split_text[\\U0001f4a9-2-\\U0001f4a9-]",
+   "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9-3-\\U0001f4a9 - ]",
+   "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9xxxxxxxxxx-2-\\U0001f4a9-\\U0001f4a9xxxxxxxxxx]",
+   "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9xxxxxxxxxx-3-\\U0001f4a9 - xxxxxxxxxx]",
+   "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9xxxxxxxxxx-4-\\U0001f4a9\\U0001f4a9-xxxxxxxxxx]",
+   "test_cells::test_split_text[\\U0001f4a9x-1- - x]",
+   "test_cells::test_split_text[\\U0001f4a9x-2-\\U0001f4a9-x]",
+   "test_cells::test_split_text[\\U0001f4a9x-3-\\U0001f4a9x-]",
+   "test_cells::test_split_text[xxxxxxxxxxxxxxx\\U0001f4a9\\U0001f4a9-10-xxxxxxxxxx-xxxxx\\U0001f4a9\\U0001f4a9]",
+   "test_cells::test_split_text[xxxxxxxxxxxxxxx\\U0001f4a9\\U0001f4a9-15-xxxxxxxxxxxxxxx-\\U0001f4a9\\U0001f4a9]",
+   "test_cells::test_split_text[xxxxxxxxxxxxxxx\\U0001f4a9\\U0001f4a9-16-xxxxxxxxxxxxxxx - \\U0001f4a9]",
+   "test_rule::test_rule",
+   "test_rule::test_rule_cjk",
+   "test_rule::test_rule_just_enough_width_available_for_title[center-\\u2500 \\u2026 \\u2500\\n]",
+   "test_text::test_wrap_cjk",
+   "test_text::test_wrap_cjk_mixed",
+   "test_text::test_wrap_cjk_width_mid_character",
+   "test_text::test_wrap_long_multi_codepoint"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 192,
+  "col": 46,
+  "kind": "drop + 1",
+  "start": 6614,
+  "end": 6623,
+  "replacement": "index",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 197,
+  "col": 30,
+  "kind": "< to <=",
+  "start": 6883,
+  "end": 6884,
+  "replacement": "<=",
+  "failing": [
+   "test_cells::test_split_graphemes[\\u200d\\u200d-expected_spans18-0]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 197,
+  "col": 39,
+  "kind": "drop - 1",
+  "start": 6886,
+  "end": 6905,
+  "replacement": "codepoint_count",
+  "failing": [
+   "test_cells::test_split_graphemes[\\u200d\\u200d-expected_spans18-0]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 220,
+  "col": 42,
+  "kind": "drop + 1",
+  "start": 8004,
+  "end": 8013,
+  "replacement": "index",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 227,
+  "col": 45,
+  "kind": "drop + 1",
+  "start": 8339,
+  "end": 8348,
+  "replacement": "index",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 230,
+  "col": 46,
+  "kind": "drop + 1",
+  "start": 8491,
+  "end": 8500,
+  "replacement": "index",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 250,
+  "col": 7,
+  "kind": "<= to <",
+  "start": 9065,
+  "end": 9067,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 261,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 9399,
+  "end": 9401,
+  "replacement": ">",
+  "failing": [
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527-2-\\U0001f469\\u200d\\U0001f527-]",
+   "test_cells::test_split_text[\\U0001f469\\u200d\\U0001f527x-3-\\U0001f469\\u200d\\U0001f527x-]",
+   "test_cells::test_split_text[\\U0001f4a9-2-\\U0001f4a9-]",
+   "test_cells::test_split_text[\\U0001f4a9x-3-\\U0001f4a9x-]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 265,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 9572,
+  "end": 9573,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 267,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 9678,
+  "end": 9679,
+  "replacement": ">=",
+  "failing": [
+   "test_cells::test_split_text[xxxxxxxxxxxxxxx\\U0001f4a9\\U0001f4a9-10-xxxxxxxxxx-xxxxx\\U0001f4a9\\U0001f4a9]",
+   "test_cells::test_split_text[xxxxxxxxxxxxxxx\\U0001f4a9\\U0001f4a9-15-xxxxxxxxxxxxxxx-\\U0001f4a9\\U0001f4a9]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 272,
+  "col": 42,
+  "kind": "drop - 1",
+  "start": 9904,
+  "end": 9914,
+  "replacement": "offset",
+  "failing": [
+   "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9xxxxxxxxxx-3-\\U0001f4a9 - xxxxxxxxxx]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 273,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 9954,
+  "end": 9955,
+  "replacement": "<=",
+  "failing": [
+   "test_cells::test_split_text[\\U0001f4a9\\U0001f4a9xxxxxxxxxx-4-\\U0001f4a9\\U0001f4a9-xxxxxxxxxx]"
+  ]
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 312,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 11232,
+  "end": 11233,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 315,
+  "col": 7,
+  "kind": "<= to <",
+  "start": 11332,
+  "end": 11334,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 320,
+  "col": 7,
+  "kind": "< to <=",
+  "start": 11456,
+  "end": 11457,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/cells.py",
+  "line": 344,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 12446,
+  "end": 12447,
+  "replacement": ">=",
+  "failing": [
+   "test_cells::test_chop_cells_mixed_width",
+   "test_text::test_wrap_cjk",
+   "test_text::test_wrap_cjk_mixed",
+   "test_text::test_wrap_long_multi_codepoint"
+  ]
+ },
+ {
+  "module": "rich/color.py",
+  "line": 392,
+  "col": 40,
+  "kind": "< to <=",
+  "start": 9957,
+  "end": 9958,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 445,
+  "col": 44,
+  "kind": "< to <=",
+  "start": 11706,
+  "end": 11707,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 462,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 12327,
+  "end": 12328,
+  "replacement": ">=",
+  "failing": [
+   "test_color::test_downgrade"
+  ]
+ },
+ {
+  "module": "rich/color.py",
+  "line": 466,
+  "col": 44,
+  "kind": "< to <=",
+  "start": 12519,
+  "end": 12520,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 478,
+  "col": 23,
+  "kind": "<= to <",
+  "start": 12992,
+  "end": 12994,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 494,
+  "col": 37,
+  "kind": "< to <=",
+  "start": 13677,
+  "end": 13678,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 500,
+  "col": 37,
+  "kind": "< to <=",
+  "start": 13933,
+  "end": 13934,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 523,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 15003,
+  "end": 15004,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 534,
+  "col": 34,
+  "kind": "< to <=",
+  "start": 15434,
+  "end": 15435,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 535,
+  "col": 38,
+  "kind": "< to <=",
+  "start": 15509,
+  "end": 15510,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 536,
+  "col": 36,
+  "kind": "< to <=",
+  "start": 15583,
+  "end": 15584,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 561,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 16718,
+  "end": 16719,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/color.py",
+  "line": 613,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 18469,
+  "end": 18470,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 97,
+  "col": 29,
+  "kind": "drop - 1",
+  "start": 3859,
+  "end": 3888,
+  "replacement": "item_count + column_count",
+  "failing": []
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 128,
+  "col": 18,
+  "kind": "> to >=",
+  "start": 5196,
+  "end": 5197,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 134,
+  "col": 24,
+  "kind": "drop - 1",
+  "start": 5523,
+  "end": 5538,
+  "replacement": "len(widths)",
+  "failing": [
+   "test_traceback::test_recursive_exception"
+  ]
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 136,
+  "col": 23,
+  "kind": "> to >=",
+  "start": 5598,
+  "end": 5599,
+  "replacement": ">=",
+  "failing": [
+   "test_traceback::test_recursive_exception"
+  ]
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 137,
+  "col": 39,
+  "kind": "drop - 1",
+  "start": 5651,
+  "end": 5666,
+  "replacement": "len(widths)",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/columns.py",
+  "line": 140,
+  "col": 37,
+  "kind": "drop + 1",
+  "start": 5763,
+  "end": 5776,
+  "replacement": "column_no",
+  "failing": [
+   "test_columns::test_render"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 420,
+  "col": 39,
+  "kind": "> to >=",
+  "start": 13121,
+  "end": 13122,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/console.py",
+  "line": 1137,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 39681,
+  "end": 39683,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/console.py",
+  "line": 1306,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 46371,
+  "end": 46372,
+  "replacement": "<=",
+  "failing": [
+   "test_inspect::test_inspect_integer",
+   "test_inspect::test_inspect_integer_with_value",
+   "test_layout::test_tree",
+   "test_progress::test_columns",
+   "test_spinner::test_spinner_update",
+   "test_table::test_columns_highlight_added_by_add_row",
+   "test_table::test_table_show_header_false_substitution[None- 1  2 \\n 3  4 \\n]",
+   "test_table::test_table_show_header_false_substitution[box1-\\u250c\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2510\\n\\u2502 1 \\u2502 2 \\u2502\\n\\u2502 3 \\u2502 4 \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2518\\n]",
+   "test_table::test_table_show_header_false_substitution[box2-\\u250c\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2510\\n\\u2502 1 \\u2502 2 \\u2502\\n\\u2502 3 \\u2502 4 \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2518\\n]",
+   "test_table::test_table_show_header_false_substitution[box3-    \\u2577    \\n  1 \\u2502 2  \\n  3 \\u2502 4  \\n    \\u2575    \\n]",
+   "test_table::test_table_show_header_false_substitution[box4-    \\u2577    \\n  1 \\u2502 2  \\n  3 \\u2502 4  \\n    \\u2575    \\n]",
+   "test_table::test_table_show_header_false_substitution[box5-+---+---+\\n| 1 | 2 |\\n| 3 | 4 |\\n+---+---+\\n]"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 1388,
+  "col": 19,
+  "kind": "> to >=",
+  "start": 49829,
+  "end": 49830,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/console.py",
+  "line": 1739,
+  "col": 20,
+  "kind": "> to >=",
+  "start": 63923,
+  "end": 63924,
+  "replacement": ">=",
+  "failing": [
+   "test_console::test_print_newline_start",
+   "test_pretty::test_ipy_display_hook__console_renderables_on_newline",
+   "test_pretty::test_ipy_display_hook__multiple_special_reprs",
+   "test_pretty::test_ipy_display_hook__no_special_repr_methods",
+   "test_pretty::test_ipy_display_hook__special_repr_raises_exception"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2096,
+  "col": 35,
+  "kind": "<= to <",
+  "start": 78923,
+  "end": 78925,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2103,
+  "col": 43,
+  "kind": "> to >=",
+  "start": 79328,
+  "end": 79329,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2292,
+  "col": 63,
+  "kind": "drop + 1",
+  "start": 87320,
+  "end": 87335,
+  "replacement": "len(styles)",
+  "failing": [
+   "test_console::test_export_html"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2544,
+  "col": 27,
+  "kind": "drop + 1",
+  "start": 97934,
+  "end": 97939,
+  "replacement": "y",
+  "failing": [
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2581,
+  "col": 27,
+  "kind": "drop - 1",
+  "start": 99181,
+  "end": 99203,
+  "replacement": "char_width * width",
+  "failing": [
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2582,
+  "col": 28,
+  "kind": "drop - 1",
+  "start": 99234,
+  "end": 99259,
+  "replacement": "(y + 1) * line_height",
+  "failing": [
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ]
+ },
+ {
+  "module": "rich/console.py",
+  "line": 2582,
+  "col": 29,
+  "kind": "drop + 1",
+  "start": 99235,
+  "end": 99240,
+  "replacement": "y",
+  "failing": [
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ]
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 132,
+  "col": 33,
+  "kind": "drop - 1",
+  "start": 4369,
+  "end": 4389,
+  "replacement": "len(self._lines)",
+  "failing": [
+   "test_card::test_card_render",
+   "test_containers::test_lines_justify"
+  ]
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 136,
+  "col": 29,
+  "kind": "drop - 1",
+  "start": 4563,
+  "end": 4577,
+  "replacement": "len(words)",
+  "failing": [
+   "test_card::test_card_render",
+   "test_containers::test_lines_justify",
+   "test_text::test_wrap_invalid_style"
+  ]
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 140,
+  "col": 26,
+  "kind": "< to <=",
+  "start": 4741,
+  "end": 4742,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_containers::test_lines_justify"
+  ]
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 141,
+  "col": 31,
+  "kind": "drop - 1",
+  "start": 4782,
+  "end": 4805,
+  "replacement": "len(spaces) - index",
+  "failing": [
+   "test_card::test_card_render"
+  ]
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 143,
+  "col": 33,
+  "kind": "drop + 1",
+  "start": 4887,
+  "end": 4896,
+  "replacement": "index",
+  "failing": [
+   "test_card::test_card_render"
+  ]
+ },
+ {
+  "module": "rich/containers.py",
+  "line": 149,
+  "col": 23,
+  "kind": "< to <=",
+  "start": 5155,
+  "end": 5156,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_containers::test_lines_justify",
+   "test_text::test_wrap_invalid_style"
+  ]
+ },
+ {
+  "module": "rich/control.py",
+  "line": 41,
+  "col": 61,
+  "kind": "drop + 1",
+  "start": 1341,
+  "end": 1348,
+  "replacement": "param",
+  "failing": [
+   "test_control::test_move_to_column"
+  ]
+ },
+ {
+  "module": "rich/control.py",
+  "line": 43,
+  "col": 53,
+  "kind": "drop + 1",
+  "start": 1471,
+  "end": 1474,
+  "replacement": "y",
+  "failing": [
+   "test_console::test_screen_update_class",
+   "test_control::test_control_move_to"
+  ]
+ },
+ {
+  "module": "rich/control.py",
+  "line": 43,
+  "col": 59,
+  "kind": "drop + 1",
+  "start": 1477,
+  "end": 1480,
+  "replacement": "x",
+  "failing": [
+   "test_console::test_screen_update_class",
+   "test_control::test_control_move_to"
+  ]
+ },
+ {
+  "module": "rich/control.py",
+  "line": 95,
+  "col": 46,
+  "kind": "> to >=",
+  "start": 3059,
+  "end": 3060,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/control.py",
+  "line": 100,
+  "col": 43,
+  "kind": "> to >=",
+  "start": 3231,
+  "end": 3232,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/control.py",
+  "line": 123,
+  "col": 47,
+  "kind": "> to >=",
+  "start": 3865,
+  "end": 3866,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/emoji.py",
+  "line": 92,
+  "col": 7,
+  "kind": "> to >=",
+  "start": 2403,
+  "end": 2404,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/filesize.py",
+  "line": 28,
+  "col": 9,
+  "kind": "< to <=",
+  "start": 756,
+  "end": 757,
+  "replacement": "<=",
+  "failing": [
+   "test_filesize::test_traditional"
+  ]
+ },
+ {
+  "module": "rich/filesize.py",
+  "line": 33,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 901,
+  "end": 902,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/filesize.py",
+  "line": 47,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 1327,
+  "end": 1328,
+  "replacement": "<=",
+  "failing": [
+   "test_progress::test_download_progress_uses_binary_units",
+   "test_progress::test_download_progress_uses_decimal_units"
+  ]
+ },
+ {
+  "module": "rich/highlighter.py",
+  "line": 133,
+  "col": 18,
+  "kind": "< to <=",
+  "start": 4709,
+  "end": 4710,
+  "replacement": "<=",
+  "failing": [
+   "test_highlighter::test_highlight_json_empty_string_only",
+   "test_highlighter::test_highlight_json_string_only"
+  ]
+ },
+ {
+  "module": "rich/live.py",
+  "line": 71,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 3135,
+  "end": 3136,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/live.py",
+  "line": 380,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 14609,
+  "end": 14610,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/live.py",
+  "line": 383,
+  "col": 20,
+  "kind": "drop + 1",
+  "start": 14759,
+  "end": 14786,
+  "replacement": "random.random() * 320",
+  "failing": []
+ },
+ {
+  "module": "rich/live.py",
+  "line": 385,
+  "col": 19,
+  "kind": "> to >=",
+  "start": 14850,
+  "end": 14851,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/live.py",
+  "line": 385,
+  "col": 45,
+  "kind": "drop - 1",
+  "start": 14852,
+  "end": 14870,
+  "replacement": "len(exchanges)",
+  "failing": []
+ },
+ {
+  "module": "rich/live.py",
+  "line": 399,
+  "col": 43,
+  "kind": "< to <=",
+  "start": 15497,
+  "end": 15498,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/live_render.py",
+  "line": 67,
+  "col": 23,
+  "kind": "drop - 1",
+  "start": 2098,
+  "end": 2108,
+  "replacement": "height",
+  "failing": [
+   "test_live::test_growing_display",
+   "test_live::test_growing_display_console_redirect",
+   "test_live::test_growing_display_overflow_crop",
+   "test_live::test_growing_display_overflow_ellipsis",
+   "test_live::test_growing_display_overflow_visible",
+   "test_live::test_growing_display_transient",
+   "test_live_render::test_position_cursor",
+   "test_progress::test_columns",
+   "test_progress::test_expand_bar",
+   "test_progress::test_progress_max_refresh",
+   "test_progress::test_progress_track",
+   "test_progress::test_progress_with_none_total_renders_a_pulsing_bar",
+   "test_progress::test_render",
+   "test_progress::test_track"
+  ]
+ },
+ {
+  "module": "rich/live_render.py",
+  "line": 95,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 3056,
+  "end": 3057,
+  "replacement": ">=",
+  "failing": [
+   "test_live::test_growing_display_overflow_ellipsis",
+   "test_live::test_live_screen"
+  ]
+ },
+ {
+  "module": "rich/live_render.py",
+  "line": 100,
+  "col": 33,
+  "kind": "drop - 1",
+  "start": 3323,
+  "end": 3346,
+  "replacement": "options.size.height",
+  "failing": [
+   "test_live::test_growing_display_overflow_ellipsis"
+  ]
+ },
+ {
+  "module": "rich/markdown.py",
+  "line": 407,
+  "col": 44,
+  "kind": "drop - 1",
+  "start": 13007,
+  "end": 13023,
+  "replacement": "number_width",
+  "failing": [
+   "test_markdown::test_markdown_render",
+   "test_markdown_no_hyperlinks::test_markdown_render"
+  ]
+ },
+ {
+  "module": "rich/markup.py",
+  "line": 86,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 2417,
+  "end": 2418,
+  "replacement": ">=",
+  "failing": [
+   "test_markup::test_parse",
+   "test_markup::test_parse_link"
+  ]
+ },
+ {
+  "module": "rich/markup.py",
+  "line": 102,
+  "col": 7,
+  "kind": "< to <=",
+  "start": 3081,
+  "end": 3082,
+  "replacement": "<=",
+  "failing": [
+   "test_markup::test_parse",
+   "test_markup::test_parse_link"
+  ]
+ },
+ {
+  "module": "rich/measure.py",
+  "line": 96,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 3297,
+  "end": 3298,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/measure.py",
+  "line": 113,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 4048,
+  "end": 4049,
+  "replacement": "<=",
+  "failing": [
+   "test_layout::test_tree",
+   "test_progress::test_columns",
+   "test_spinner::test_spinner_update",
+   "test_table::test_columns_highlight_added_by_add_row",
+   "test_table::test_table_show_header_false_substitution[None- 1  2 \\n 3  4 \\n]",
+   "test_table::test_table_show_header_false_substitution[box1-\\u250c\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2510\\n\\u2502 1 \\u2502 2 \\u2502\\n\\u2502 3 \\u2502 4 \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2518\\n]",
+   "test_table::test_table_show_header_false_substitution[box2-\\u250c\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2510\\n\\u2502 1 \\u2502 2 \\u2502\\n\\u2502 3 \\u2502 4 \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2518\\n]",
+   "test_table::test_table_show_header_false_substitution[box3-    \\u2577    \\n  1 \\u2502 2  \\n  3 \\u2502 4  \\n    \\u2575    \\n]",
+   "test_table::test_table_show_header_false_substitution[box4-    \\u2577    \\n  1 \\u2502 2  \\n  3 \\u2502 4  \\n    \\u2575    \\n]",
+   "test_table::test_table_show_header_false_substitution[box5-+---+---+\\n| 1 | 2 |\\n| 3 | 4 |\\n+---+---+\\n]"
+  ]
+ },
+ {
+  "module": "rich/padding.py",
+  "line": 130,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 4515,
+  "end": 4516,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/palette.py",
+  "line": 92,
+  "col": 29,
+  "kind": "drop + 1",
+  "start": 2896,
+  "end": 2906,
+  "replacement": "height",
+  "failing": []
+ },
+ {
+  "module": "rich/panel.py",
+  "line": 234,
+  "col": 33,
+  "kind": "<= to <",
+  "start": 8853,
+  "end": 8855,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/panel.py",
+  "line": 259,
+  "col": 36,
+  "kind": "<= to <",
+  "start": 9715,
+  "end": 9717,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 443,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 16301,
+  "end": 16302,
+  "replacement": ">=",
+  "failing": [
+   "test_layout::test_tree"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 466,
+  "col": 14,
+  "kind": "< to <=",
+  "start": 17074,
+  "end": 17075,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_inspect::test_broken_call_attr",
+   "test_inspect::test_inspect_integer",
+   "test_inspect::test_inspect_integer_with_value",
+   "test_inspect::test_inspect_swig_edge_case",
+   "test_layout::test_tree",
+   "test_log::test_log",
+   "test_pretty::test_ansi_in_pretty_repr",
+   "test_pretty::test_array",
+   "test_pretty::test_attrs",
+   "test_pretty::test_attrs_broken_310",
+   "test_pretty::test_attrs_empty",
+   "test_pretty::test_broken_getattr",
+   "test_pretty::test_broken_repr",
+   "test_pretty::test_dataclass_no_attribute",
+   "test_pretty::test_defaultdict",
+   "test_pretty::test_deque",
+   "test_pretty::test_empty_dataclass",
+   "test_pretty::test_empty_repr",
+   "test_pretty::test_indent_lines",
+   "test_pretty::test_install",
+   "test_pretty::test_install_max_depth",
+   "test_pretty::test_ipy_display_hook__multiple_special_reprs",
+   "test_pretty::test_ipy_display_hook__no_special_repr_methods",
+   "test_pretty::test_ipy_display_hook__repr_html",
+   "test_pretty::test_ipy_display_hook__special_repr_raises_exception",
+   "test_pretty::test_lying_attribute",
+   "test_pretty::test_max_depth",
+   "test_pretty::test_max_depth_attrs",
+   "test_pretty::test_max_depth_dataclass",
+   "test_pretty::test_max_depth_rich_repr",
+   "test_pretty::test_measure_pretty",
+   "test_pretty::test_newline",
+   "test_pretty::test_node",
+   "test_pretty::test_pprint",
+   "test_pretty::test_pprint_max_items",
+   "test_pretty::test_pprint_max_string",
+   "test_pretty::test_pprint_max_values",
+   "test_pretty::test_pretty",
+   "test_pretty::test_pretty_dataclass",
+   "test_pretty::test_pretty_namedtuple",
+   "test_pretty::test_pretty_namedtuple_custom_repr",
+   "test_pretty::test_pretty_namedtuple_empty",
+   "test_pretty::test_pretty_namedtuple_fields_invalid_type",
+   "test_pretty::test_pretty_namedtuple_length_one_no_trailing_comma",
+   "test_pretty::test_pretty_namedtuple_max_depth",
+   "test_pretty::test_reference_cycle_attrs",
+   "test_pretty::test_reference_cycle_container",
+   "test_pretty::test_reference_cycle_custom_repr",
+   "test_pretty::test_reference_cycle_dataclass",
+   "test_pretty::test_reference_cycle_namedtuple",
+   "test_pretty::test_small_width",
+   "test_pretty::test_tuple_of_one",
+   "test_pretty::test_tuple_rich_repr",
+   "test_pretty::test_tuple_rich_repr_default",
+   "test_pretty::test_tuples",
+   "test_pretty::test_user_dict",
+   "test_repr::test_rich_pretty",
+   "test_repr::test_rich_pretty_angular",
+   "test_traceback::test_print_exception_locals",
+   "test_traceback::test_recursive_exception"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 470,
+  "col": 36,
+  "kind": "drop + 1",
+  "start": 17283,
+  "end": 17294,
+  "replacement": "line_no",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 590,
+  "col": 16,
+  "kind": "> to >=",
+  "start": 21405,
+  "end": 21406,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 615,
+  "col": 54,
+  "kind": ">= to >",
+  "start": 22226,
+  "end": 22228,
+  "replacement": ">",
+  "failing": [
+   "test_pretty::test_install_max_depth",
+   "test_pretty::test_max_depth",
+   "test_pretty::test_max_depth_attrs",
+   "test_pretty::test_max_depth_dataclass",
+   "test_pretty::test_max_depth_rich_repr",
+   "test_pretty::test_pretty_namedtuple_max_depth"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 682,
+  "col": 64,
+  "kind": "drop + 1",
+  "start": 24836,
+  "end": 24845,
+  "replacement": "depth",
+  "failing": [
+   "test_pretty::test_max_depth_rich_repr"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 688,
+  "col": 62,
+  "kind": "drop + 1",
+  "start": 25156,
+  "end": 25165,
+  "replacement": "depth",
+  "failing": []
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 737,
+  "col": 64,
+  "kind": "drop + 1",
+  "start": 27375,
+  "end": 27384,
+  "replacement": "depth",
+  "failing": [
+   "test_pretty::test_max_depth_attrs"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 772,
+  "col": 75,
+  "kind": "drop + 1",
+  "start": 28747,
+  "end": 28756,
+  "replacement": "depth",
+  "failing": [
+   "test_pretty::test_max_depth_dataclass"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 797,
+  "col": 56,
+  "kind": "drop + 1",
+  "start": 29828,
+  "end": 29837,
+  "replacement": "depth",
+  "failing": []
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 827,
+  "col": 34,
+  "kind": "drop - 1",
+  "start": 31007,
+  "end": 31020,
+  "replacement": "num_items",
+  "failing": [
+   "test_card::test_card_render",
+   "test_log::test_log",
+   "test_pretty::test_array",
+   "test_pretty::test_broken_repr",
+   "test_pretty::test_defaultdict",
+   "test_pretty::test_deque",
+   "test_pretty::test_empty_dataclass",
+   "test_pretty::test_install_max_depth",
+   "test_pretty::test_max_depth",
+   "test_pretty::test_pprint_max_string",
+   "test_pretty::test_pretty",
+   "test_pretty::test_pretty_dataclass",
+   "test_pretty::test_pretty_namedtuple",
+   "test_pretty::test_pretty_namedtuple_max_depth",
+   "test_pretty::test_reference_cycle_attrs",
+   "test_pretty::test_reference_cycle_container",
+   "test_pretty::test_reference_cycle_custom_repr",
+   "test_pretty::test_reference_cycle_dataclass",
+   "test_pretty::test_reference_cycle_namedtuple"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 834,
+  "col": 60,
+  "kind": "drop + 1",
+  "start": 31388,
+  "end": 31397,
+  "replacement": "depth",
+  "failing": [
+   "test_pretty::test_install_max_depth",
+   "test_pretty::test_max_depth",
+   "test_pretty::test_pretty_namedtuple_max_depth"
+  ]
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 843,
+  "col": 60,
+  "kind": "drop + 1",
+  "start": 31884,
+  "end": 31893,
+  "replacement": "depth",
+  "failing": []
+ },
+ {
+  "module": "rich/pretty.py",
+  "line": 846,
+  "col": 46,
+  "kind": "> to >=",
+  "start": 32064,
+  "end": 32065,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 530,
+  "col": 19,
+  "kind": "> to >=",
+  "start": 18706,
+  "end": 18707,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1084,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 38897,
+  "end": 38898,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1457,
+  "col": 32,
+  "kind": "< to <=",
+  "start": 52770,
+  "end": 52771,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1459,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 52849,
+  "end": 52850,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1463,
+  "col": 20,
+  "kind": ">= to >",
+  "start": 53030,
+  "end": 53032,
+  "replacement": ">",
+  "failing": [
+   "test_progress::test_render"
+  ]
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1527,
+  "col": 32,
+  "kind": "< to <=",
+  "start": 55484,
+  "end": 55485,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1529,
+  "col": 18,
+  "kind": "> to >=",
+  "start": 55564,
+  "end": 55565,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1534,
+  "col": 20,
+  "kind": ">= to >",
+  "start": 55771,
+  "end": 55773,
+  "replacement": ">",
+  "failing": [
+   "test_progress::test_track"
+  ]
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1632,
+  "col": 38,
+  "kind": "drop + 1",
+  "start": 59362,
+  "end": 59387,
+  "replacement": "int(self._task_index)",
+  "failing": [
+   "test_progress::test_columns",
+   "test_progress::test_finished",
+   "test_progress::test_render",
+   "test_progress::test_task_ids"
+  ]
+ },
+ {
+  "module": "rich/progress.py",
+  "line": 1708,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 61570,
+  "end": 61571,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/progress_bar.py",
+  "line": 181,
+  "col": 44,
+  "kind": ">= to >",
+  "start": 6913,
+  "end": 6915,
+  "replacement": ">",
+  "failing": [
+   "test_progress::test_progress_track",
+   "test_progress::test_render",
+   "test_progress::test_track"
+  ]
+ },
+ {
+  "module": "rich/prompt.py",
+  "line": 370,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 11798,
+  "end": 11800,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/prompt.py",
+  "line": 370,
+  "col": 31,
+  "kind": "<= to <",
+  "start": 11814,
+  "end": 11816,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/prompt.py",
+  "line": 380,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 12181,
+  "end": 12183,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 30,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 1087,
+  "end": 1088,
+  "replacement": "<=",
+  "failing": [
+   "test_columns::test_render",
+   "test_columns_align::test_align",
+   "test_markdown::test_markdown_render",
+   "test_markdown_no_hyperlinks::test_markdown_render",
+   "test_rule::test_repr",
+   "test_rule::test_rule",
+   "test_rule::test_rule_align",
+   "test_rule::test_rule_center_aligned_title_not_enough_space_for_rule",
+   "test_rule::test_rule_cjk",
+   "test_rule::test_rule_just_enough_width_available_for_title[center-\\u2500 \\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[left-AB\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[right-\\u2500 AB\\u2026\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[center-\\u2500\\u2500\\u2500\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[left-\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[right-\\u2500 \\u2026\\n]",
+   "test_rule::test_rule_side_aligned_not_enough_space_for_rule[left]",
+   "test_rule::test_rule_side_aligned_not_enough_space_for_rule[right]",
+   "test_rule_in_table::test_rule_in_expanded_table",
+   "test_rule_in_table::test_rule_in_ratio_table",
+   "test_rule_in_table::test_rule_in_unexpanded_table[expand_kwarg0]",
+   "test_rule_in_table::test_rule_in_unexpanded_table[expand_kwarg1]",
+   "test_spinner::test_spinner_update"
+  ]
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 81,
+  "col": 38,
+  "kind": "drop + 1",
+  "start": 2854,
+  "end": 2881,
+  "replacement": "side_width // chars_len",
+  "failing": []
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 82,
+  "col": 26,
+  "kind": "drop - 1",
+  "start": 2911,
+  "end": 2925,
+  "replacement": "side_width",
+  "failing": [
+   "test_columns::test_render",
+   "test_columns_align::test_align",
+   "test_rule::test_characters",
+   "test_rule::test_rule",
+   "test_rule::test_rule_align",
+   "test_rule::test_rule_cjk",
+   "test_rule::test_rule_just_enough_width_available_for_title[center-\\u2500 \\u2026 \\u2500\\n]"
+  ]
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 84,
+  "col": 39,
+  "kind": "drop + 1",
+  "start": 3053,
+  "end": 3080,
+  "replacement": "side_width // chars_len",
+  "failing": []
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 96,
+  "col": 43,
+  "kind": "drop - 1",
+  "start": 3707,
+  "end": 3738,
+  "replacement": "width - title_text.cell_len",
+  "failing": [
+   "test_rule::test_rule_align",
+   "test_rule::test_rule_just_enough_width_available_for_title[right-\\u2500 AB\\u2026\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[right-\\u2500 \\u2026\\n]"
+  ]
+ },
+ {
+  "module": "rich/rule.py",
+  "line": 104,
+  "col": 44,
+  "kind": "drop + 1",
+  "start": 4032,
+  "end": 4056,
+  "replacement": "width // chars_len",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 111,
+  "col": 11,
+  "kind": ">= to >",
+  "start": 3159,
+  "end": 3161,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 130,
+  "col": 40,
+  "kind": "drop + 1",
+  "start": 3847,
+  "end": 3854,
+  "replacement": "pos",
+  "failing": [
+   "test_segment::test_split_cells_doubles",
+   "test_segment::test_split_cells_emoji[XYZABC\\U0001f4a9\\U0001f4a9-7-result14]",
+   "test_segment::test_split_cells_emoji[XYZABC\\U0001f4a9\\U0001f4a9-9-result16]",
+   "test_segment::test_split_cells_emoji[X\\U0001f4a9Y-2-result6]",
+   "test_segment::test_split_cells_emoji[X\\U0001f4a9YZ-2-result7]",
+   "test_segment::test_split_cells_emoji[X\\U0001f4a9\\U0001f4a9Z-2-result8]",
+   "test_segment::test_split_cells_emoji[X\\U0001f4a9\\U0001f4a9Z-4-result10]",
+   "test_segment::test_split_cells_emoji[\\U0001f4a9-1-result2]",
+   "test_segment::test_split_cells_emoji[\\U0001f4a9X-1-result4]",
+   "test_segment::test_split_cells_emoji[\\U0001f4a9X\\U0001f4a9Y\\U0001f4a9Z\\U0001f4a9A\\U0001f4a9-4-result20]",
+   "test_segment::test_split_cells_emoji[\\U0001f4a9\\U0001f4a9-1-result5]",
+   "test_segment::test_split_cells_emoji[\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9-3-result18]",
+   "test_segment::test_split_cells_mixed[segment0]",
+   "test_segment::test_split_cells_mixed[segment1]",
+   "test_segment::test_split_cells_mixed[segment2]",
+   "test_segment::test_split_cells_mixed[segment3]",
+   "test_segment::test_split_cells_mixed[segment4]",
+   "test_segment::test_split_cells_mixed[segment5]",
+   "test_segment::test_split_cells_mixed[segment6]",
+   "test_segment::test_split_cells_mixed[segment7]"
+  ]
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 132,
+  "col": 47,
+  "kind": "drop - 1",
+  "start": 3943,
+  "end": 3950,
+  "replacement": "pos",
+  "failing": [
+   "test_segment::test_split_cells_mixed[segment2]",
+   "test_segment::test_split_cells_mixed[segment3]"
+  ]
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 134,
+  "col": 36,
+  "kind": "drop - 1",
+  "start": 4022,
+  "end": 4029,
+  "replacement": "pos",
+  "failing": [
+   "test_segment::test_split_cells_mixed[segment0]",
+   "test_segment::test_split_cells_mixed[segment1]",
+   "test_segment::test_split_cells_mixed[segment2]",
+   "test_segment::test_split_cells_mixed[segment3]",
+   "test_segment::test_split_cells_mixed[segment4]",
+   "test_segment::test_split_cells_mixed[segment5]",
+   "test_segment::test_split_cells_mixed[segment6]",
+   "test_segment::test_split_cells_mixed[segment7]"
+  ]
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 137,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 4164,
+  "end": 4165,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 155,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 4772,
+  "end": 4774,
+  "replacement": ">",
+  "failing": [
+   "test_segment::test_split_cells_mixed[segment0]",
+   "test_segment::test_split_cells_mixed[segment1]",
+   "test_segment::test_split_cells_mixed[segment2]",
+   "test_segment::test_split_cells_mixed[segment3]",
+   "test_segment::test_split_cells_mixed[segment4]",
+   "test_segment::test_split_cells_mixed[segment5]",
+   "test_segment::test_split_cells_mixed[segment6]",
+   "test_segment::test_split_cells_mixed[segment7]"
+  ]
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 159,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 4893,
+  "end": 4895,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 362,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 12220,
+  "end": 12221,
+  "replacement": "<=",
+  "failing": [
+   "test_panel::test_render_size",
+   "test_segment::test_adjust_line_length"
+  ]
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 367,
+  "col": 13,
+  "kind": "> to >=",
+  "start": 12410,
+  "end": 12411,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 373,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 12651,
+  "end": 12652,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 444,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 15198,
+  "end": 15199,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/segment.py",
+  "line": 650,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 22392,
+  "end": 22393,
+  "replacement": "<=",
+  "failing": [
+   "test_segment::test_divide_edge",
+   "test_segment::test_divide_edge_2"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 508,
+  "col": 34,
+  "kind": "drop - 1",
+  "start": 19472,
+  "end": 19486,
+  "replacement": "line_start",
+  "failing": [
+   "test_syntax::test_option_no_wrap",
+   "test_syntax::test_python_render",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 511,
+  "col": 26,
+  "kind": "< to <=",
+  "start": 19602,
+  "end": 19603,
+  "replacement": "<=",
+  "failing": [
+   "test_syntax::test_option_no_wrap",
+   "test_syntax::test_python_render",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 524,
+  "col": 44,
+  "kind": ">= to >",
+  "start": 20250,
+  "end": 20252,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 618,
+  "col": 20,
+  "kind": "drop + 1",
+  "start": 24164,
+  "end": 24222,
+  "replacement": "self.code_width + self._numbers_column_width + padding",
+  "failing": [
+   "test_syntax::test_python_render",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_syntax_measure"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 652,
+  "col": 17,
+  "kind": "drop - 1",
+  "start": 25447,
+  "end": 25497,
+  "replacement": "options.max_width - self._numbers_column_width",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 697,
+  "col": 33,
+  "kind": "drop - 1",
+  "start": 27248,
+  "end": 27262,
+  "replacement": "start_line",
+  "failing": [
+   "test_syntax::test_option_no_wrap",
+   "test_syntax::test_python_render",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 700,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 27399,
+  "end": 27400,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 791,
+  "col": 16,
+  "kind": "drop + 1",
+  "start": 31032,
+  "end": 31049,
+  "replacement": "match.start()",
+  "failing": [
+   "test_syntax::test_syntax_highlight_ranges"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 794,
+  "col": 12,
+  "kind": "drop + 1",
+  "start": 31153,
+  "end": 31166,
+  "replacement": "len(code)",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 849,
+  "col": 7,
+  "kind": "> to >=",
+  "start": 33363,
+  "end": 33364,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 849,
+  "col": 36,
+  "kind": "< to <=",
+  "start": 33402,
+  "end": 33403,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 849,
+  "col": 61,
+  "kind": "drop + 1",
+  "start": 33405,
+  "end": 33420,
+  "replacement": "line_number",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 851,
+  "col": 17,
+  "kind": "drop - 1",
+  "start": 33495,
+  "end": 33510,
+  "replacement": "line_number",
+  "failing": [
+   "test_syntax::test_syntax_highlight_ranges",
+   "test_traceback::test_caused_exception",
+   "test_traceback::test_nested_exception"
+  ]
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 852,
+  "col": 18,
+  "kind": "drop - 1",
+  "start": 33530,
+  "end": 33597,
+  "replacement": "newlines_offsets[line_index + 1] - newlines_offsets[line_index]",
+  "failing": []
+ },
+ {
+  "module": "rich/syntax.py",
+  "line": 852,
+  "col": 35,
+  "kind": "drop + 1",
+  "start": 33547,
+  "end": 33561,
+  "replacement": "line_index",
+  "failing": [
+   "test_syntax::test_syntax_highlight_ranges"
+  ]
+ },
+ {
+  "module": "rich/table.py",
+  "line": 292,
+  "col": 21,
+  "kind": "drop - 1",
+  "start": 13168,
+  "end": 13189,
+  "replacement": "len(self.columns)",
+  "failing": [
+   "test_card::test_card_render",
+   "test_rule_in_table::test_rule_in_expanded_table",
+   "test_rule_in_table::test_rule_in_ratio_table",
+   "test_table::test_min_width",
+   "test_table::test_placement_table_box_elements[False-False-expected0]",
+   "test_table::test_placement_table_box_elements[False-True-expected2]",
+   "test_table::test_placement_table_box_elements[True-False-expected1]",
+   "test_table::test_placement_table_box_elements[True-True-expected3]",
+   "test_table::test_render_table"
+  ]
+ },
+ {
+  "module": "rich/table.py",
+  "line": 316,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 14003,
+  "end": 14004,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 436,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 19168,
+  "end": 19169,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 546,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 23514,
+  "end": 23515,
+  "replacement": ">=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_console::test_log",
+   "test_console::test_log_milliseconds",
+   "test_log::test_justify",
+   "test_log::test_log",
+   "test_progress::test_columns",
+   "test_rule_in_table::test_rule_in_ratio_table"
+  ]
+ },
+ {
+  "module": "rich/table.py",
+  "line": 554,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 23845,
+  "end": 23846,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 565,
+  "col": 12,
+  "kind": "< to <=",
+  "start": 24333,
+  "end": 24334,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 566,
+  "col": 43,
+  "kind": "< to <=",
+  "start": 24423,
+  "end": 24424,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 595,
+  "col": 34,
+  "kind": "> to >=",
+  "start": 25484,
+  "end": 25485,
+  "replacement": ">=",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 628,
+  "col": 38,
+  "kind": "drop - 1",
+  "start": 26887,
+  "end": 26908,
+  "replacement": "len(self.columns)",
+  "failing": [
+   "test_card::test_card_render",
+   "test_columns::test_render",
+   "test_columns_align::test_align",
+   "test_console::test_log",
+   "test_inspect::test_inspect_module_with_class",
+   "test_inspect::test_render",
+   "test_layout::test_tree",
+   "test_log::test_justify",
+   "test_log::test_log",
+   "test_markdown::test_inline_code_in_table_cells",
+   "test_markdown::test_inline_styles_in_table",
+   "test_markdown::test_inline_styles_with_justification",
+   "test_markdown::test_markdown_table",
+   "test_markdown::test_partial_table",
+   "test_progress::test_columns",
+   "test_progress::test_expand_bar",
+   "test_progress::test_progress_max_refresh",
+   "test_progress::test_progress_track",
+   "test_progress::test_progress_with_none_total_renders_a_pulsing_bar",
+   "test_progress::test_render",
+   "test_progress::test_track",
+   "test_spinner::test_spinner_update",
+   "test_table::test_padding_width"
+  ]
+ },
+ {
+  "module": "rich/table.py",
+  "line": 701,
+  "col": 31,
+  "kind": "drop - 1",
+  "start": 29592,
+  "end": 29613,
+  "replacement": "len(self.columns)",
+  "failing": [
+   "test_columns::test_render",
+   "test_table::test_padding_width"
+  ]
+ },
+ {
+  "module": "rich/table.py",
+  "line": 715,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 29968,
+  "end": 29969,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/table.py",
+  "line": 817,
+  "col": 43,
+  "kind": "drop - 1",
+  "start": 33885,
+  "end": 33894,
+  "replacement": "index",
+  "failing": [
+   "test_card::test_card_render",
+   "test_markdown::test_inline_code_in_table_cells",
+   "test_markdown::test_inline_styles_in_table",
+   "test_markdown::test_inline_styles_with_justification",
+   "test_markdown::test_markdown_table",
+   "test_markdown::test_table_with_empty_cells",
+   "test_table::test_min_width",
+   "test_table::test_placement_table_box_elements[True-False-expected1]",
+   "test_table::test_placement_table_box_elements[True-True-expected3]",
+   "test_table::test_render_table",
+   "test_table::test_section"
+  ]
+ },
+ {
+  "module": "rich/table.py",
+  "line": 909,
+  "col": 45,
+  "kind": ">= to >",
+  "start": 37649,
+  "end": 37651,
+  "replacement": ">",
+  "failing": [
+   "test_table::test_render_table"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 49,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 1388,
+  "end": 1389,
+  "replacement": ">=",
+  "failing": [
+   "test_text::test_span"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 54,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 1546,
+  "end": 1547,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 56,
+  "col": 11,
+  "kind": ">= to >",
+  "start": 1610,
+  "end": 1612,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 86,
+  "col": 11,
+  "kind": ">= to >",
+  "start": 2501,
+  "end": 2503,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 194,
+  "col": 23,
+  "kind": "> to >=",
+  "start": 6083,
+  "end": 6084,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 194,
+  "col": 24,
+  "kind": ">= to >",
+  "start": 6092,
+  "end": 6094,
+  "replacement": ">",
+  "failing": [
+   "test_text::test_slice"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 239,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 7553,
+  "end": 7554,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 405,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 14117,
+  "end": 14118,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 460,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 15892,
+  "end": 15893,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_markdown::test_inline_code_in_table_cells",
+   "test_markdown::test_inline_styles_in_table",
+   "test_markdown::test_inline_styles_with_justification",
+   "test_markdown::test_markdown_render",
+   "test_markdown::test_markdown_table",
+   "test_markdown::test_partial_table",
+   "test_panel::test_title_text_with_border_color",
+   "test_syntax::test_background_color_override_includes_padding",
+   "test_syntax::test_option_no_wrap",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides",
+   "test_syntax::test_python_render_simple_indent_guides",
+   "test_text::test_assemble_meta",
+   "test_text::test_on",
+   "test_text::test_set_length",
+   "test_text::test_styled",
+   "test_text::test_stylize_before"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 464,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 16016,
+  "end": 16017,
+  "replacement": "<=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_syntax::test_python_render_simple_indent_guides"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 466,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 16079,
+  "end": 16081,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 466,
+  "col": 34,
+  "kind": "<= to <",
+  "start": 16096,
+  "end": 16098,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 486,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 16918,
+  "end": 16919,
+  "replacement": "<=",
+  "failing": [
+   "test_log::test_log",
+   "test_panel::test_title_text_with_panel_background"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 490,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 17042,
+  "end": 17043,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 492,
+  "col": 15,
+  "kind": ">= to >",
+  "start": 17105,
+  "end": 17107,
+  "replacement": ">",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 492,
+  "col": 34,
+  "kind": "<= to <",
+  "start": 17122,
+  "end": 17124,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 551,
+  "col": 11,
+  "kind": "< to <=",
+  "start": 19335,
+  "end": 19336,
+  "replacement": "<=",
+  "failing": [
+   "test_text::test_assemble_meta",
+   "test_text::test_on"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 556,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 19538,
+  "end": 19539,
+  "replacement": ">=",
+  "failing": [
+   "test_text::test_apply_meta"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 556,
+  "col": 16,
+  "kind": ">= to >",
+  "start": 19547,
+  "end": 19549,
+  "replacement": ">",
+  "failing": [
+   "test_markup::test_render_meta",
+   "test_text::test_apply_meta",
+   "test_text::test_assemble_meta",
+   "test_text::test_get_style_at_offset",
+   "test_text::test_on"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 566,
+  "col": 11,
+  "kind": "<= to <",
+  "start": 19915,
+  "end": 19917,
+  "replacement": "<",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 573,
+  "col": 39,
+  "kind": ">= to >",
+  "start": 20140,
+  "end": 20142,
+  "replacement": ">",
+  "failing": [
+   "test_text::test_extend_style",
+   "test_text::test_tabs_to_spaces_spans[[bold]X\\tY-8-X       Y-expected_spans9]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9        \\U0001f4a9-expected_spans11]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9      \\U0001f4a9-expected_spans10]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\tbar-4-    bar-expected_spans6]",
+   "test_text::test_tabs_to_spaces_spans[[red]foo\\tbar\\n[green]egg\\tbaz-8-foo     bar\\negg     baz-expected_spans8]"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 611,
+  "col": 47,
+  "kind": "> to >=",
+  "start": 21611,
+  "end": 21612,
+  "replacement": ">=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 617,
+  "col": 35,
+  "kind": "> to >=",
+  "start": 21847,
+  "end": 21848,
+  "replacement": ">=",
+  "failing": [
+   "test_highlighter::test_highlight_regex[ (-123123-2.1312342342423422e+25j) -spans21]",
+   "test_highlighter::test_highlight_regex[ (123456.4321-1234.5678j) -spans20]",
+   "test_highlighter::test_highlight_regex[ (3+2j) -spans19]",
+   "test_highlighter::test_highlight_regex[ (3.14+2.06j) -spans18]",
+   "test_highlighter::test_highlight_regex[( )-spans9]",
+   "test_highlighter::test_highlight_regex[<foo>-spans2]"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 661,
+  "col": 11,
+  "kind": "> to >=",
+  "start": 23261,
+  "end": 23262,
+  "replacement": ">=",
+  "failing": [
+   "test_align::test_align_width",
+   "test_ansi::test_decode_example",
+   "test_card::test_card_render",
+   "test_inspect::test_inspect_text",
+   "test_table::test_render_table",
+   "test_text::test_render",
+   "test_text::test_wrap_4",
+   "test_text::test_wrap_leading_and_trailing_whitespace"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 672,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 23768,
+  "end": 23769,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 761,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 27137,
+  "end": 27138,
+  "replacement": ">=",
+  "failing": [
+   "test_console::test_export_html",
+   "test_console::test_export_html_inline",
+   "test_console::test_export_svg",
+   "test_console::test_export_svg_specified_unique_id",
+   "test_console::test_save_svg"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 864,
+  "col": 15,
+  "kind": "> to >=",
+  "start": 30733,
+  "end": 30734,
+  "replacement": ">=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_columns::test_render",
+   "test_columns_align::test_align",
+   "test_console::test_log",
+   "test_console::test_log_milliseconds",
+   "test_inspect::test_broken_call_attr",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\r-\\\\r]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x07-\\\\a]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x08-\\\\b]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x0b-\\\\v]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x0c-\\\\f]",
+   "test_inspect::test_inspect_integer",
+   "test_inspect::test_inspect_integer_with_value",
+   "test_inspect::test_inspect_module_with_class",
+   "test_inspect::test_render",
+   "test_layout::test_tree",
+   "test_log::test_log",
+   "test_markdown::test_inline_code_in_table_cells",
+   "test_markdown::test_inline_styles_in_table",
+   "test_markdown::test_inline_styles_with_justification",
+   "test_markdown::test_markdown_table",
+   "test_markdown::test_partial_table",
+   "test_progress::test_columns",
+   "test_progress::test_progress_max_refresh",
+   "test_progress::test_progress_track",
+   "test_progress::test_render",
+   "test_progress::test_track",
+   "test_rule_in_table::test_rule_in_expanded_table",
+   "test_rule_in_table::test_rule_in_ratio_table",
+   "test_rule_in_table::test_rule_in_unexpanded_table[expand_kwarg0]",
+   "test_rule_in_table::test_rule_in_unexpanded_table[expand_kwarg1]",
+   "test_spinner::test_spinner_update",
+   "test_table::test_columns_highlight_added_by_add_row",
+   "test_table::test_padding_width",
+   "test_table::test_placement_table_box_elements[False-False-expected0]",
+   "test_table::test_placement_table_box_elements[False-True-expected2]",
+   "test_table::test_placement_table_box_elements[True-False-expected1]",
+   "test_table::test_placement_table_box_elements[True-True-expected3]",
+   "test_table::test_render_table",
+   "test_table::test_section",
+   "test_table::test_table_show_header_false_substitution[None- 1  2 \\n 3  4 \\n]",
+   "test_table::test_table_show_header_false_substitution[box1-\\u250c\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2510\\n\\u2502 1 \\u2502 2 \\u2502\\n\\u2502 3 \\u2502 4 \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2518\\n]",
+   "test_table::test_table_show_header_false_substitution[box2-\\u250c\\u2500\\u2500\\u2500\\u252c\\u2500\\u2500\\u2500\\u2510\\n\\u2502 1 \\u2502 2 \\u2502\\n\\u2502 3 \\u2502 4 \\u2502\\n\\u2514\\u2500\\u2500\\u2500\\u2534\\u2500\\u2500\\u2500\\u2518\\n]",
+   "test_table::test_table_show_header_false_substitution[box3-    \\u2577    \\n  1 \\u2502 2  \\n  3 \\u2502 4  \\n    \\u2575    \\n]",
+   "test_table::test_table_show_header_false_substitution[box4-    \\u2577    \\n  1 \\u2502 2  \\n  3 \\u2502 4  \\n    \\u2575    \\n]",
+   "test_table::test_table_show_header_false_substitution[box5-+---+---+\\n| 1 | 2 |\\n| 3 | 4 |\\n+---+---+\\n]",
+   "test_table::test_vertical_align_top",
+   "test_text::test_truncate_ellipsis[Hello-5-Hello]",
+   "test_text::test_truncate_ellipsis_pad[Hello-5-Hello]",
+   "test_text::test_wrap_overflow",
+   "test_traceback::test_print_exception_locals"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 866,
+  "col": 59,
+  "kind": "drop - 1",
+  "start": 30851,
+  "end": 30864,
+  "replacement": "max_width",
+  "failing": [
+   "test_card::test_card_render",
+   "test_rule::test_rule",
+   "test_rule::test_rule_just_enough_width_available_for_title[center-\\u2500 \\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[left-AB\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_just_enough_width_available_for_title[right-\\u2500 AB\\u2026\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[left-\\u2026 \\u2500\\n]",
+   "test_rule::test_rule_not_enough_space_for_title_text[right-\\u2500 \\u2026\\n]",
+   "test_table::test_render_table",
+   "test_text::test_truncate_ellipsis[Hello-1-\\u2026]",
+   "test_text::test_truncate_ellipsis[Hello-2-H\\u2026]",
+   "test_text::test_truncate_ellipsis[Hello-3-He\\u2026]",
+   "test_text::test_truncate_ellipsis[Hello-4-Hel\\u2026]",
+   "test_text::test_truncate_ellipsis_pad[Hello-3-He\\u2026]",
+   "test_text::test_wrap_overflow",
+   "test_text::test_wrap_overflow_long"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 869,
+  "col": 23,
+  "kind": "< to <=",
+  "start": 30999,
+  "end": 31000,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 881,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 31436,
+  "end": 31437,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 885,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 31607,
+  "end": 31608,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1136,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 40723,
+  "end": 40724,
+  "replacement": "<=",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1137,
+  "col": 34,
+  "kind": "drop - 1",
+  "start": 40772,
+  "end": 40789,
+  "replacement": "start_line_no",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1138,
+  "col": 21,
+  "kind": "> to >=",
+  "start": 40823,
+  "end": 40824,
+  "replacement": ">=",
+  "failing": [
+   "test_text::test_wrap_invalid_style",
+   "test_traceback::test_recursive_exception"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1139,
+  "col": 34,
+  "kind": "drop + 1",
+  "start": 40870,
+  "end": 40887,
+  "replacement": "start_line_no",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1144,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 41031,
+  "end": 41032,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1152,
+  "col": 23,
+  "kind": "< to <=",
+  "start": 41341,
+  "end": 41342,
+  "replacement": "<=",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1153,
+  "col": 38,
+  "kind": "drop - 1",
+  "start": 41394,
+  "end": 41409,
+  "replacement": "end_line_no",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1154,
+  "col": 25,
+  "kind": "> to >=",
+  "start": 41445,
+  "end": 41446,
+  "replacement": ">=",
+  "failing": [
+   "test_card::test_card_render",
+   "test_columns::test_render",
+   "test_console::test_print_json",
+   "test_console::test_print_json_data",
+   "test_console::test_print_json_ensure_ascii",
+   "test_console::test_print_json_with_default_ensure_ascii",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\r-\\\\r]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x07-\\\\a]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x08-\\\\b]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x0b-\\\\v]",
+   "test_inspect::test_can_handle_special_characters_in_docstrings[\\x0c-\\\\f]",
+   "test_inspect::test_inspect_empty_dict",
+   "test_inspect::test_inspect_swig_edge_case",
+   "test_logging::test_exception_with_extra_lines",
+   "test_markdown::test_markdown_render",
+   "test_markdown_no_hyperlinks::test_markdown_render",
+   "test_pretty::test_indent_lines",
+   "test_pretty::test_newline",
+   "test_pretty::test_tuples",
+   "test_rich_print::test_rich_print_json",
+   "test_rich_print::test_rich_print_json_no_truncation",
+   "test_rich_print::test_rich_print_json_round_trip",
+   "test_segment::test_divide_complex",
+   "test_syntax::test_blank_lines",
+   "test_syntax::test_option_no_wrap",
+   "test_syntax::test_padding_plus_wrap",
+   "test_syntax::test_python_render",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides",
+   "test_syntax::test_python_render_simple",
+   "test_syntax::test_python_render_simple_passing_lexer_instance",
+   "test_syntax::test_syntax_highlight_ranges",
+   "test_text::test_append_tokens",
+   "test_text::test_divide",
+   "test_text::test_render",
+   "test_text::test_slice",
+   "test_text::test_split_spans",
+   "test_text::test_tabs_to_spaces_spans[[bold]X\\tY-8-X       Y-expected_spans9]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9        \\U0001f4a9-expected_spans11]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9      \\U0001f4a9-expected_spans10]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\tbar-4-    bar-expected_spans6]",
+   "test_text::test_tabs_to_spaces_spans[[bold]foo\\tbar-4-foo bar-expected_spans5]",
+   "test_text::test_tabs_to_spaces_spans[[red]foo\\tbar\\n[green]egg\\tbaz-8-foo     bar\\negg     baz-expected_spans8]",
+   "test_text::test_tabs_to_spaces_spans[\\t[bold]bar-4-    bar-expected_spans7]",
+   "test_text::test_wrap_invalid_style",
+   "test_traceback::test_broken_str",
+   "test_traceback::test_caused_exception",
+   "test_traceback::test_filename_not_a_file",
+   "test_traceback::test_filename_with_bracket",
+   "test_traceback::test_handler",
+   "test_traceback::test_nested_exception",
+   "test_traceback::test_print_exception",
+   "test_traceback::test_print_exception_locals",
+   "test_traceback::test_print_exception_no_msg",
+   "test_traceback::test_recursive",
+   "test_traceback::test_recursive_exception",
+   "test_traceback::test_syntax_error"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1155,
+  "col": 38,
+  "kind": "drop + 1",
+  "start": 41496,
+  "end": 41511,
+  "replacement": "end_line_no",
+  "timeout": true,
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1160,
+  "col": 48,
+  "kind": "drop + 1",
+  "start": 41689,
+  "end": 41704,
+  "replacement": "end_line_no",
+  "failing": [
+   "test_ansi::test_decode_example",
+   "test_card::test_card_render",
+   "test_console::test_print_json",
+   "test_console::test_print_json_data",
+   "test_console::test_print_json_ensure_ascii",
+   "test_console::test_print_json_with_default_ensure_ascii",
+   "test_markdown::test_markdown_render",
+   "test_markdown_no_hyperlinks::test_markdown_render",
+   "test_syntax::test_blank_lines",
+   "test_syntax::test_option_no_wrap",
+   "test_syntax::test_python_render",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides",
+   "test_syntax::test_python_render_simple",
+   "test_syntax::test_python_render_simple_indent_guides",
+   "test_syntax::test_python_render_simple_passing_lexer_instance",
+   "test_syntax::test_syntax_highlight_ranges",
+   "test_text::test_divide",
+   "test_text::test_render",
+   "test_text::test_slice",
+   "test_text::test_split",
+   "test_text::test_split_spans",
+   "test_text::test_tabs_to_spaces_spans[[bold]X\\tY-8-X       Y-expected_spans9]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9\\U0001f4a9\\U0001f4a9\\U0001f4a9        \\U0001f4a9-expected_spans11]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\U0001f4a9\\t\\U0001f4a9-8-\\U0001f4a9      \\U0001f4a9-expected_spans10]",
+   "test_text::test_tabs_to_spaces_spans[[bold]\\tbar-4-    bar-expected_spans6]",
+   "test_text::test_tabs_to_spaces_spans[[bold]foo\\tbar-4-foo bar-expected_spans5]",
+   "test_text::test_tabs_to_spaces_spans[[red]foo\\tbar\\n[green]egg\\tbaz-8-foo     bar\\negg     baz-expected_spans8]",
+   "test_text::test_tabs_to_spaces_spans[\\t[bold]bar-4-    bar-expected_spans7]"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1164,
+  "col": 19,
+  "kind": "> to >=",
+  "start": 41934,
+  "end": 41935,
+  "replacement": ">=",
+  "failing": [
+   "test_text::test_slice"
+  ]
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1176,
+  "col": 19,
+  "kind": "< to <=",
+  "start": 42341,
+  "end": 42342,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1180,
+  "col": 15,
+  "kind": "< to <=",
+  "start": 42512,
+  "end": 42513,
+  "replacement": "<=",
+  "failing": []
+ },
+ {
+  "module": "rich/text.py",
+  "line": 1295,
+  "col": 43,
+  "kind": "drop - 1",
+  "start": 46420,
+  "end": 46436,
+  "replacement": "_indent_size",
+  "failing": [
+   "test_card::test_card_render",
+   "test_pretty::test_indent_lines",
+   "test_pretty::test_tuples",
+   "test_syntax::test_python_render_indent_guides",
+   "test_syntax::test_python_render_line_range_indent_guides",
+   "test_syntax::test_python_render_simple_indent_guides",
+   "test_text::test_indentation_guides"
+  ]
+ }
+]
