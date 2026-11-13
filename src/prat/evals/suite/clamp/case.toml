@@ -1,0 +1,23 @@
+title = "Add clamp()"
+goal = "Add clamp(value, low, high) to mathkit.py: the value limited to a range."
+acceptance_criteria = """
+- clamp(value, low, high) returns the value limited to the range low to high
+- clamp(5, 0, 10) is 5, clamp(-1, 0, 10) is 0 and clamp(11, 0, 10) is 10
+- low greater than high raises ValueError
+- test_mathkit.py tests clamp
+"""
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 60
+
+[[scripted_review]]
+verdict = "not_met"
+summary = "clamp() looks right, but the tests do not show what happens at the edges of the range."
+fix_list = ["test values equal to low and to high"]
+
+[[scripted_review]]
+verdict = "met"
+summary = "clamp() limits values, rejects a reversed range, and the edges are tested."

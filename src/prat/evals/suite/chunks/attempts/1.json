@@ -1,0 +1,20 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 1."
+  },
+  {
+    "op": "write",
+    "path": "listkit.py",
+    "content": "\"\"\"Small list helpers.\"\"\"\n\nfrom typing import TypeVar\n\nT = TypeVar(\"T\")\n\n\ndef first(items: list[T], default: T | None = None) -> T | None:\n    \"\"\"The first item, or ``default`` for an empty list.\"\"\"\n    return items[0] if items else default\n\n\ndef chunked(items: list[T], size: int) -> list[list[T]]:\n    \"\"\"``items`` in lists of ``size``.\"\"\"\n    return [items[i : i + size] for i in range(0, len(items) - size, size)]\n"
+  },
+  {
+    "op": "write",
+    "path": "test_listkit.py",
+    "content": "import unittest\n\nfrom listkit import chunked, first\n\n\nclass FirstTest(unittest.TestCase):\n    def test_first(self) -> None:\n        self.assertEqual(first([3, 4]), 3)\n        self.assertIsNone(first([]))\n\n\nclass ChunkedTest(unittest.TestCase):\n    def test_chunks(self) -> None:\n        self.assertEqual(chunked([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]])\n\n    def test_empty(self) -> None:\n        self.assertEqual(chunked([], 3), [])\n\n    def test_size_below_one(self) -> None:\n        for size in (0, -1):\n            with self.assertRaises(ValueError):\n                chunked([1], size)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "Added chunked() with tests."
+  }
+]

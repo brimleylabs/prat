@@ -1,0 +1,14 @@
+title = "Add chunked()"
+goal = "Add chunked(items, size) to listkit.py: a list split into lists of a given size."
+acceptance_criteria = """
+- chunked(items, size) splits the list into lists of size items, the last one shorter when needed: chunked([1, 2, 3, 4, 5], 2) is [[1, 2], [3, 4], [5]]
+- an empty list gives []
+- a size below 1 raises ValueError
+- test_listkit.py tests chunked
+"""
+complexity = "low"
+max_attempts = 2
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 60

@@ -1,0 +1,11 @@
+name = "duration"
+default_branch = "main"
+autonomy = "medium"
+notes = "A small Python module with unittest tests at the top level. Run them with: python -m unittest discover"
+
+[commands]
+test = ["{python}", "-m", "unittest", "discover", "-q"]
+
+[verify]
+gates = ["test"]
+timeout_seconds = 120

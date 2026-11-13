@@ -8,7 +8,7 @@ description, and an `Acceptance criteria:` list.
 A heading that ends in `(done)` is finished and skipped. A heading that ends in `(manual)` is
 being built by a person and is skipped by self-improvement as well.
 
-## Evaluation harness
+## Evaluation harness (done)
 
 Effort: high
 

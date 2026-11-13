@@ -157,3 +157,38 @@ def test_script_validation(tmp_path: Path) -> None:
     file = tmp_path / "s.json"
     file.write_text('[{"op": "finish"}]', encoding="utf-8")
     assert FakeScript.load(file).steps[0].op == "finish"
+
+
+async def test_a_dry_step_asks_the_policy_and_does_nothing(tmp_path: Path) -> None:
+    asked: list[ToolCall] = []
+
+    def record(call: ToolCall) -> Decision:
+        asked.append(call)
+        return Decision.allow()
+
+    runtime = FakeRuntime(
+        [
+            {"op": "bash", "command": "touch made.txt", "dry": True},
+            {"op": "write", "path": "dry.txt", "content": "x", "dry": True},
+        ]
+    )
+    events = await collect(runtime.run(task(tmp_path, record)))
+    assert [call.kind for call in asked] == ["bash", "file_write"]
+    assert not (tmp_path / "made.txt").exists()
+    assert not (tmp_path / "dry.txt").exists()
+    results = [e for e in events if isinstance(e, ToolResultEvent)]
+    assert all(result.ok and "not carried out" in result.output for result in results)
+    assert runtime.executed == []
+
+
+async def test_delete_removes_a_file_and_is_a_write(tmp_path: Path) -> None:
+    (tmp_path / "old.txt").write_text("x", encoding="utf-8")
+    runtime = FakeRuntime([{"op": "delete", "path": "old.txt"}])
+    await collect(runtime.run(task(tmp_path)))
+    assert not (tmp_path / "old.txt").exists()
+
+    (tmp_path / "kept.txt").write_text("x", encoding="utf-8")
+    denied = FakeRuntime([{"op": "delete", "path": "kept.txt"}])
+    events = await collect(denied.run(task(tmp_path, deny_writes)))
+    assert (tmp_path / "kept.txt").exists()
+    assert any(isinstance(e, ToolResultEvent) and e.denied for e in events)

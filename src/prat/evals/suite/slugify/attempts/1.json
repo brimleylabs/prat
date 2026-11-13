@@ -1,0 +1,20 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 1."
+  },
+  {
+    "op": "write",
+    "path": "textkit.py",
+    "content": "\"\"\"Small text helpers.\"\"\"\n\nimport re\n\n\ndef word_count(text: str) -> int:\n    \"\"\"The number of words in ``text``.\"\"\"\n    return len(text.split())\n\n\ndef slugify(text: str) -> str:\n    \"\"\"``text`` as a lowercase slug for a web address.\"\"\"\n    slug = re.sub(r\"[^a-z0-9]+\", \"-\", text.lower())\n    return slug[:40]\n"
+  },
+  {
+    "op": "write",
+    "path": "test_textkit.py",
+    "content": "import unittest\n\nfrom textkit import slugify, word_count\n\n\nclass WordCountTest(unittest.TestCase):\n    def test_words(self) -> None:\n        self.assertEqual(word_count(\"one two  three\"), 3)\n\n\nclass SlugifyTest(unittest.TestCase):\n    def test_title(self) -> None:\n        self.assertEqual(slugify(\"Hello, World!\"), \"hello-world\")\n\n    def test_runs_become_one_hyphen(self) -> None:\n        self.assertEqual(slugify(\"a -- b\"), \"a-b\")\n\n    def test_long_text_is_cut(self) -> None:\n        self.assertEqual(slugify(\"a\" * 50), \"a\" * 40)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "Added slugify() with tests."
+  }
+]

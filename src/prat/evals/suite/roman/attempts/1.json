@@ -1,0 +1,20 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 1."
+  },
+  {
+    "op": "write",
+    "path": "numerals.py",
+    "content": "\"\"\"Writing numbers.\"\"\"\n\n\ndef ordinal(n: int) -> str:\n    \"\"\"1st, 2nd, 3rd, 4th and so on.\"\"\"\n    suffix = \"th\" if 10 <= n % 100 <= 20 else {1: \"st\", 2: \"nd\", 3: \"rd\"}.get(n % 10, \"th\")\n    return f\"{n}{suffix}\"\n\n\n_NUMERALS = ((1000, \"M\"), (500, \"D\"), (100, \"C\"), (50, \"L\"), (10, \"X\"), (5, \"V\"), (1, \"I\"))\n\n\ndef to_roman(n: int) -> str:\n    \"\"\"``n`` in Roman numerals, for 1 to 3999.\"\"\"\n    if not 1 <= n <= 3999:\n        raise ValueError(f\"{n} is outside 1 to 3999\")\n    letters = []\n    for value, numeral in _NUMERALS:\n        count, n = divmod(n, value)\n        letters.append(numeral * count)\n    return \"\".join(letters)\n"
+  },
+  {
+    "op": "write",
+    "path": "test_numerals.py",
+    "content": "import unittest\n\nfrom numerals import ordinal, to_roman\n\n\nclass OrdinalTest(unittest.TestCase):\n    def test_ordinals(self) -> None:\n        self.assertEqual([ordinal(n) for n in (1, 2, 3, 4, 11)], [\"1st\", \"2nd\", \"3rd\", \"4th\", \"11th\"])\n\n\nclass RomanTest(unittest.TestCase):\n    def test_numbers(self) -> None:\n        self.assertEqual(to_roman(1), \"I\")\n        self.assertEqual(to_roman(3), \"III\")\n        self.assertEqual(to_roman(2023), \"MMXXIII\")\n\n    def test_out_of_range(self) -> None:\n        for n in (0, 4000):\n            with self.assertRaises(ValueError):\n                to_roman(n)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "Added to_roman() with tests."
+  }
+]

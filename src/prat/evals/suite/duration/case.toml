@@ -1,0 +1,27 @@
+title = "Add parse_duration()"
+goal = "Add parse_duration(text) to timeparse.py: the number of seconds in a duration like 1h30m."
+acceptance_criteria = """
+- parse_duration("1h30m") returns 5400
+- the units are h, m and s, in that order; each is optional but at least one is there: "45s" is 45 and "2h" is 7200
+- an empty string, or text in any other form such as "5x" or "30m1h", raises ValueError
+- test_timeparse.py tests parse_duration, including the errors
+"""
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 60
+
+[[scripted_review]]
+verdict = "not_met"
+summary = "Durations parse, but nothing is ever rejected."
+fix_list = [
+    "parse_duration('') returns 0; it must raise ValueError",
+    "'5x' and '30m1h' are accepted; text in any other form must raise ValueError",
+    "test the errors in test_timeparse.py",
+]
+
+[[scripted_review]]
+verdict = "met"
+summary = "parse_duration() reads h, m and s in order and rejects everything else; tested."

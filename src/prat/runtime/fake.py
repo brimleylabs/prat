@@ -9,11 +9,13 @@ A script is a list of steps (or ``{"session_id": ..., "steps": [...]}``)::
       {"op": "finish", "message": "Added hello.py"}
     ]
 
-Operations: ``text``, ``read``, ``write``, ``edit``, ``bash``, ``mcp``,
-``cost``, ``wait``, ``finish``, ``block``, ``exceed_budget``, ``error`` and
-``crash``. Every tool operation goes through the task's policy callback
-before it runs, exactly as a real adapter must. ``{python}`` in a command is
-replaced with the current interpreter.
+Operations: ``text``, ``read``, ``write``, ``edit``, ``delete``, ``bash``,
+``mcp``, ``cost``, ``wait``, ``finish``, ``block``, ``exceed_budget``,
+``error`` and ``crash``. Every tool operation goes through the task's policy
+callback before it runs, exactly as a real adapter must. ``{python}`` in a
+command is replaced with the current interpreter. A tool step with
+``"dry": true`` asks the policy and stops there: the evaluation harness
+replays recorded commands this way (prat.evals).
 
 ``crash`` raises :class:`FakeCrash`, a ``BaseException`` that models the PRAT
 process dying: nothing in the engine handles it, so the database is left
@@ -59,6 +61,7 @@ Op = Literal[
     "read",
     "write",
     "edit",
+    "delete",
     "bash",
     "mcp",
     "web",
@@ -92,6 +95,8 @@ class FakeStep(BaseModel):
     seconds: float | None = None
     message: str | None = None
     reason: str | None = None
+    # Ask the policy about the call but never carry it out.
+    dry: bool = False
 
 
 class FakeScript(BaseModel):
@@ -198,7 +203,7 @@ class FakeRuntime:
                     return
                 self._save_cursor(session_id, index)
                 step = script.steps[index]
-                if step.op in ("read", "write", "edit", "bash", "mcp", "web"):
+                if step.op in ("read", "write", "edit", "delete", "bash", "mcp", "web"):
                     turns += 1
                     if task.budget.max_turns is not None and turns > task.budget.max_turns:
                         yield DoneEvent(Outcome.BUDGET_EXCEEDED, "turn limit reached")
@@ -264,6 +269,9 @@ class FakeRuntime:
         if not decision.allowed:
             yield ToolResultEvent(call_id, ok=False, denied=True, reason=decision.reason)
             return
+        if step.dry:
+            yield ToolResultEvent(call_id, ok=True, output="allowed; not carried out (replay)")
+            return
         try:
             ok, output = await self._execute(step, task.workdir, task.env, task.shell)
         except OSError as exc:
@@ -285,6 +293,9 @@ class FakeRuntime:
                 "old": step.old,
                 "new": step.new,
             }
+        if step.op == "delete":
+            # Removing a file is a write to that path.
+            return ToolCall.write(step.path or "", ""), {"path": step.path, "delete": True}
         if step.op == "bash":
             command = self._command(step.command or "")
             return ToolCall.bash(command), {"command": command}
@@ -326,6 +337,12 @@ class FakeRuntime:
                 text.replace(step.old, step.new or "", 1), encoding="utf-8", newline=""
             )
             return True, "edited"
+        if step.op == "delete":
+            target = workdir / (step.path or "")
+            if not target.is_file():
+                return False, "no such file"
+            target.unlink()
+            return True, "deleted"
         if step.op == "bash":
             command = self._command(step.command or "")
             if shell is not None:

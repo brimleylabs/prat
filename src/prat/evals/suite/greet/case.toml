@@ -1,0 +1,18 @@
+title = "Add greet()"
+goal = "Add greet(name) to greet.py. It greets the name, or the world when there is no name."
+acceptance_criteria = """
+- greet("Ada") returns "Hello, Ada!"
+- spaces around the name are removed: greet("  Ada ") returns "Hello, Ada!"
+- greet("") and a name of only spaces return "Hello, world!"
+- test_greet.py tests greet
+"""
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 60
+
+[[scripted_review]]
+verdict = "met"
+summary = "greet() removes spaces and falls back to the world; the tests cover each criterion."

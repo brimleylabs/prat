@@ -1,0 +1,19 @@
+title = "Add slugify()"
+goal = "Add slugify(text) to textkit.py: the text as a lowercase slug for a web address."
+acceptance_criteria = """
+- slugify("Hello, World!") returns "hello-world"
+- after lowercasing, every run of characters other than a to z and 0 to 9 becomes one hyphen
+- the result never starts or ends with a hyphen
+- the result is at most 40 characters long, and cutting it never leaves a hyphen at the end
+- test_textkit.py tests slugify
+"""
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 60
+
+[[scripted_review]]
+verdict = "met"
+summary = "slugify() lowercases, joins runs with one hyphen, trims hyphens and cuts at 40."

@@ -1,0 +1,15 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 2."
+  },
+  {
+    "op": "write",
+    "path": "test_mathkit.py",
+    "content": "import unittest\n\nfrom mathkit import clamp, mean\n\n\nclass MeanTest(unittest.TestCase):\n    def test_mean(self) -> None:\n        self.assertEqual(mean([1, 2, 3]), 2)\n\n\nclass ClampTest(unittest.TestCase):\n    def test_inside_and_outside(self) -> None:\n        self.assertEqual(clamp(5, 0, 10), 5)\n        self.assertEqual(clamp(-1, 0, 10), 0)\n        self.assertEqual(clamp(11, 0, 10), 10)\n\n    def test_edges(self) -> None:\n        self.assertEqual(clamp(0, 0, 10), 0)\n        self.assertEqual(clamp(10, 0, 10), 10)\n\n    def test_low_above_high(self) -> None:\n        with self.assertRaises(ValueError):\n            clamp(1, 10, 0)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "Tested the edges of the range."
+  }
+]

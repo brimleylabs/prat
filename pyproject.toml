@@ -61,6 +61,8 @@ filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# Evaluation cases: small sample projects that agents work on, not PRAT's own code.
+extend-exclude = ["src/prat/evals/suite"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "PT", "ASYNC"]
@@ -79,6 +81,7 @@ strict = true
 warn_unreachable = true
 packages = ["prat"]
 mypy_path = "src"
+exclude = ["src/prat/evals/suite/"]
 
 [[tool.mypy.overrides]]
 module = ["prat.db.alembic.*"]

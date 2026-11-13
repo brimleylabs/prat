@@ -1,0 +1,15 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 2."
+  },
+  {
+    "op": "write",
+    "path": "textkit.py",
+    "content": "\"\"\"Small text helpers.\"\"\"\n\nimport re\n\n\ndef word_count(text: str) -> int:\n    \"\"\"The number of words in ``text``.\"\"\"\n    return len(text.split())\n\n\ndef slugify(text: str) -> str:\n    \"\"\"``text`` as a lowercase slug for a web address.\"\"\"\n    slug = re.sub(r\"[^a-z0-9]+\", \"-\", text.lower()).strip(\"-\")\n    return slug[:40].rstrip(\"-\")\n"
+  },
+  {
+    "op": "finish",
+    "message": "slugify() now trims hyphens at both ends."
+  }
+]

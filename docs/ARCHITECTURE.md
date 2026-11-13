@@ -67,6 +67,12 @@ src/prat/
     guard.py         land or refuse, from evidence only
     landing.py       prove, merge, push; rework, abandon, hold; outcome check
   build.py           which commit is running (for /healthz)
+  evals/
+    cases.py         evaluation cases: case.toml, starting files, hidden check, scripted attempts
+    runner.py        each case through the engine in a home of its own; the hidden check
+    results.py       scoring each attempt and case, stored results, side-by-side comparison
+    export.py        a finished card as a case that replays its runs
+    suite/           the built-in cases (sample projects, not PRAT code: no lint or types)
   engine/
     orchestrator.py  Engine: queue, steps, cancel, resume, approve, rework
     limits.py        global and per-project concurrency slots
@@ -607,6 +613,39 @@ failed or blocked self card -> rework with the reason, abandoned after max_rewor
   proven.
 - The cycle revives failed findings after the cooldown and files a high-severity finding when
   the error a landed fix was meant to remove comes back, naming the commit to revert.
+
+## Evaluation harness
+
+`prat.evals` answers one question: does the review layer (gates, reviewers, rework) make what
+PRAT hands over better than what the agent alone would have handed over? The guide covers
+the commands and the case format; this is how it works.
+
+- **Ground truth is a hidden check.** Each case carries a command and files the agent never
+  sees. The check runs on a `git archive` of a commit with the hidden files laid over it,
+  through `verification.run_command`, so it runs like a gate: in the sandbox when it is on,
+  otherwise with `gate_environment()`.
+- **One run, two answers.** The runner calls `Engine.run_card` until the card reaches review
+  or the case runs out of attempts, sending it back with the gate output after a verification
+  failure (the reviewer's rework happens by itself). After every run the hidden check judges
+  the card branch's head in the agent clone, whatever PRAT decided. The first attempt is the
+  baseline (the agent without the review layer); the last attempt, if it reached review, is
+  PRAT's answer. Comparing the two within one run removes the noise of two separate agent
+  runs.
+- **Isolation by construction.** Each case gets its own home (`scratch_settings`: own
+  SQLite database, no `database_url`, no project or fallback database server), a fresh
+  repository and its own agent clone. Projects that declare databases are refused, so an
+  evaluation cannot branch or write a real database.
+- **Scripted and real.** The scripted runtime replays each case's `attempts/N.json` (chosen
+  by the run's id), and `ScriptedReviewer` returns its `[[scripted_review]]` verdicts in
+  order. Either side can be the real one: `--reviewer claude` judges fixed, known work, which
+  measures the reviewer alone.
+- **Replay of recorded cards.** `export_card` writes the base commit's files, the journals,
+  each run's outcome, and one attempt per run: the builder's recorded shell commands as `dry`
+  steps (the policy decides; nothing runs), then writes and deletes that reproduce the run's
+  commit. The journal is trimmed and redacted, so file contents come from git, not from it.
+- **Results are files.** `$PRAT_HOME/evals/<id>/result.json` holds every attempt (steps,
+  gates, verdict, commit, hidden check, cost, policy decisions); summaries, step rates and
+  comparisons are computed from it, so any two runs can be compared later.
 
 ## Known limits
 

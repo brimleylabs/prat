@@ -1,0 +1,15 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 2."
+  },
+  {
+    "op": "write",
+    "path": "listkit.py",
+    "content": "\"\"\"Small list helpers.\"\"\"\n\nfrom typing import TypeVar\n\nT = TypeVar(\"T\")\n\n\ndef first(items: list[T], default: T | None = None) -> T | None:\n    \"\"\"The first item, or ``default`` for an empty list.\"\"\"\n    return items[0] if items else default\n\n\ndef chunked(items: list[T], size: int) -> list[list[T]]:\n    \"\"\"``items`` in lists of ``size``; the last one may be shorter.\"\"\"\n    return [items[i : i + size] for i in range(0, len(items), max(size, 1))]\n"
+  },
+  {
+    "op": "finish",
+    "message": "chunked() keeps the last, shorter list."
+  }
+]

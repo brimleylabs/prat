@@ -53,6 +53,23 @@ What PRAT did on real projects in its last week of development, start to finish:
 | **A security upgrade, proven live** | A card cleared 90+ known advisories from a production app's dependencies. The reviewer marked it met only after seeing the server start and answer `/health`, from the commands PRAT recorded, not from the agent's say-so. |
 | **Knowledge that corrects itself** | One overnight pass checked 380 facts across four projects in under five minutes: 32 brought up to date, the false ones retired, 72 duplicate pairs merged into single entries. A guard put back three facts an over-eager merge had lost. |
 
+## Measured, not assumed
+
+`prat eval` measures what the review layer adds. Every evaluation case has a hidden check the
+agent never sees. PRAT scores the agent's first attempt, which is what the agent alone would
+hand over, and the work PRAT finally hands over after its gates, reviewers and rework. It
+reports bad work caught and missed, good work sent back, and the pass rate of every step.
+Each case runs in a PRAT home of its own, so your projects are never touched. Finished cards
+can be exported and replayed against today's policy, gates and reviewers, and any two
+evaluations compare side by side. See [Evaluating agents](docs/GUIDE.md#evaluating-agents).
+
+```bash
+prat eval run --runtime claude --label baseline
+# change a prompt, a gate, a model or your overlay, then
+prat eval run --runtime claude --label candidate
+prat eval compare
+```
+
 ## The four words
 
 | | What happens | What keeps it honest |
@@ -334,8 +351,8 @@ Doltgres for data. More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Pre-release, in daily use on real projects. The engine, policy, gates, reviewers, approvals,
 checkpoints, setup agent, data branches with the PostgreSQL fallback, knowledge and dreams, and
-the web UI are built and tested, and so is an optional container sandbox for macOS and Linux.
-Next: per-card database users and an evaluation harness. Interfaces may still change.
+the web UI are built and tested, and so are an optional container sandbox for macOS and Linux
+and an evaluation harness. Next: per-card database users. Interfaces may still change.
 
 ## Documentation
 

@@ -12,15 +12,16 @@ REPO_ROADMAP = Path(__file__).resolve().parents[2] / "docs" / "ROADMAP.md"
 def test_prats_own_roadmap_parses() -> None:
     items = parse_roadmap(REPO_ROADMAP.read_text(encoding="utf-8"))
     titles = [item.title for item in items]
-    assert len(items) == 16
-    assert titles[0] == "Evaluation harness"
+    assert len(items) == 15
+    assert titles[0] == "Project memory"
     assert titles[-1] == "Provenance on every run"
     assert not any("manual" in title.casefold() for title in titles)
     assert "Workspace provider interface" not in " ".join(titles)
+    assert "Evaluation harness" not in titles
     for item in items:
         assert item.description, item.title
         assert 1 <= len(item.acceptance_criteria) <= MAX_CRITERIA, item.title
-    assert items[0].effort is Effort.HIGH
+    assert items[0].effort is Effort.MEDIUM
     assert len({item.fingerprint for item in items}) == len(items)
     positions = [item.position for item in items]
     assert positions == sorted(positions)

@@ -1,0 +1,20 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 1."
+  },
+  {
+    "op": "write",
+    "path": "mathkit.py",
+    "content": "\"\"\"Small number helpers.\"\"\"\n\n\ndef mean(values: list[float]) -> float:\n    \"\"\"The average of ``values``.\"\"\"\n    return sum(values) / len(values)\n\n\ndef clamp(value: float, low: float, high: float) -> float:\n    \"\"\"``value`` limited to the range ``low`` to ``high``.\"\"\"\n    if low > high:\n        raise ValueError(f\"low {low} is greater than high {high}\")\n    return max(low, min(value, high))\n"
+  },
+  {
+    "op": "write",
+    "path": "test_mathkit.py",
+    "content": "import unittest\n\nfrom mathkit import clamp, mean\n\n\nclass MeanTest(unittest.TestCase):\n    def test_mean(self) -> None:\n        self.assertEqual(mean([1, 2, 3]), 2)\n\n\nclass ClampTest(unittest.TestCase):\n    def test_inside_and_outside(self) -> None:\n        self.assertEqual(clamp(5, 0, 10), 5)\n        self.assertEqual(clamp(-1, 0, 10), 0)\n        self.assertEqual(clamp(11, 0, 10), 10)\n\n    def test_low_above_high(self) -> None:\n        with self.assertRaises(ValueError):\n            clamp(1, 10, 0)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "Added clamp() with tests."
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 1."
+  },
+  {
+    "op": "write",
+    "path": "greet.py",
+    "content": "\"\"\"Greetings.\"\"\"\n\n\ndef farewell(name: str) -> str:\n    \"\"\"Say goodbye to ``name``.\"\"\"\n    return f\"Goodbye, {name}!\"\n\n\ndef greet(name: str) -> str:\n    \"\"\"Say hello to ``name``, or to the world when there is no name.\"\"\"\n    name = name.strip()\n    return f\"Hello, {name or 'world'}!\"\n"
+  },
+  {
+    "op": "write",
+    "path": "test_greet.py",
+    "content": "import unittest\n\nfrom greet import farewell, greet\n\n\nclass FarewellTest(unittest.TestCase):\n    def test_farewell(self) -> None:\n        self.assertEqual(farewell(\"Ada\"), \"Goodbye, Ada!\")\n\n\nclass GreetTest(unittest.TestCase):\n    def test_name(self) -> None:\n        self.assertEqual(greet(\"Ada\"), \"Hello, Ada!\")\n\n    def test_spaces_are_removed(self) -> None:\n        self.assertEqual(greet(\"  Ada \"), \"Hello, Ada!\")\n\n    def test_no_name(self) -> None:\n        self.assertEqual(greet(\"\"), \"Hello, world!\")\n        self.assertEqual(greet(\"   \"), \"Hello, world!\")\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "Added greet() with tests."
+  }
+]

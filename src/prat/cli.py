@@ -7,7 +7,7 @@ import contextlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import typer
 from rich.console import Console
@@ -49,6 +49,7 @@ from prat.runtime import AgentRuntime, FakeRuntime, FakeScript
 
 if TYPE_CHECKING:
     from prat.environments import EnvironmentManager
+    from prat.evals import CaseResult, EvalResult
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="PRAT: one agent per card.")
 db_app = typer.Typer(no_args_is_help=True, help="Database management.")
@@ -74,7 +75,12 @@ overlay_app = typer.Typer(
 checkpoint_app = typer.Typer(
     no_args_is_help=True, help="Landed cards, with their code and data, and how to take them back."
 )
+eval_app = typer.Typer(
+    no_args_is_help=True,
+    help="Measure agents, gates and reviewers on cases with hidden checks.",
+)
 app.add_typer(db_app, name="db")
+app.add_typer(eval_app, name="eval")
 app.add_typer(checkpoint_app, name="checkpoint")
 app.add_typer(project_app, name="project")
 app.add_typer(card_app, name="card")
@@ -1626,6 +1632,295 @@ def dream_hours(
             raise _fail(str(exc)) from exc
         current = rhythm.state(db)
     console.print(f"dream hours: {mode}; now {current.name} ({current.reason})")
+
+
+# Evaluation ------------------------------------------------------------------------------
+
+
+def _check_who(name: str, value: str) -> Literal["scripted", "claude"]:
+    if value == "scripted":
+        return "scripted"
+    if value == "claude":
+        return "claude"
+    raise _fail(f"unknown {name} {value!r}; use scripted or claude")
+
+
+def _print_eval(result: EvalResult) -> None:
+    from prat.evals.results import by_project, percent, rate_text, step_rates, summarize
+
+    summary = summarize(result.cases)
+    console.print(
+        f"evaluation [bold]{result.id}[/bold]: {result.runtime} builder, {result.reviewer} "
+        f"reviewer, {len(result.cases)} case(s), {result.duration_seconds:.0f}s"
+    )
+    table = _table("case", "project", "attempts", "first attempt", "handed over", "outcome")
+    for case in result.cases:
+        first = case.baseline_pass
+        table.add_row(
+            case.name,
+            case.project,
+            " > ".join(attempt.trail() for attempt in case.attempts) or "-",
+            "-" if first is None else ("passes" if first else "fails"),
+            "yes" if case.delivered else "no",
+            case.outcome if case.error is None else f"error: {case.error}",
+        )
+    console.print(table)
+    if summary.checked:
+        console.print(f"Review layer, over {summary.checked} case(s) with a hidden check:")
+        console.print(
+            "  first attempt passes the hidden check (the agent alone): "
+            + percent(summary.baseline_pass, summary.checked)
+        )
+        console.print(
+            "  PRAT hands over work that passes: "
+            + percent(summary.delivered_pass, summary.checked)
+        )
+        console.print(
+            f"  bad work handed over: {summary.baseline_bad} by the agent alone, "
+            f"{summary.delivered_bad} by PRAT"
+        )
+        calls = summary.calls
+        console.print(
+            f"  attempts: {calls['caught']} caught, {calls['missed']} missed, "
+            f"{calls['false_alarm']} good sent back, {calls['passed']} passed "
+            f"(caught {rate_text(summary.catch_rate)} of bad attempts, sent back "
+            f"{rate_text(summary.false_alarm_rate)} of good ones)"
+        )
+    steps = _table("step", "succeeded", "failed", "skipped", "pass rate")
+    for step, rate in step_rates(result.cases).items():
+        steps.add_row(
+            step, str(rate.succeeded), str(rate.failed), str(rate.skipped), rate_text(rate.rate)
+        )
+    console.print(steps)
+    projects = by_project(result.cases)
+    if 1 < len(projects) < len(result.cases):
+        per_project = _table("project", "cases", "first attempt passes", "PRAT hands over passing")
+        for name, part in projects.items():
+            per_project.add_row(
+                name,
+                str(part.cases),
+                percent(part.baseline_pass, part.checked),
+                percent(part.delivered_pass, part.checked),
+            )
+        console.print(per_project)
+    if result.scripted:
+        console.print(
+            "[dim]Scripted builder and reviewer: these numbers come from the cases' scripts and "
+            "show the harness works. Use --runtime claude to measure an agent.[/dim]"
+        )
+
+
+@eval_app.command("run")
+def eval_run(
+    ctx: typer.Context,
+    folder: Annotated[
+        Path | None,
+        typer.Argument(help="A case folder, or a folder of cases (default: the built-in suite)."),
+    ] = None,
+    runtime: Annotated[
+        str, typer.Option(help="Builder: scripted (each case's attempts) or claude.")
+    ] = "scripted",
+    reviewer: Annotated[
+        str | None,
+        typer.Option(
+            help="Reviewer: scripted (each case's verdicts) or claude. Default: as --runtime."
+        ),
+    ] = None,
+    case: Annotated[
+        list[str] | None, typer.Option("--case", help="Run only this case (repeatable).")
+    ] = None,
+    attempts: Annotated[
+        int | None,
+        typer.Option(
+            min=1, max=10, help="Runs per card, the first plus reworks (default: each case's)."
+        ),
+    ] = None,
+    label: Annotated[str, typer.Option(help="A short name for this evaluation.")] = "",
+    overlay: Annotated[
+        bool, typer.Option("--overlay/--no-overlay", help="Use this installation's overlay.")
+    ] = True,
+    keep_work: Annotated[
+        bool, typer.Option(help="Keep each case's scratch home, repository and clone.")
+    ] = False,
+) -> None:
+    """Run cases through PRAT, each in a home of its own, and score every attempt with the
+    case's hidden check. Nothing touches your projects, cards or branches."""
+    from prat.evals import CaseError, EvalOptions, builtin_suite, load_cases, run_suite
+
+    settings = _settings(ctx)
+    builder = _check_who("runtime", runtime)
+    judge = _check_who("reviewer", reviewer or runtime)
+    source = folder or builtin_suite()
+    try:
+        cases = load_cases(source, case)
+    except CaseError as exc:
+        raise _fail(str(exc)) from exc
+    claude = None
+    if "claude" in (builder, judge):
+        from prat.runtime.auth import AuthError
+        from prat.runtime.claude import ClaudeRuntime
+
+        try:
+            ClaudeRuntime.from_settings(settings)
+        except AuthError as exc:
+            raise _fail(f"{exc} (see `prat auth status`)") from exc
+        claude = ClaudeRuntime.from_settings
+    options = EvalOptions(
+        runtime=builder,
+        reviewer=judge,
+        max_attempts=attempts,
+        label=label,
+        overlay=overlay,
+        keep_work=keep_work,
+    )
+
+    def progress(result: CaseResult) -> None:
+        trail = " > ".join(attempt.trail() for attempt in result.attempts)
+        detail = f"error: {result.error}" if result.error else f"{result.outcome} ({trail})"
+        console.print(f"  {result.name}: {escape(detail)}")
+
+    settings.home.mkdir(parents=True, exist_ok=True)
+    console.print(f"running {len(cases)} case(s) from {source}")
+    result = asyncio.run(
+        run_suite(
+            settings,
+            cases,
+            options,
+            suite="built-in" if folder is None else str(source),
+            claude=claude,
+            progress=progress,
+        )
+    )
+    _print_eval(result)
+    console.print(f"saved: {settings.home / 'evals' / result.id}")
+    if any(case_result.error for case_result in result.cases):
+        raise typer.Exit(2)
+
+
+@eval_app.command("list")
+def eval_list(ctx: typer.Context) -> None:
+    """Stored evaluations, newest first."""
+    from prat.evals import list_results, summarize
+    from prat.evals.results import percent
+
+    settings = _settings(ctx)
+    table = _table("id", "label", "builder", "reviewer", "cases", "first passes", "PRAT passes")
+    for result in list_results(settings.home):
+        summary = summarize(result.cases)
+        table.add_row(
+            result.id,
+            result.label,
+            result.runtime,
+            result.reviewer,
+            str(summary.cases),
+            percent(summary.baseline_pass, summary.checked),
+            percent(summary.delivered_pass, summary.checked),
+        )
+    console.print(table)
+
+
+@eval_app.command("show")
+def eval_show(
+    ctx: typer.Context,
+    ref: Annotated[str, typer.Argument(help="An evaluation id, latest or previous.")] = "latest",
+) -> None:
+    """One stored evaluation, attempt by attempt."""
+    from prat.evals import find
+
+    settings = _settings(ctx)
+    try:
+        result = find(settings.home, ref)
+    except (LookupError, OSError, ValueError) as exc:
+        raise _fail(str(exc)) from exc
+    _print_eval(result)
+    for case in result.cases:
+        console.print(f"[bold]{case.name}[/bold]: {escape(case.title)}")
+        recorded = {run.attempt: run for run in case.recorded or []}
+        for attempt in case.attempts:
+            gates = ", ".join(
+                f"{gate.name} {'passed' if gate.passed else 'failed'}" for gate in attempt.gates
+            )
+            check = (
+                "-" if attempt.check is None else ("passes" if attempt.check.passed else "fails")
+            )
+            line = (
+                f"  attempt {attempt.number}: run {attempt.run_status}, card {attempt.card_status}"
+                f"; gates: {gates or '-'}; verdict: {attempt.verdict or '-'}; hidden check: "
+                f"{check}; policy denied {attempt.policy.denied} of {attempt.policy.calls}"
+            )
+            console.print(escape(line))
+            if attempt.number in recorded:
+                then = recorded[attempt.number]
+                then_gates = ", ".join(
+                    f"{name} {'passed' if ok else 'failed'}" for name, ok in then.gates.items()
+                )
+                console.print(
+                    escape(
+                        f"    recorded: run {then.run_status}; gates: {then_gates or '-'}; "
+                        f"verdict: {then.verdict or '-'}; policy denied {then.denied}"
+                    )
+                )
+        if case.error:
+            console.print(f"  [red]error:[/red] {escape(case.error)}")
+
+
+@eval_app.command("compare")
+def eval_compare(
+    ctx: typer.Context,
+    a: Annotated[
+        str, typer.Argument(help="The earlier evaluation (id, or previous).")
+    ] = "previous",
+    b: Annotated[str, typer.Argument(help="The later evaluation (id, or latest).")] = "latest",
+) -> None:
+    """Two evaluations side by side: the review layer, each step and each case."""
+    from prat.evals import compare, find
+
+    settings = _settings(ctx)
+    try:
+        first, second = find(settings.home, a), find(settings.home, b)
+    except (LookupError, OSError, ValueError) as exc:
+        raise _fail(str(exc)) from exc
+    result = compare(first, second)
+    for title, rows in (
+        ("review layer", result.review),
+        ("step pass rate", result.steps),
+        ("case", result.cases),
+    ):
+        table = _table(title, first.id, second.id)
+        for row in rows:
+            mark = "[yellow]" if row.changed and title != "case" else ""
+            table.add_row(
+                row.label,
+                f"{mark}{escape(row.a)}" if mark else escape(row.a),
+                f"{mark}{escape(row.b)}" if mark else escape(row.b),
+            )
+        console.print(table)
+    if result.only_a or result.only_b:
+        console.print(f"left out (not in both): {', '.join([*result.only_a, *result.only_b])}")
+
+
+@eval_app.command("export")
+def eval_export(
+    ctx: typer.Context,
+    card_id: int,
+    dest: Annotated[Path, typer.Argument(help="The new case folder.")],
+) -> None:
+    """Export a finished card as a case: its starting files, criteria, journals and every
+    run as a replayable attempt. Add a hidden check to score it."""
+    from prat.evals import CaseError
+    from prat.evals.export import export_card
+
+    with _database(ctx) as (settings, db):
+        try:
+            report = export_card(db, settings, card_id, dest)
+        except (CaseError, store.NotFound, GitError) as exc:
+            raise _fail(str(exc)) from exc
+    console.print(f"exported card {card_id} to {report.path} ({report.attempts} attempt(s))")
+    for path in report.skipped_files:
+        console.print(f"  [yellow]not replayed[/yellow] (binary or too large): {escape(path)}")
+    for warning in report.warnings:
+        console.print(f"  [yellow]warning:[/yellow] {escape(warning)}")
+    console.print(f"run it with: prat eval run {report.path}")
 
 
 def main() -> None:

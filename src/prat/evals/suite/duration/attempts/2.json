@@ -1,0 +1,20 @@
+[
+  {
+    "op": "text",
+    "text": "Working on the card, attempt 2."
+  },
+  {
+    "op": "write",
+    "path": "timeparse.py",
+    "content": "\"\"\"Reading times that people write.\"\"\"\n\nimport re\n\n_DURATION = re.compile(r\"(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+)s)?\")\n\n\ndef parse_clock(text: str) -> int:\n    \"\"\"Minutes after midnight for a time like \"09:30\".\"\"\"\n    hours, minutes = text.split(\":\")\n    return int(hours) * 60 + int(minutes)\n\n\ndef parse_duration(text: str) -> int:\n    \"\"\"Seconds in a duration like \"1h30m\". Raises ValueError for anything else.\"\"\"\n    match = _DURATION.fullmatch(text)\n    if not text or match is None:\n        raise ValueError(f\"not a duration: {text!r}\")\n    hours, minutes, seconds = (int(part or 0) for part in match.groups())\n    return hours * 3600 + minutes * 60 + seconds\n"
+  },
+  {
+    "op": "write",
+    "path": "test_timeparse.py",
+    "content": "import unittest\n\nfrom timeparse import parse_clock, parse_duration\n\n\nclass ClockTest(unittest.TestCase):\n    def test_clock(self) -> None:\n        self.assertEqual(parse_clock(\"09:30\"), 570)\n\n\nclass DurationTest(unittest.TestCase):\n    def test_hours_and_minutes(self) -> None:\n        self.assertEqual(parse_duration(\"1h30m\"), 5400)\n\n    def test_one_unit(self) -> None:\n        self.assertEqual(parse_duration(\"45s\"), 45)\n        self.assertEqual(parse_duration(\"2h\"), 7200)\n\n    def test_errors(self) -> None:\n        for text in (\"\", \"5x\", \"30m1h\"):\n            with self.assertRaises(ValueError):\n                parse_duration(text)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+  },
+  {
+    "op": "finish",
+    "message": "parse_duration() now rejects bad input."
+  }
+]

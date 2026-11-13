@@ -521,6 +521,111 @@ The Knowledge page shows the graph and the entries; the Improve page shows your 
 dream. The design and the research behind it are in
 [docs/design/knowledge.md](design/knowledge.md).
 
+## Evaluating agents
+
+The evaluation harness measures whether PRAT's gates, reviewers and rework make the work an
+agent hands over better than the agent's first attempt, and whether a change to prompts,
+policy, gates, models or your overlay makes things better or worse.
+
+```bash
+prat eval run                          # the built-in suite, scripted (no model)
+prat eval run --runtime claude         # a real builder and real reviewers
+prat eval run --reviewer claude        # scripted work, real reviewers: how good is the review?
+prat eval run ./my-cases --case login-limit --label "new critic prompt"
+prat eval list                         # stored evaluations, newest first
+prat eval show [ID]                    # attempt by attempt (default: the latest)
+prat eval compare [A] [B]              # side by side (default: the previous and the latest)
+prat eval export CARD_ID ./my-cases/some-card   # a finished card as a case
+```
+
+### How a case is scored
+
+Each case is a small repository, a card and a **hidden check**: a command, with files the
+agent never sees, that decides whether the work does what the card asked. A case's card runs
+through the whole pipeline, the way any card does. When the reviewer sends it back, it runs
+again with the fix list. When the gates fail, PRAT sends it back with their output, the way you
+would. This repeats until the card reaches review or the case runs out of attempts. After every
+run, the hidden check judges the commit the run left on the card's branch.
+
+That gives two answers from one run:
+
+- **The agent alone**: the first attempt is what the agent would have handed over without
+  PRAT's gates, reviewers or rework. Does it pass the hidden check?
+- **PRAT**: does the work PRAT finally handed over pass it?
+
+Every attempt is also scored as **caught** (bad, sent back), **missed** (bad, handed over), a
+**false alarm** (good, sent back) or **passed** (good, handed over), and each case gets an
+outcome: **fixed** (bad first attempt, good work handed over), **kept**, **stopped** (bad, and
+nothing handed over), **lost** (a good first attempt that never got handed over) or
+**missed**. `prat eval run` prints these, the share of bad attempts caught and of good ones
+sent back, and the pass rate of every step (prepare, plan, execute, verify, critique,
+summarize, finalize), per project when the cases span several.
+
+The built-in suite has six cases, scripted so that each outcome appears: right first time,
+caught by a gate, caught by the reviewer, missed by everyone, good work sent back, and bad
+work never handed over. A scripted run shows that the harness works. The numbers that say
+something about an agent come from `--runtime claude`, `--reviewer claude`, and your own cases.
+
+### Safety
+
+Every case runs in a PRAT home of its own, under `$PRAT_HOME/evals/<id>/work/`, with its own
+SQLite database, a fresh repository made from the case's files and its own agent clone.
+Nothing reaches your projects, cards, branches or databases: a case whose project file
+declares databases is refused, and no database server setting is passed on. Gates and the
+hidden check run agent-written code, so they run the way gates always do: in the sandbox when
+it is on, otherwise without PRAT's own settings and keys. The scratch folders are removed when
+the evaluation ends (`--keep-work` keeps them). Each evaluation is stored in
+`$PRAT_HOME/evals/<id>/result.json`, with the journal of every run. Your overlay's rules and
+guidance apply in every case unless you pass `--no-overlay`.
+
+### Writing a case
+
+```
+my-cases/login-limit/
+  case.toml          the card, the hidden check, scripted verdicts
+  repo/              the starting files, including .prat/project.toml
+  hidden/            files laid over the work before the hidden check runs
+  attempts/1.json    for the scripted builder: what it does on the first run
+  attempts/2.json    ... and on the next, after the card was sent back
+```
+
+```toml
+title = "Limit login attempts"
+goal = "Lock an account for 15 minutes after five failed logins."
+acceptance_criteria = """
+- the sixth failed login within 15 minutes is refused with 429
+- a successful login resets the count
+"""
+complexity = "medium"
+max_attempts = 3            # the first run plus reworks
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "hidden_tests"]
+timeout_seconds = 300
+
+[[scripted_review]]         # the scripted reviewer's verdict on each review, in order
+verdict = "not_met"         # met, partial, not_met or wrong
+summary = "A success does not reset the count."
+fix_list = ["reset the count after a successful login"]
+```
+
+`{python}` in the check and in the project file becomes this machine's Python, or `python3`
+in the sandbox. The attempts are scripts for the scripted runtime: the same steps as
+`prat card run --script` (write, edit, delete, bash and the rest). A real agent ignores them
+and works from the card. A case without attempts runs only with `--runtime claude`.
+
+### Replaying a finished card
+
+`prat eval export` turns a finished card into a case: the files of the commit its first run
+started from, the card, each run's journal, and how each run went (gates, verdict and how many
+of the builder's commands the policy denied). Each run becomes an attempt that replays it: the
+builder's shell commands go back through today's policy without being run, then the files the
+run changed are written as they were at the end of it. Gates and reviewers then judge the
+replayed work for real, and `prat eval show` puts each attempt next to its recording. Binary
+files and files over 1 MB are not replayed, and the export says which. An exported case has no
+hidden check until you add a `[check]` table and a `hidden/` folder; until then it reports
+gates, verdicts and policy only.
+
 ## Documentation
 
 - [docs/ARCHITECTURE.md](ARCHITECTURE.md): modules, state machines, data model and the

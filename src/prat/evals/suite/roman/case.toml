@@ -1,0 +1,17 @@
+title = "Add to_roman()"
+goal = "Add to_roman(n) to numerals.py: n written in Roman numerals."
+acceptance_criteria = """
+- to_roman(n) returns n in Roman numerals for 1 to 3999: to_roman(2024) is "MMXXIV" and to_roman(1994) is "MCMXCIV"
+- numbers outside 1 to 3999 raise ValueError
+- test_numerals.py tests to_roman
+"""
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 60
+
+[[scripted_review]]
+verdict = "met"
+summary = "to_roman() converts 1 to 3999 and rejects other numbers; the tests cover both."

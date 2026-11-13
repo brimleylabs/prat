@@ -76,6 +76,22 @@ class Git:
         env.update(host_git_config_env())
         return env
 
+    def run_bytes(self, *args: str) -> bytes:
+        """Run git and return its output unchanged (file contents, archives)."""
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=self.cwd,
+            env=self._env(),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=self.timeout,
+            check=False,
+        )
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode("utf-8", errors="replace")
+            raise GitError(args, proc.returncode, "", stderr)
+        return proc.stdout
+
     def run(self, *args: str, check: bool = True, input_text: str | None = None) -> GitResult:
         for attempt in range(CONFIG_RETRIES + 1):
             # A timeout kills git together with whatever it started (hooks, helpers).
