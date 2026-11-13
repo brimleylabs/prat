@@ -1,0 +1,9 @@
+title = "Partial refunds on coupon orders pay back too much"
+goal = "An order had two products, a $30.00 mug and a $70.00 lamp, with the SAVE10 coupon (10% off) and 8% tax: the customer paid $97.20. They returned the mug and were refunded $32.40, more than they paid for it: with the discount and tax it cost them $29.16. Refunding a whole order is correct; returning some of its products is not."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 120

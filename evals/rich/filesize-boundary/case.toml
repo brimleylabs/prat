@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5 with a planted bug in rich/filesize.py.
+title = "File sizes of exactly 1,000 bytes are shown as bytes, not kB"
+goal = "The file size column of a progress bar shows \"1,000 bytes\" for a file of 1,000 bytes. It should say \"1.0 kB\": sizes switch to kB at 1,000 bytes. 999 bytes and 1,001 bytes look right."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

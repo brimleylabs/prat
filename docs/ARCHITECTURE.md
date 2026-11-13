@@ -72,6 +72,7 @@ src/prat/
     runner.py        each case through the engine in a home of its own; the hidden check
     results.py       scoring each attempt and case, stored results, side-by-side comparison
     export.py        a finished card as a case that replays its runs
+    plain.py         plain Claude Code on a case's card: the baseline
     suite/           the built-in cases (sample projects, not PRAT code: no lint or types)
   engine/
     orchestrator.py  Engine: queue, steps, cancel, resume, approve, rework
@@ -639,6 +640,17 @@ the commands and the case format; this is how it works.
   by the run's id), and `ScriptedReviewer` returns its `[[scripted_review]]` verdicts in
   order. Either side can be the real one: `--reviewer claude` judges fixed, known work, which
   measures the reviewer alone.
+- **Plain Claude Code as the baseline.** `plain.run_plain` runs one Agent SDK session with
+  Claude Code's own system prompt and every permission, the builder's model and budget, and
+  the card's text; its result is committed and judged by the same hidden check. No policy,
+  gates, reviewer or rework take part.
+- **Real code, no history.** A case can name a repository and commit (`[source]`). The runner
+  keeps a bare clone per repository and writes that commit's files from git's objects
+  (`export_tree`, which also serves the hidden check), not with `git archive`, which leaves
+  out files marked export-ignore. The agent's repository has one commit, so the fix cannot
+  be found in the history.
+- **Knowledge as an input.** `--knowledge` copies a project's knowledge folder into every
+  case's home, so a seeded (and dreamed-over) knowledge base can be compared with none.
 - **Replay of recorded cards.** `export_card` writes the base commit's files, the journals,
   each run's outcome, and one attempt per run: the builder's recorded shell commands as `dry`
   steps (the policy decides; nothing runs), then writes and deletes that reproduce the run's

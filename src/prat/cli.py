@@ -1642,7 +1642,8 @@ def _check_who(name: str, value: str) -> Literal["scripted", "claude"]:
         return "scripted"
     if value == "claude":
         return "claude"
-    raise _fail(f"unknown {name} {value!r}; use scripted or claude")
+    choices = "scripted, claude or plain" if name == "runtime" else "scripted or claude"
+    raise _fail(f"unknown {name} {value!r}; use {choices}")
 
 
 def _print_eval(result: EvalResult) -> None:
@@ -1718,7 +1719,11 @@ def eval_run(
         typer.Argument(help="A case folder, or a folder of cases (default: the built-in suite)."),
     ] = None,
     runtime: Annotated[
-        str, typer.Option(help="Builder: scripted (each case's attempts) or claude.")
+        str,
+        typer.Option(
+            help="Builder: scripted (each case's attempts), claude (in PRAT) or plain "
+            "(plain Claude Code: one session, no policy, gates, reviewers or rework)."
+        ),
     ] = "scripted",
     reviewer: Annotated[
         str | None,
@@ -1742,21 +1747,34 @@ def eval_run(
     keep_work: Annotated[
         bool, typer.Option(help="Keep each case's scratch home, repository and clone.")
     ] = False,
+    jobs: Annotated[int, typer.Option(min=1, max=8, help="Cases to run at once.")] = 1,
+    knowledge: Annotated[
+        Path | None,
+        typer.Option(
+            help="A project's seeded knowledge folder ($PRAT_HOME/knowledge/projects/SLUG) "
+            "to give every case."
+        ),
+    ] = None,
 ) -> None:
     """Run cases through PRAT, each in a home of its own, and score every attempt with the
     case's hidden check. Nothing touches your projects, cards or branches."""
     from prat.evals import CaseError, EvalOptions, builtin_suite, load_cases, run_suite
 
     settings = _settings(ctx)
-    builder = _check_who("runtime", runtime)
-    judge = _check_who("reviewer", reviewer or runtime)
+    if knowledge is not None and not (knowledge / "entries").is_dir():
+        raise _fail(f"{knowledge} is not a knowledge folder (it has no entries/)")
+    plain = runtime == "plain"
+    builder: Literal["scripted", "claude", "plain"] = (
+        "plain" if plain else _check_who("runtime", runtime)
+    )
+    judge = "scripted" if plain else _check_who("reviewer", reviewer or runtime)
     source = folder or builtin_suite()
     try:
         cases = load_cases(source, case)
     except CaseError as exc:
         raise _fail(str(exc)) from exc
     claude = None
-    if "claude" in (builder, judge):
+    if plain or "claude" in (builder, judge):
         from prat.runtime.auth import AuthError
         from prat.runtime.claude import ClaudeRuntime
 
@@ -1772,6 +1790,8 @@ def eval_run(
         label=label,
         overlay=overlay,
         keep_work=keep_work,
+        jobs=jobs,
+        knowledge=knowledge.resolve() if knowledge is not None else None,
     )
 
     def progress(result: CaseResult) -> None:

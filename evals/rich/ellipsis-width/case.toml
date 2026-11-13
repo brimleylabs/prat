@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5 with a planted bug in rich/text.py.
+title = "Text cut short with an ellipsis is one character too wide"
+goal = "Text cut short with overflow=\"ellipsis\" comes out one character wider than the space it was given. In a table column the ellipsis spills past the column's edge and the table's border is pushed out of line."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+timeout_seconds = 300

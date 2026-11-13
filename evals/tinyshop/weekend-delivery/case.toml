@@ -1,0 +1,9 @@
+title = "Confirmation emails promise weekend delivery"
+goal = "A customer who ordered on Thursday 12 November 2026 got a confirmation email saying the order arrives by Saturday 14 November. We never deliver at weekends: delivery is two business days (Monday to Friday) after the order, so that order should arrive by Monday 16 November."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 120

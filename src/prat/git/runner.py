@@ -76,13 +76,14 @@ class Git:
         env.update(host_git_config_env())
         return env
 
-    def run_bytes(self, *args: str) -> bytes:
+    def run_bytes(self, *args: str, input_text: str | None = None) -> bytes:
         """Run git and return its output unchanged (file contents, archives)."""
         proc = subprocess.run(
             ["git", *args],
             cwd=self.cwd,
             env=self._env(),
-            stdin=subprocess.DEVNULL,
+            input=input_text.encode("utf-8") if input_text is not None else None,
+            stdin=subprocess.DEVNULL if input_text is None else None,
             capture_output=True,
             timeout=self.timeout,
             check=False,

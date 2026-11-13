@@ -532,6 +532,8 @@ prat eval run                          # the built-in suite, scripted (no model)
 prat eval run --runtime claude         # a real builder and real reviewers
 prat eval run --reviewer claude        # scripted work, real reviewers: how good is the review?
 prat eval run ./my-cases --case login-limit --label "new critic prompt"
+prat eval run evals/rich --runtime plain          # plain Claude Code on the same cases
+prat eval run evals/rich --runtime claude --knowledge ~/.prat/knowledge/projects/rich --jobs 3
 prat eval list                         # stored evaluations, newest first
 prat eval show [ID]                    # attempt by attempt (default: the latest)
 prat eval compare [A] [B]              # side by side (default: the previous and the latest)
@@ -565,6 +567,21 @@ The built-in suite has six cases, scripted so that each outcome appears: right f
 caught by a gate, caught by the reviewer, missed by everyone, good work sent back, and bad
 work never handed over. A scripted run shows that the harness works. The numbers that say
 something about an agent come from `--runtime claude`, `--reviewer claude`, and your own cases.
+The repository's `evals/` folder has case sets on real code (see its README).
+
+### Against plain Claude Code, and with knowledge
+
+`--runtime plain` runs the same cases with plain Claude Code: one session with Claude Code's
+own system prompt and every permission, the same model as PRAT's builder and the same budget,
+given the same card, and no PRAT policy, gates, reviewer or rework. Whatever it leaves is
+handed over and judged by the same hidden check. It runs on this machine even with the
+sandbox on, so use it on cases you trust.
+
+`--knowledge DIR` gives every case a project's knowledge, as PRAT would know the project in
+use: seed a project once (`prat knowledge seed`), let dreams improve it, and pass its folder
+(`$PRAT_HOME/knowledge/projects/<slug>`). Run with and without it, and against `plain`, and
+`prat eval compare` shows what each layer adds. `--jobs N` runs N cases at once; each has its
+own home, so they never share a card or a branch.
 
 ### Safety
 
@@ -584,6 +601,7 @@ guidance apply in every case unless you pass `--no-overlay`.
 my-cases/login-limit/
   case.toml          the card, the hidden check, scripted verdicts
   repo/              the starting files, including .prat/project.toml
+  project.toml       optional: the project file, put at .prat/project.toml
   hidden/            files laid over the work before the hidden check runs
   attempts/1.json    for the scripted builder: what it does on the first run
   attempts/2.json    ... and on the next, after the card was sent back
@@ -608,6 +626,19 @@ verdict = "not_met"         # met, partial, not_met or wrong
 summary = "A success does not reset the count."
 fix_list = ["reset the count after a successful login"]
 ```
+
+A case can start from a commit of a public repository instead of carrying its files:
+
+```toml
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccd..."      # the full commit id
+```
+
+PRAT keeps one clone of each repository under `$PRAT_HOME/evals/sources` and gives the agent
+that commit's files with no history, so it cannot see what came after; `repo/`, if present,
+is laid over them (a planted bug, or tests taken out). Files a library marks export-ignore,
+such as its tests, are included.
 
 `{python}` in the check and in the project file becomes this machine's Python, or `python3`
 in the sandbox. The attempts are scripts for the scripted runtime: the same steps as

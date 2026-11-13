@@ -227,3 +227,40 @@ def test_bad_cases_are_refused(tmp_path: Path) -> None:
 )
 def test_toml_strings_round_trip(text: str) -> None:
     assert tomllib.loads(f"value = {toml_string(text)}\n")["value"] == text
+
+
+def test_the_plain_prompt_carries_what_prats_builder_gets(tmp_path: Path) -> None:
+    from prat.evals.plain import plain_prompt
+    from prat.projects import ProjectSpec
+
+    toml = 'title = "Fix it"\ngoal = "It breaks."\nacceptance_criteria = "- it works"\n'
+    case = load_case(write_case(tmp_path / "plain", toml))
+    prompt = plain_prompt(case, ProjectSpec(name="p", notes="Run the tests with make test."))
+    assert prompt.startswith("# Fix it\n\nIt breaks.")
+    assert "- it works" in prompt
+    assert "make test" in prompt
+
+
+def test_a_source_needs_a_commit_id(tmp_path: Path) -> None:
+    toml = 'title = "T"\n[source]\nrepository = "https://example.org/r.git"\ncommit = "main"\n'
+    with pytest.raises(CaseError):
+        load_case(write_case(tmp_path / "bad-source", toml))
+    toml = 'title = "T"\n[source]\nrepository = "--upload-pack=x"\ncommit = "abc1234"\n'
+    with pytest.raises(CaseError):
+        load_case(write_case(tmp_path / "option-source", toml))
+
+
+def test_the_shipped_benchmark_cases_load() -> None:
+    root = Path(__file__).resolve().parents[2] / "evals"
+    rich = load_cases(root / "rich")
+    assert [c.name for c in rich] == ["ellipsis-width", "filesize-boundary", "ratio-columns"]
+    for case in rich:
+        assert case.spec.source is not None
+        assert case.spec.check is not None
+        assert case.project_file.is_file()
+        assert list(case.hidden.rglob("test_*.py"))
+    tinyshop = load_cases(root / "tinyshop")
+    assert [c.name for c in tinyshop] == ["partial-refund", "weekend-delivery"]
+    for case in tinyshop:
+        assert (case.repo / ".prat" / "project.toml").is_file()
+        assert (case.hidden / "hidden_check.py").is_file()

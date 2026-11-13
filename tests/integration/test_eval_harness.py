@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import select
 from typer.testing import CliRunner
 
-from conftest import DEFAULT_TOML, WRITE_GREET, add_card, git, make_engine
+from conftest import DEFAULT_TOML, WRITE_GREET, add_card, git, make_engine, make_repo
 from prat import store
 from prat.cli import app
 from prat.config import Settings
@@ -164,7 +164,7 @@ def test_eval_commands(
     assert "roman: missed" in out
     assert "first attempt passes the hidden check" in out
     assert "Scripted builder and reviewer" in out
-    cli("eval", "run", "--case", "greet", "--case", "slugify", "--attempts", "1")
+    cli("eval", "run", "--case", "greet", "--case", "slugify", "--attempts", "1", "--jobs", "2")
     listed = cli("eval", "list")
     assert "first" in listed
     shown = cli("eval", "show")
@@ -187,3 +187,51 @@ def test_eval_commands(
     assert "exported card 1" in cli("eval", "export", "1", str(dest))
     replayed = cli("eval", "run", str(dest))
     assert "add-greet: handed_over" in replayed
+
+
+async def test_a_case_starts_from_a_commit_with_no_history(
+    settings: Settings, tmp_path: Path
+) -> None:
+    upstream = make_repo(
+        tmp_path / "upstream",
+        "lib",
+        files={
+            "lib.py": "VALUE = 1\n",
+            "tests/test_lib.py": "import lib\n",
+            # Libraries often leave their tests out of archives; evaluations need them.
+            ".gitattributes": "/tests export-ignore\n",
+        },
+    )
+    start = git(upstream, "rev-parse", "HEAD")
+    (upstream / "lib.py").write_text("VALUE = 2  # the future fix\n", encoding="utf-8")
+    git(upstream, "commit", "-qam", "the fix")
+
+    case_dir = tmp_path / "cases" / "from-source"
+    (case_dir / "attempts").mkdir(parents=True)
+    (case_dir / "case.toml").write_text(
+        f'title = "Make VALUE 2"\n\n[source]\nrepository = "{upstream.as_posix()}"\n'
+        f'commit = "{start}"\n\n[check]\n'
+        'command = ["{python}", "-c", "import lib, pathlib, sys; '
+        "sys.exit(0 if lib.VALUE == 2 and pathlib.Path('tests/test_lib.py').is_file() else 1)\"]\n",
+        encoding="utf-8",
+    )
+    (case_dir / "project.toml").write_text(DEFAULT_TOML, encoding="utf-8")
+    (case_dir / "attempts" / "1.json").write_text(
+        json.dumps(
+            [
+                {"op": "write", "path": "lib.py", "content": "VALUE = 2\n"},
+                {"op": "finish"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    work = tmp_path / "work"
+    result = await run_case(settings, load_case(case_dir), EvalOptions(), work)
+    assert result.error is None, result.error
+    assert result.outcome == "kept"
+    checkout = work / "repo"
+    assert git(checkout, "rev-list", "--count", "HEAD") == "1"
+    assert (checkout / "lib.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert (checkout / "tests" / "test_lib.py").is_file()
+    assert (checkout / ".prat" / "project.toml").is_file()
+    assert list((settings.home / "evals" / "sources").iterdir())

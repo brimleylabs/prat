@@ -5,6 +5,11 @@ A case is a folder::
     case.toml        the card (title, goal, acceptance criteria), the hidden check, and
                      the scripted reviewer's verdicts
     repo/            the starting files, including .prat/project.toml
+    project.toml     optional: the project file, put at .prat/project.toml
+
+Instead of ``repo/``, a case can start from a commit of a public repository
+(``[source] repository, commit``): the files of that commit, with no history, so the
+agent cannot see what came after. ``repo/`` files, if any, are laid over them.
     hidden/          files laid over the agent's work before the hidden check runs
     attempts/1.json  what the scripted builder does on the card's first run
     attempts/2.json  ... and on the next, after the card was sent back
@@ -47,6 +52,15 @@ class Check(BaseModel):
 
     command: list[str] = Field(min_length=1)
     timeout_seconds: Annotated[float, Field(gt=0, le=3600)] = 300.0
+
+
+class Source(BaseModel):
+    """Where a case's starting files come from: one commit of a repository."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    repository: Annotated[str, Field(min_length=1, max_length=500, pattern=r"^[^-\s]\S*$")]
+    commit: Annotated[str, Field(pattern=r"^[0-9a-f]{7,64}$")]
 
 
 class ScriptedReview(BaseModel):
@@ -96,6 +110,7 @@ class CaseSpec(BaseModel):
     complexity: Complexity = Complexity.LOW
     # Runs of the card before the case stops: the first, plus reworks.
     max_attempts: Annotated[int, Field(ge=1, le=10)] = 3
+    source: Source | None = None
     check: Check | None = None
     scripted_review: list[ScriptedReview] = Field(default_factory=list)
     recorded: Recorded | None = None
@@ -115,6 +130,10 @@ class EvalCase:
     @property
     def hidden(self) -> Path:
         return self.path / "hidden"
+
+    @property
+    def project_file(self) -> Path:
+        return self.path / "project.toml"
 
     def review_for(self, index: int) -> ScriptedReview:
         """The scripted verdict for the ``index``-th review (from 0); the last one repeats,
@@ -137,8 +156,8 @@ def load_case(path: Path) -> EvalCase:
         raise CaseError(f"{path}: no {CASE_FILE}") from exc
     except (OSError, tomllib.TOMLDecodeError, ValidationError) as exc:
         raise CaseError(f"{file}: {exc}") from exc
-    if not (path / "repo").is_dir():
-        raise CaseError(f"{path}: no repo/ folder with the starting files")
+    if spec.source is None and not (path / "repo").is_dir():
+        raise CaseError(f"{path}: no repo/ folder with the starting files and no [source]")
     attempts: list[FakeScript] = []
     folder = path / "attempts"
     if folder.is_dir():

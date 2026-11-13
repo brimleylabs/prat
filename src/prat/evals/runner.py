@@ -15,15 +15,14 @@ is scored whether or not PRAT handed it over (prat.evals.results).
 from __future__ import annotations
 
 import asyncio
-import io
 import os
+import re
 import shutil
-import tarfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from prat import __version__, store
@@ -42,7 +41,7 @@ from prat.engine import (
     SecurityReviewer,
     SecurityVerdict,
 )
-from prat.evals.cases import CaseError, EvalCase, fill_python
+from prat.evals.cases import CaseError, EvalCase, Source, fill_python
 from prat.evals.results import (
     Attempt,
     CaseResult,
@@ -64,6 +63,7 @@ from prat.sandbox import for_settings
 from prat.verification import gate_environment, run_command
 
 Who = Literal["scripted", "claude"]
+Builder = Literal["scripted", "claude", "plain"]
 ClaudeFactory = Callable[[Settings], AgentRuntime]
 Progress = Callable[[CaseResult], None]
 
@@ -73,8 +73,9 @@ REPO_AUTHOR = ("PRAT evaluation", "eval@prat.invalid")
 
 @dataclass(frozen=True)
 class EvalOptions:
-    # Who builds: the case's scripted attempts, or a real agent.
-    runtime: Who = "scripted"
+    # Who builds: the case's scripted attempts, a real agent in PRAT, or plain Claude Code
+    # (one session, no PRAT policy, gates, reviewers or rework: the baseline).
+    runtime: Builder = "scripted"
     # Who reviews: the case's scripted verdicts, or the real reviewers.
     reviewer: Who = "scripted"
     # Overrides each case's max_attempts.
@@ -84,6 +85,11 @@ class EvalOptions:
     overlay: bool = True
     # Keep each case's scratch home, repository and agent clone after the run.
     keep_work: bool = False
+    # Cases run at once. Each has its own home, so they never share a card or branch.
+    jobs: int = 1
+    # A project's seeded knowledge folder ($PRAT_HOME/knowledge/projects/<slug>), given to
+    # every case, as PRAT would know the project in use.
+    knowledge: Path | None = None
 
 
 class ScriptedReviewer:
@@ -136,9 +142,10 @@ async def run_suite(
     folder = evals_dir(settings.home) / eval_id
     work = folder / "work"
     started = time.monotonic()
-    results: list[CaseResult] = []
-    try:
-        for case in cases:
+    slots = asyncio.Semaphore(max(1, options.jobs))
+
+    async def one(case: EvalCase) -> CaseResult:
+        async with slots:
             case_result = await run_case(
                 settings,
                 case,
@@ -147,9 +154,12 @@ async def run_suite(
                 claude=claude,
                 journals=folder / "journals" / case.name,
             )
-            results.append(case_result)
-            if progress is not None:
-                progress(case_result)
+        if progress is not None:
+            progress(case_result)
+        return case_result
+
+    try:
+        results = list(await asyncio.gather(*(one(case) for case in cases)))
     finally:
         if not options.keep_work and work.exists():
             await asyncio.to_thread(rmtree, work)
@@ -160,9 +170,10 @@ async def run_suite(
         prat_version=__version__,
         suite=suite,
         runtime=options.runtime,
-        reviewer=options.reviewer,
+        reviewer="none" if options.runtime == "plain" else options.reviewer,
         sandbox=settings.sandbox,
         overlay=options.overlay and overlay_path(settings.home).is_dir(),
+        knowledge=options.knowledge is not None and options.runtime != "plain",
         models=dict(settings.models),
         duration_seconds=round(time.monotonic() - started, 1),
         cases=results,
@@ -211,9 +222,12 @@ async def _run(
 ) -> None:
     sandboxed = settings.sandbox == "docker"
     scratch, checkout, spec = await asyncio.to_thread(
-        _prepare, settings, case, work, sandboxed, options.overlay
+        _prepare, settings, case, work, sandboxed, options.overlay, options.knowledge
     )
     result.project = spec.name
+    if options.runtime == "plain":
+        await _run_plain(scratch, case, spec, checkout, work, result, sandboxed, journals)
+        return
     agent_clone = work / "agent"
     db = Database(scratch.db_url)
     try:
@@ -267,8 +281,55 @@ async def _run(
         db.dispose()
 
 
+async def _run_plain(
+    scratch: Settings,
+    case: EvalCase,
+    spec: ProjectSpec,
+    checkout: Path,
+    work: Path,
+    result: CaseResult,
+    sandboxed: bool,
+    journals: Path | None,
+) -> None:
+    """The baseline: plain Claude Code works on the card once, and whatever it leaves is
+    handed over."""
+    from prat.evals.plain import run_plain
+
+    started = time.monotonic()
+    journal = journals / "attempt-1.jsonl" if journals is not None else None
+    session = await run_plain(scratch, case, spec, checkout, journal=journal)
+    commit = await asyncio.to_thread(_commit_all, checkout, "Claude Code's work")
+    attempt = Attempt(
+        number=1,
+        run_status=session.status,
+        card_status=str(CardStatus.REVIEW),
+        reason=session.reason,
+        commit=commit,
+        cost_usd=session.cost_usd,
+    )
+    attempt.duration_seconds = round(time.monotonic() - started, 2)
+    if case.spec.check is not None:
+        attempt.check = await asyncio.to_thread(
+            hidden_check, case, scratch, checkout, commit, work / "check-1", sandboxed
+        )
+    result.attempts.append(attempt)
+
+
+def _commit_all(repo: Path, message: str) -> str:
+    git = Git(repo)
+    git.run("add", "--all")
+    if not git.run("diff", "--cached", "--quiet", check=False).ok:
+        git.run("commit", "--quiet", "--no-verify", "-m", message)
+    return git.head()
+
+
 def _prepare(
-    settings: Settings, case: EvalCase, work: Path, sandboxed: bool, overlay: bool
+    settings: Settings,
+    case: EvalCase,
+    work: Path,
+    sandboxed: bool,
+    overlay: bool,
+    knowledge: Path | None = None,
 ) -> tuple[Settings, Path, ProjectSpec]:
     """The case's own home and repository, made fresh."""
     if work.exists():
@@ -277,7 +338,11 @@ def _prepare(
     scratch.ensure_dirs()
     if overlay:
         copy_overlay(settings.home, scratch.home)
-    checkout = make_repo(case, work / "repo", sandboxed)
+    if knowledge is not None:
+        # A project's knowledge, seeded beforehand: what PRAT knows about the project when a
+        # card arrives. Plain Claude Code never sees it.
+        shutil.copytree(knowledge, scratch.home / "knowledge" / "projects" / case.name)
+    checkout = make_repo(case, work / "repo", sandboxed, sources=settings.home)
     spec = load_spec(checkout, default_name=case.name)
     if spec.workspace.database:
         raise CaseError("the project file declares databases; evaluations never use one")
@@ -305,10 +370,36 @@ def copy_overlay(home: Path, scratch_home: Path) -> None:
         shutil.copytree(source, overlay_path(scratch_home), ignore=shutil.ignore_patterns(".git"))
 
 
-def make_repo(case: EvalCase, checkout: Path, sandboxed: bool) -> Path:
-    """A git repository holding the case's starting files in one commit."""
-    shutil.copytree(case.repo, checkout)
+def source_mirror(home: Path, source: Source) -> Path:
+    """A bare clone of the case's repository, kept under ``$PRAT_HOME/evals/sources`` and
+    shared by every evaluation; fetched again when it lacks the commit."""
+    name = re.sub(r"[^A-Za-z0-9._-]+", "-", source.repository.rstrip("/").removesuffix(".git"))
+    mirror = evals_dir(home) / "sources" / f"{name.strip('-.')[-80:]}.git"
+    if not mirror.is_dir():
+        mirror.parent.mkdir(parents=True, exist_ok=True)
+        Git(mirror.parent, timeout=3600).run(
+            "clone", "--quiet", "--bare", "--", source.repository, str(mirror)
+        )
+    git = Git(mirror, timeout=3600)
+    if not git.run("cat-file", "-e", f"{source.commit}^{{commit}}", check=False).ok:
+        git.run("fetch", "--quiet", "origin", source.commit)
+    return mirror
+
+
+def make_repo(case: EvalCase, checkout: Path, sandboxed: bool, *, sources: Path) -> Path:
+    """A git repository holding the case's starting files in one commit, with no history:
+    the agent cannot see what came after."""
+    source = case.spec.source
+    if source is not None:
+        export_tree(source_mirror(sources, source), source.commit, checkout)
+        if case.repo.is_dir():
+            shutil.copytree(case.repo, checkout, dirs_exist_ok=True)
+    else:
+        shutil.copytree(case.repo, checkout)
     project_file = checkout / PROJECT_FILE_REL
+    if case.project_file.is_file():
+        project_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(case.project_file, project_file)
     if project_file.is_file():
         text = project_file.read_text(encoding="utf-8")
         project_file.write_text(fill_python(text, sandboxed), encoding="utf-8", newline="")
@@ -435,11 +526,38 @@ def gate_feedback(attempt: Attempt) -> str:
 
 
 def export_tree(repo: Path, commit: str, target: Path) -> None:
-    """The files of ``commit``, without git, in ``target``."""
-    data = Git(repo).run_bytes("archive", "--format=tar", commit)
+    """Every file of ``commit``, without git, in ``target``. Read from git's objects rather
+    than ``git archive``, which leaves out what ``.gitattributes`` marks export-ignore (many
+    libraries leave out their tests that way). Symbolic links and submodules are skipped."""
+    git = Git(repo, timeout=1800)
+    listing = git.run_bytes("ls-tree", "-r", "-z", "--full-tree", commit)
+    files: list[tuple[str, str, Path]] = []
+    for record in listing.split(b"\0"):
+        if not record:
+            continue
+        meta, _, raw_path = record.partition(b"\t")
+        mode, kind, sha = meta.decode("ascii").split()
+        relative = PurePosixPath(raw_path.decode("utf-8", errors="surrogateescape"))
+        if kind != "blob" or mode == "120000":
+            continue
+        if relative.is_absolute() or ".." in relative.parts or ".git" in relative.parts:
+            raise CaseError(f"{commit} has an unsafe path: {relative}")
+        files.append((mode, sha, target.joinpath(*relative.parts)))
     target.mkdir(parents=True)
-    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-        archive.extractall(target, filter="data")
+    batch = git.run_bytes("cat-file", "--batch", input_text="".join(f"{s}\n" for _, s, _ in files))
+    offset = 0
+    for mode, sha, path in files:
+        header_end = batch.index(b"\n", offset)
+        header = batch[offset:header_end].decode("ascii").split()
+        if header[0] != sha or header[1] != "blob":
+            raise CaseError(f"git returned {header[0]} for {sha}")
+        size = int(header[2])
+        start = header_end + 1
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(batch[start : start + size])
+        if mode == "100755" and os.name != "nt":
+            path.chmod(0o755)
+        offset = start + size + 1
 
 
 def hidden_check(
