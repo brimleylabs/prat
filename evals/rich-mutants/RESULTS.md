@@ -23,6 +23,23 @@ Python 3.12 on Windows 11, 13 November 2026.
 "Looks" are file reads, searches and commands before the first change to a file. "Total time"
 for PRAT includes its gates and its reviewer.
 
+**Cost.** Mean model cost per bug (per run, including every rework run and, for PRAT, the
+reviewer), as reported by the Claude Agent SDK for each session:
+
+| Setup | Cost per bug (USD) | Against plain |
+| --- | --- | --- |
+| plain Claude Code | 0.086 | |
+| Claude Code, `/init` CLAUDE.md | 0.100 | +16% |
+| Claude Code, CLAUDE.md after learning | 0.120 | +40% |
+| PRAT, no knowledge | 0.132 | +53% |
+| PRAT, seeded knowledge | 0.148 (0.145 after the fix) | +72% |
+| PRAT, after learning and a dream | 0.155 (0.148 after the fix) | +80% |
+
+One-time costs per project: PRAT's deep scan (seeding) about 5.60 to 6.00 USD for Rich; each
+dream about 2.40 to 2.50 USD; Claude Code's `/init` about 0.12 USD. Knowledge makes each run
+dearer for both sides because it is read on every run. The figures are list-price estimates
+the SDK computes; on a subscription login, as here, nothing is billed per run.
+
 Per case (passes, then seconds to the first edit), from `results/bench/analysis.json`:
 
 | Case | plain | plain-md | plain-md-learned | prat | prat-seeded | prat-learned |

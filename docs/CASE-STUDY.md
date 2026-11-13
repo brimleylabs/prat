@@ -20,8 +20,11 @@ the protocol was published before any agent ran. 473 runs in all, every one repo
   carried it into every later run (5 of 5, against 0 of 5 before), after we found and fixed a
   bug in how PRAT picks knowledge for a card. Claude Code given the same correction kept it in
   CLAUDE.md just as well (5 of 5).
-- **It costs time.** PRAT's gates and reviewer add about 4 to 13 seconds per bug on top of the
-  42 seconds plain Claude Code takes.
+- **It costs time and money.** PRAT's gates and reviewer add about 4 to 13 seconds per bug on
+  top of the 42 seconds plain Claude Code takes, and 50 to 80% to the model cost (0.13 to 0.16
+  USD per bug against 0.086). Seeding PRAT's knowledge costs about 6 USD once per project and
+  each dream about 2.50 USD. The full breakdown is in
+  [RESULTS.md](../evals/rich-mutants/RESULTS.md#1-the-main-benchmark-17-bugs-3-runs-each-6-setups).
 
 ## What we are not claiming
 

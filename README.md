@@ -75,9 +75,9 @@ We used it to compare PRAT with plain Claude Code on 17 bugs planted in
 473 runs, all reported. PRAT does not make the model a better programmer; both fixed the same
 bugs. What PRAT added was control and a record: it stopped a 26,500-line line-ending change
 that the tests passed, sent back fixes whose new test never ran the fixed code, kept the agent
-inside its worktree, and journaled every decision. It also took more time per bug. Its
-knowledge base got the agent to the right code in slightly fewer steps. When a person taught
-it a team rule, PRAT as released learned the rule but never showed it to the builder (0 of 5
+inside its worktree, and journaled every decision. That control is not free: PRAT took 4 to 13
+seconds and 50 to 80% more model cost per bug. Its knowledge base got the agent to the right
+code in slightly fewer steps. When a person taught it a team rule, PRAT as released learned the rule but never showed it to the builder (0 of 5
 later runs); the benchmark found that bug, and after the fix all 5 reruns followed the rule,
 as Claude Code did with its CLAUDE.md. Read the [case study](docs/CASE-STUDY.md).
 
