@@ -291,6 +291,7 @@ variables:
 | `claude_cli_path` | bundled | Claude Code executable to run |
 | `models` | see below | Table of role to model ID |
 | `loop_threshold`, `loop_window` | 5, 8 | Same tool on the same target 5 times in 8 calls is denied |
+| `lessons` | `review` | `review` writes a lesson when a card reaches review; `off` only on request (see Lessons) |
 | `web_host`, `web_port` | 127.0.0.1, 18300 | Where `prat serve` listens |
 | `web_allow_remote` | false | Required to listen on a non-loopback address |
 | `projects_dir` | `~/prat-projects` | Where projects added from a link are cloned |
@@ -342,7 +343,8 @@ Models per role, overridable in `[models]` here or in a project file (the projec
 | researcher, security_reviewer | `claude-sonnet-5-5` |
 | scout (first look, deep scan synthesis) | `claude-opus-5-5` |
 | reader (deep scan modules, the dream's checker) | `claude-sonnet-5-5` |
-| librarian (lessons from cards, duplicate judge) | `claude-haiku-5-5` |
+| librarian (what cards teach about the project, duplicate judge) | `claude-haiku-5-5` |
+| teacher (the lesson on each card) | `claude-sonnet-5-5` |
 | drafter, summarizer (not used yet) | `claude-haiku-5-5` |
 
 Costs are estimates: PRAT prices each response from its token usage and then reconciles with
@@ -520,6 +522,35 @@ prat dream hours learn|fixed|never    # --start/--end/--timezone for fixed hours
 The Knowledge page shows the graph and the entries; the Improve page shows your hours and each
 dream. The design and the research behind it are in
 [docs/design/knowledge.md](design/knowledge.md).
+
+## Lessons
+
+Agents write more of the code every month, and an engineer who stops reading it loses the
+skill that makes their review worth anything. So every card that reaches review comes with a
+short lesson, written in the background after the reviewer, in three layers:
+
+- **The idea:** the general technique the card turns on, independent of this code base.
+- **What happened here:** the problem and the change, with excerpts from the real diff.
+- **Why this way:** why this approach, whether it is the standard answer, and the alternatives
+  with their trade-offs.
+
+Where they apply it adds where the change fits in the project, the trap (what went wrong on the
+way: a fix list, a failed gate, an action PRAT denied) and one question with its answer.
+
+PRAT checks every code excerpt against the diff and the files at the head commit and drops any
+it cannot find word for word; a lesson that loses all of them is asked for once more, then
+marked unchecked. The lesson shows on the card after the reviewer's verdict. It uses the
+`teacher` role (Sonnet by default, a few cents a card), counts toward the run's cost, and never
+holds up or fails a run.
+
+Lessons are private. PRAT records nothing about who reads them. How much a lesson explains
+follows your own familiarity with the stack:
+
+```bash
+prat lesson familiarity Python new      # new, working (the default) or expert
+prat lesson show 42                     # the newest lesson on card 42
+prat lesson write 42                    # write or rewrite it now
+```
 
 ## Evaluating agents
 

@@ -159,6 +159,43 @@
       </section>
       {% endif %}
 
+      {% if page.lesson %}
+      {% set l = page.lesson %}
+      <section class="panel" id="lesson" aria-labelledby="lesson-h">
+        <header class="panel-head">
+          <h2 id="lesson-h">{{ icon('book') }}Lesson</h2>
+          <div class="panel-tools"><span class="setup-progress">What was built, why this way, and the idea behind it. Private to you.</span></div>
+        </header>
+        <details class="panel-body"{% if status in ('review', 'rework') %} open{% endif %}>
+          <summary><strong>{{ l.title or 'Lesson' }}</strong>{% for t in l.tags or [] %} <span class="mini-badge">{{ t }}</span>{% endfor %}</summary>
+          {% if not l.checked %}<div class="callout tone-warn compact">{{ icon('alert') }}<p>Unchecked: none of the code excerpts could be found in the diff. Read it with care.</p></div>{% endif %}
+          <h3 class="sub-head">The idea</h3>
+          <p class="pre prose">{{ l.idea }}</p>
+          <h3 class="sub-head">What happened here</h3>
+          <p class="pre prose">{{ l.happened }}</p>
+          {% for e in l.excerpts or [] %}
+          <p class="meta-line"><span class="mono">{{ e.file }}</span></p>
+          <pre class="pre mono">{{ e.code }}</pre>
+          {% if e.note %}<p class="help">{{ e.note }}</p>{% endif %}
+          {% endfor %}
+          <h3 class="sub-head">Why this way</h3>
+          <p class="pre prose">{{ l.why }}</p>
+          {% if l.alternatives %}
+          <h3 class="sub-head">Other ways</h3>
+          <ul class="plain-list">{% for a in l.alternatives %}<li>{{ a }}</li>{% endfor %}</ul>
+          {% endif %}
+          {% if l.fits %}<h3 class="sub-head">Where it fits</h3><p class="pre prose">{{ l.fits }}</p>{% endif %}
+          {% if l.trap %}<h3 class="sub-head">The trap</h3><p class="pre prose">{{ l.trap }}</p>{% endif %}
+          {% if l.question %}
+          <h3 class="sub-head">A question</h3>
+          <p class="prose">{{ l.question }}</p>
+          <details class="entry-fold"><summary>Show the answer</summary><p class="pre prose">{{ l.answer }}</p></details>
+          {% endif %}
+          <p class="meta-line">{% if l.model %}<span class="mono">{{ l.model }}</span>{% endif %}<span>Written for {{ l.familiarity or 'working' }} familiarity with {{ l.stack or 'this stack' }}{% if l.dropped %}; {{ l.dropped }} excerpt{{ 's' if l.dropped != 1 }} not found in the diff and left out{% endif %}.</span></p>
+        </details>
+      </section>
+      {% endif %}
+
       {% if page.data_changed %}
       <section class="panel" id="data-changes" aria-labelledby="data-h">
         <header class="panel-head">
@@ -325,6 +362,8 @@
               </div>
               {% if c.kind == 'verdict' %}
               <details class="entry-fold"><summary>Show the full verdict text</summary><p class="pre comment-body">{{ c.body }}</p></details>
+              {% elif c.kind == 'lesson' %}
+              <details class="entry-fold"><summary>Show this lesson</summary><p class="pre comment-body">{{ c.body }}</p></details>
               {% else %}
               <p class="pre comment-body">{{ c.body }}</p>
               {% endif %}

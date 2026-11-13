@@ -36,6 +36,8 @@ class Role(StrEnum):
     READER = "reader"
     # Works out how to install, test and run a newly added project (the setup card).
     SETUP = "setup"
+    # Writes the lesson on a card that reaches review; no tools.
+    TEACHER = "teacher"
 
 
 OPUS = "claude-opus-5-5"
@@ -56,6 +58,8 @@ DEFAULT_MODELS: Mapping[Role, str] = {
     Role.READER: SONNET,
     # Figuring out an unknown stack once per project is worth the strongest model.
     Role.SETUP: OPUS,
+    # A lesson that teaches something wrong is worse than none.
+    Role.TEACHER: SONNET,
 }
 
 ROLE_NAMES = frozenset(str(role) for role in Role)

@@ -28,6 +28,7 @@ _SHAPES: dict[str, str] = {
     "maximize": '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3'
     'M16 21h3a2 2 0 0 0 2-2v-3"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
+    "book": '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
     "play": '<path d="M7 5.5v13a.5.5 0 0 0 .77.42l10-6.5a.5.5 0 0 0 0-.84l-10-6.5A.5.5 0 0 0 '
     '7 5.5z"/>',
     "stop": '<rect x="6" y="6" width="12" height="12" rx="2"/>',

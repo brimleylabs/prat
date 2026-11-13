@@ -177,6 +177,8 @@ def settings(tmp_path: Path) -> Iterator[Settings]:
         stale_run_seconds=0,
         heartbeat_seconds=0.05,
         max_autonomy=Autonomy.HIGH,
+        # Lessons add a session per card; the tests that are about them turn them on.
+        lessons="off",
         **overrides,
     )
     if name:

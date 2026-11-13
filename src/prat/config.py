@@ -120,6 +120,9 @@ class Settings(BaseSettings):
     # the last ``loop_window`` calls is denied.
     loop_threshold: int = Field(default=5, ge=2, le=100)
     loop_window: int = Field(default=8, ge=2, le=200)
+    # Lessons (prat.lessons): when a card reaches review, a short lesson for the engineer on
+    # what was built and why. "review" writes it then, in the background; "off" only on request.
+    lessons: Literal["review", "off"] = "review"
     # Web UI ---------------------------------------------------------------------
     # Loopback only by default. A non-loopback address also needs web_allow_remote.
     web_host: str = "127.0.0.1"

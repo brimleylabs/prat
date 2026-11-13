@@ -255,6 +255,8 @@ class CardPage:
     # What approve recorded, once the card has landed; and any undo since.
     landed: dict[str, Any] | None = None
     undone: dict[str, Any] | None = None
+    # The newest lesson on the card (prat.lessons), already redacted when it was stored.
+    lesson: dict[str, Any] | None = None
 
     @property
     def data_changed(self) -> bool:
@@ -330,6 +332,14 @@ def _verdict(comments: Sequence[Comment], run_id: int | None) -> VerdictView | N
         model=str(data.get("model") or ""),
         cost_usd=float(data.get("cost_usd") or 0.0),
     )
+
+
+def _lesson(comments: Sequence[Comment]) -> dict[str, Any] | None:
+    lessons = [c for c in comments if c.kind == "lesson" and c.data]
+    if not lessons:
+        return None
+    newest = lessons[-1]
+    return {**dict(newest.data or {}), "run_id": newest.run_id, "older": len(lessons) - 1}
 
 
 def _verify_detail(run: Run | None) -> tuple[list[GateView], list[dict[str, Any]]]:
@@ -493,6 +503,7 @@ def load_card(
         databases=_databases_of(selected),
         landed=_last_event_data(session, card.id, "card.merged"),
         undone=_last_event_data(session, card.id, "card.undone"),
+        lesson=_lesson(comments),
     )
 
 

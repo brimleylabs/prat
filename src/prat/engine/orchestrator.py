@@ -396,6 +396,8 @@ class Engine:
         # Set by suspend(): a cancelled task is a restart, not a person cancelling.
         self._suspending = False
         self._tasks: dict[int, asyncio.Task[RunResult]] = {}
+        # Lessons being written in the background, so none is lost to the garbage collector.
+        self._lessons: set[asyncio.Task[Any]] = set()
         settings.ensure_dirs()
 
     # Queue -------------------------------------------------------------------
@@ -808,7 +810,33 @@ class Engine:
             with contextlib.suppress(asyncio.CancelledError):
                 await heartbeat
             self._active.pop(card_id, None)
-        return self._result(run_id)
+        result = self._result(run_id)
+        if result.card_status == CardStatus.REVIEW and self.settings.lessons == "review":
+            self._start_lesson(run_id)
+        return result
+
+    def _start_lesson(self, run_id: int) -> None:
+        """Write the run's lesson in the background: it never holds up or fails the run."""
+        from prat.lessons import teach
+
+        ctx = self._context(run_id)
+        task = asyncio.create_task(
+            teach(
+                self.db,
+                self.settings.home,
+                self.runtime,
+                run_id,
+                model=self._model(Role.TEACHER, ctx),
+            ),
+            name=f"prat-lesson-{run_id}",
+        )
+        self._lessons.add(task)
+        task.add_done_callback(self._lessons.discard)
+
+    async def lessons_written(self) -> None:
+        """Wait for the lessons still being written (used by commands that exit after a run)."""
+        if self._lessons:
+            await asyncio.gather(*self._lessons, return_exceptions=True)
 
     async def _heartbeat(self, active: _Active) -> None:
         while True:

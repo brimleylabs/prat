@@ -370,6 +370,8 @@ def scratch_settings(settings: Settings, home: Path) -> Settings:
             "projects_dir": home.resolve() / "projects",
             "project_database_url": None,
             "fallback_database_url": None,
+            # Lessons are written on request in an evaluation, so they never change its cost.
+            "lessons": "off",
         }
     )
 

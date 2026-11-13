@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -75,6 +77,10 @@ overlay_app = typer.Typer(
 checkpoint_app = typer.Typer(
     no_args_is_help=True, help="Landed cards, with their code and data, and how to take them back."
 )
+lesson_app = typer.Typer(
+    no_args_is_help=True,
+    help="Lessons: what each card built, why, and the idea behind it. Private to you.",
+)
 eval_app = typer.Typer(
     no_args_is_help=True,
     help="Measure agents, gates and reviewers on cases with hidden checks.",
@@ -92,6 +98,7 @@ app.add_typer(sandbox_app, name="sandbox")
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(dream_app, name="dream")
 app.add_typer(store_app, name="store")
+app.add_typer(lesson_app, name="lesson")
 
 console = Console(soft_wrap=True)
 err = Console(stderr=True, soft_wrap=True)
@@ -727,8 +734,14 @@ def card_run(
             if card.status in (CardStatus.DRAFT, CardStatus.BLOCKED, CardStatus.FAILED):
                 store.set_card_status(session, card, CardStatus.READY)
         engine = _make_engine(settings, db, agent)
+
+        async def run_and_teach() -> RunResult:
+            result = await engine.run_card(card_id)
+            await engine.lessons_written()
+            return result
+
         try:
-            result = asyncio.run(engine.run_card(card_id))
+            result = asyncio.run(run_and_teach())
         except (EngineError, CloneError, GitError) as exc:
             raise _fail(str(exc)) from exc
         _print_result(result)
@@ -754,8 +767,14 @@ def card_resume(
             if run is None:
                 raise _fail(f"card {card_id} has no runs")
             run_id = run.id
+
+        async def resume_and_teach() -> RunResult:
+            result = await engine.resume(run_id)
+            await engine.lessons_written()
+            return result
+
         try:
-            result = asyncio.run(engine.resume(run_id))
+            result = asyncio.run(resume_and_teach())
         except EngineError as exc:
             raise _fail(str(exc)) from exc
         _print_result(result)
@@ -1956,3 +1975,91 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Lessons --------------------------------------------------------------------
+
+
+def _print_lesson(text: str) -> None:
+    """Lessons quote code and prose with any character in them; a redirected stdout on
+    Windows would otherwise write them in its legacy code page."""
+    out = sys.stdout
+    if not out.isatty() and isinstance(out, io.TextIOWrapper):
+        out.reconfigure(encoding="utf-8")
+    out.write(text)
+    out.flush()
+
+
+@lesson_app.command("show")
+def lesson_show(ctx: typer.Context, card_id: int) -> None:
+    """Print the newest lesson on a card."""
+    from prat.lessons import latest, render
+
+    with _database(ctx) as (_settings, db):
+        found = latest(db, card_id)
+    if found is None:
+        raise _fail(
+            f"card {card_id} has no lesson yet; write one with `prat lesson write {card_id}`"
+        )
+    _print_lesson(render(found[0]))
+
+
+@lesson_app.command("write")
+def lesson_write(
+    ctx: typer.Context,
+    card_id: int,
+    runtime: RuntimeOption = None,
+    script: ScriptOption = None,
+) -> None:
+    """Write (or rewrite) the lesson for a card's latest run."""
+    from prat.lessons import render, teach
+    from prat.model_registry import Role, resolve_model
+    from prat.overlay import load_overlay, overlay_path
+
+    with _database(ctx) as (settings, db):
+        agent = OverlayGuidedRuntime(_make_runtime(settings, runtime, script), settings.home)
+        with db.session() as session:
+            try:
+                card = store.get_card(session, card_id)
+            except store.NotFound as exc:
+                raise _fail(str(exc)) from exc
+            run = store.latest_run(session, card)
+            if run is None:
+                raise _fail(f"card {card_id} has no runs")
+            run_id = run.id
+            project_models = (run.spec or {}).get("models")
+        model = resolve_model(
+            Role.TEACHER,
+            settings_models=load_overlay(overlay_path(settings.home)).models_under(settings.models),
+            project_models=project_models if isinstance(project_models, dict) else None,
+        )
+        result = asyncio.run(teach(db, settings.home, agent, run_id, model=model))
+    if result.lesson is None:
+        raise _fail(f"no lesson written: {result.error}")
+    _print_lesson(render(result.lesson))
+    console.print(
+        f"[dim]{len(result.lesson.excerpts)} excerpts checked against the diff, "
+        f"{result.lesson.dropped} dropped; ${result.cost_usd:.3f}[/dim]"
+    )
+
+
+@lesson_app.command("familiarity")
+def lesson_familiarity(
+    ctx: typer.Context,
+    stack: Annotated[str | None, typer.Argument(help="A stack, e.g. Python, Node, PHP.")] = None,
+    level: Annotated[str | None, typer.Argument(help="new, working or expert.")] = None,
+) -> None:
+    """Show or set how familiar you are with a stack; lessons explain more on new ones."""
+    from prat.lessons import DEFAULT_LEVEL, familiarity, set_familiarity
+
+    with _database(ctx) as (_settings, db):
+        if stack is not None and level is not None:
+            try:
+                set_familiarity(db, stack, level)
+            except ValueError as exc:
+                raise _fail(str(exc)) from exc
+        levels = familiarity(db)
+    for name, value in sorted(levels.items()):
+        console.print(f"{name}: {value}")
+    if not levels:
+        console.print(f"No stacks set; every stack is treated as {DEFAULT_LEVEL!r}.")
