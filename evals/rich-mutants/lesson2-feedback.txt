@@ -1,0 +1,1 @@
+The fix itself looks right, but this team needs a regression test for every bug fix: add a test that fails without your fix and passes with it, and mark it with @pytest.mark.regression so the regression job picks it up. Bug fixes without one are not merged.

@@ -1,12 +1,16 @@
 """PRAT's learning batch (see ../PROTOCOL.md and ADDENDUM-1.md).
 
-    python prat_learning.py PRAT_HOME PROJECT_SLUG CASES_DIR OUT_JSON [--no-dream]
+    python prat_learning.py PRAT_HOME PROJECT_SLUG CASES_DIR OUT_JSON [--no-dream] [--person FILE]
 
 Runs each case in CASES_DIR as an ordinary card on the project, the way a person works: a run
 the reviewer sends back runs again with its fix list; a run whose gates fail is sent back with
 their output; a card that reaches review is approved (merged locally). Up to 3 runs per card.
 Then one dream cycle. Writes what happened, and the knowledge entries the dream added or
 changed, to OUT_JSON.
+
+With ``--person FILE`` (ADDENDUM-3.md), a person looks at each card that reaches review before
+approving it: they run the case's hidden check on the card branch, and if it fails they send the
+card back with the comment in FILE, word for word.
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ from prat.domain import CardStatus, Complexity
 from prat.dolt.store import open_store
 from prat.dream import run_dream
 from prat.evals import load_cases
-from prat.evals.runner import gate_feedback, read_attempt
+from prat.evals.runner import gate_feedback, hidden_check, read_attempt
 from prat.overlay import OverlayGuidedRuntime
 
 MAX_RUNS = 3
@@ -38,6 +42,9 @@ def knowledge_snapshot(home: Path, slug: str) -> dict[str, str]:
 async def main() -> None:
     home, slug, cases_dir, out = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4])
     dream = "--no-dream" not in sys.argv
+    person = None
+    if "--person" in sys.argv:
+        person = Path(sys.argv[sys.argv.index("--person") + 1]).read_text(encoding="utf-8").strip()
     settings = load_settings(home)
     handle = open_store(settings)
     db = handle.db
@@ -71,6 +78,23 @@ async def main() -> None:
                         "verdict": attempt.verdict,
                     }
                 )
+                if outcome.card_status == CardStatus.REVIEW and person is not None:
+                    with db.session() as session:
+                        card = store.get_card(session, card_id)
+                        clone, branch = Path(card.project.agent_path), card.branch
+                    commit = subprocess.run(
+                        ["git", "-C", str(clone), "rev-parse", branch],
+                        capture_output=True, text=True, check=True,
+                    ).stdout.strip()  # fmt: skip
+                    folder = settings.home / "person-checks" / f"card-{card_id}-run-{number}"
+                    check = hidden_check(case, settings, clone, commit, folder, False)
+                    runs[-1]["person_check"] = check.passed
+                    if not check.passed:
+                        if number < MAX_RUNS:
+                            engine.rework(card_id, person)
+                            runs[-1]["sent_back"] = person
+                            continue
+                        break
                 if outcome.card_status == CardStatus.REVIEW:
                     merged = await engine.approve(card_id)
                     runs[-1]["merged"] = merged.commit[:12]

@@ -1,11 +1,12 @@
 """Packages benchmark evaluations for publishing (see ../ADDENDUM-1.md, "Raw data").
 
-    python package_runs.py EVALS_DIR PREFIX OUT_DIR REPLACE=WITH [REPLACE=WITH ...]
+    python package_runs.py EVALS_DIR PREFIX OUT_DIR REPLACE=WITH [REPLACE=WITH ...] [!WORD ...]
 
 Copies result.json of every evaluation whose label starts with PREFIX into
 OUT_DIR/results/<label>.json, and its journals into OUT_DIR/journals-<PREFIX>.tar.gz, after
 replacing each REPLACE (this machine's folders, user name and the like) with WITH. Both
-slash styles and JSON-escaped backslashes are replaced. Fails if any REPLACE survives.
+slash styles and JSON-escaped backslashes are replaced. Fails if any REPLACE survives, or if
+any !WORD (checked as plain text, ignoring case) appears anywhere in the output.
 """
 
 from __future__ import annotations
@@ -33,7 +34,8 @@ def scrub(data: str, pairs: list[tuple[str, str]]) -> str:
 
 def main() -> None:
     evals, prefix, out = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3])
-    pairs = [tuple(arg.split("=", 1)) for arg in sys.argv[4:]]
+    pairs = [tuple(arg.split("=", 1)) for arg in sys.argv[4:] if not arg.startswith("!")]
+    forbidden = [arg[1:].lower() for arg in sys.argv[4:] if arg.startswith("!")]
     (out / "results").mkdir(parents=True, exist_ok=True)
     archive_path = out / f"journals-{prefix.rstrip('-')}.tar.gz"
     count = 0
@@ -58,10 +60,12 @@ def main() -> None:
     for file in (out / "results").glob("*.json"):
         text = file.read_text(encoding="utf-8")
         leftovers += [f"{file.name}: {old}" for old, _ in pairs if any(v in text for v in variants(old))]
+        leftovers += [f"{file.name}: {word}" for word in forbidden if word in text.lower()]
     with tarfile.open(archive_path, "r:gz") as archive:
         for member in archive.getmembers():
             text = archive.extractfile(member).read().decode("utf-8")
             leftovers += [f"{member.name}: {old}" for old, _ in pairs if any(v in text for v in variants(old))]
+            leftovers += [f"{member.name}: {word}" for word in forbidden if word in text.lower()]
     if leftovers:
         sys.exit("not scrubbed:\n" + "\n".join(leftovers[:20]))
     print(f"{count} evaluations packaged; journals in {archive_path.name} "

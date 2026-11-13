@@ -1,0 +1,14 @@
+# Rich 3a109ccdffe5, mutant rich/console.py:2581:27:drop - 1 (lesson2; see ADDENDUM-3.md).
+title = "SVG export makes the terminal's clipping area too wide"
+goal = "Console.export_svg() makes the clipping rectangle around the terminal text one unit too wide: for a 100-column console it is width=\"1220.0\" where it should be 1219.0, so the clip runs past the last column. Its height is right."
+acceptance_criteria = "- the bug described above is fixed\n- the existing tests still pass\n- a test covers the fix"
+complexity = "low"
+max_attempts = 3
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "check_regression.py"]
+timeout_seconds = 300
