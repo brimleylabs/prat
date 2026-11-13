@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <b>A self-hosted delivery platform for one builder and a team of coding agents.</b><br>
-  Agents work on rails, in their own worktrees, on their own copy of your data.<br>
-  Every change is proven before you see it. Nothing merges without you, and nothing is ever pushed.
+  <b>Let coding agents work on your real projects without risking your data, your machine, or your understanding of your own code.</b><br>
+  Agents work in their own worktrees, on their own branch of your database, under a policy they cannot argue with.<br>
+  Every change is proven and explained before you see it. Nothing merges without you, and nothing is ever pushed.
 </p>
 
 <p align="center">
@@ -30,17 +30,22 @@
 
 ## Why PRAT
 
-Coding agents are fast and confident, and both of those are the problem. Give one your repository
-and you spend your time checking what it really did. PRAT does the checking. You describe the
-work as a card, an agent builds it in an isolated worktree under a policy it cannot argue with,
-and PRAT proves the result before it reaches you: your project's own tests and checks, a
-reviewer that grades every acceptance criterion against the evidence, a second reviewer for
-security, and a diff scanned for secrets and protected files. You read a verdict, not a story.
-You approve, and PRAT merges locally.
+Coding agents have become good. Running on their own, on a card, today's models fix bugs about as well as Claude Code does in a terminal with a person beside it. We measured that, and it is why PRAT does not try to make the agent smarter. The question is no longer whether an agent can do the work. It is what happens to everything around the work when you let it.
 
-Between cards, PRAT learns. It keeps a small, versioned knowledge base for each project, briefs
-every agent with what matters for its card, and spends your quiet hours checking that what it
-knows is still true.
+Anyone who has used an agent with every permission switched on has a story: a seeder that emptied a table built up over weeks, a migration run against the wrong database, a command that wandered outside the project, a change nobody could explain a month later. PRAT is the control room around the agent. It is Claude Code, run through the Claude Agent SDK, with four things a terminal session does not give you.
+
+| | What PRAT does |
+| --- | --- |
+| **Your data cannot be wrecked** | With Dolt or Doltgres, each card works on its own branch of your database. A seeder that empties a table empties it on the branch; `main` never notices. Review shows the schema and row changes next to the code, approval lands data and code together or not at all, and any landed card can be undone. |
+| **Your machine cannot be wrecked** | Each card runs in its own git worktree, never your checkout. A policy judges every command and file write before it runs; it denies writes outside the worktree, cloud and deploy CLIs, privilege escalation and every form of push. Turn on the Docker sandbox (macOS and Linux) and the agent's commands, your gates and your environments run in containers with no credentials and no network. |
+| **You can see what happened** | Every run leaves a journal: each tool call, each policy decision and its reason, each gate's output, and the reviewer's verdict with evidence for every acceptance criterion. You read what the agent did, not what it says it did. One board holds every project and every card in flight. |
+| **You still understand your system** | Every card that reaches review comes with a lesson: the idea behind the change, what was done (quoting the real diff, checked word for word), why it was done this way and what else could have been done. When someone asks how this part works, the engineer who approved it can answer. Lessons are private: PRAT records nothing about who reads them. |
+
+Between cards, PRAT keeps a small, versioned knowledge base for each project, briefs every agent with what matters for its card, and spends your quiet hours checking that what it knows is still true. That part is a long-term bet: it is meant to pay off over months on one codebase.
+
+## What PRAT is not
+
+Not a pack of prompts, and not a claim to out-program Claude Code. PRAT runs the same model on the same code, so it fixes the same bugs. What you get on top is the branch, the policy, the proof, the record and the lesson.
 
 ## Proof, not promises
 
@@ -53,33 +58,9 @@ What PRAT did on real projects in its last week of development, start to finish:
 | **A security upgrade, proven live** | A card cleared 90+ known advisories from a production app's dependencies. The reviewer marked it met only after seeing the server start and answer `/health`, from the commands PRAT recorded, not from the agent's say-so. |
 | **Knowledge that corrects itself** | One overnight pass checked 380 facts across four projects in under five minutes: 32 brought up to date, the false ones retired, 72 duplicate pairs merged into single entries. A guard put back three facts an over-eager merge had lost. |
 
-## Measured, not assumed
+## What the safety net costs
 
-`prat eval` measures what the review layer adds. Every evaluation case has a hidden check the
-agent never sees. PRAT scores the agent's first attempt, which is what the agent alone would
-hand over, and the work PRAT finally hands over after its gates, reviewers and rework. It
-reports bad work caught and missed, good work sent back, and the pass rate of every step.
-Each case runs in a PRAT home of its own, so your projects are never touched. Finished cards
-can be exported and replayed against today's policy, gates and reviewers, and any two
-evaluations compare side by side. See [Evaluating agents](docs/GUIDE.md#evaluating-agents).
-
-```bash
-prat eval run --runtime claude --label baseline
-# change a prompt, a gate, a model or your overlay, then
-prat eval run --runtime claude --label candidate
-prat eval compare
-```
-
-We used it to compare PRAT with plain Claude Code on 17 bugs planted in
-[Rich](https://github.com/Textualize/rich), under a protocol published before any agent ran:
-473 runs, all reported. PRAT does not make the model a better programmer; both fixed the same
-bugs. What PRAT added was control and a record: it stopped a 26,500-line line-ending change
-that the tests passed, sent back fixes whose new test never ran the fixed code, kept the agent
-inside its worktree, and journaled every decision. That control is not free: PRAT took 4 to 13
-seconds and 50 to 80% more model cost per bug. Its knowledge base got the agent to the right
-code in slightly fewer steps. When a person taught it a team rule, PRAT as released learned the rule but never showed it to the builder (0 of 5
-later runs); the benchmark found that bug, and after the fix all 5 reruns followed the rule,
-as Claude Code did with its CLAUDE.md. Read the [case study](docs/CASE-STUDY.md).
+We ran PRAT and plain Claude Code on the same 17 bugs, 3 times each, under a protocol published before any agent ran. Both fixed the same bugs. In those runs PRAT stopped a 26,500-line line-ending change that the tests passed, sent back four fixes whose new test never ran the fixed code, and kept the agent inside its worktree. It added 4 to 13 seconds and 50 to 80% to the model cost per bug. Details in the [case study](docs/CASE-STUDY.md); `prat eval` lets you measure your own changes the same way ([Evaluating agents](docs/GUIDE.md#evaluating-agents)).
 
 ## The four words
 
