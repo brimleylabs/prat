@@ -293,10 +293,23 @@ def problem_gate(problem: str) -> GateResult:
     )
 
 
+# A page that is an uncaught error, served with a success status (PHP's built-in server does).
+CRASH_MARKERS: tuple[bytes, ...] = (
+    b"<b>Fatal error</b>:",
+    b"<b>Parse error</b>:",
+    b"PHP Fatal error:",
+    b"Fatal error: Uncaught",
+    b"Traceback (most recent call last):",
+)
+
+
 def _answers(url: str, *, below: int = 500) -> bool:
     try:
         with urllib.request.urlopen(url, timeout=2.0) as response:  # noqa: S310
-            return int(response.status) < below
+            if int(response.status) >= below:
+                return False
+            head = response.read(65536)
+            return not any(marker in head for marker in CRASH_MARKERS)
     except urllib.error.HTTPError as exc:
         return exc.code < below
     except (OSError, ValueError):
