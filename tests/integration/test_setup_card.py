@@ -155,6 +155,22 @@ async def test_a_proposal_is_verified_without_what_the_agent_installed(
     assert result.card_status is CardStatus.REVIEW
 
 
+async def test_a_setup_that_rewrites_tracked_files_fails(
+    settings: Settings, db: Database, bare: Project
+) -> None:
+    """A build that rewrites committed files would leave a person's checkout modified."""
+    with db.session() as session:
+        card_id = add_setup_card(session, store.get_project(session, bare.id), settings).id
+    rewrite = "open('serve.py', 'a').write('# rebuilt')"
+    engine, _ = make_engine(settings, db, setup_script(proposal(test_code=rewrite)))
+    result = await engine.run_card(card_id)
+    assert result.card_status is CardStatus.FAILED
+    gates = {g["name"]: g for g in gates_of(run_of(db, card_id))}
+    assert gates["test"]["passed"]
+    assert not gates["tracked-files"]["passed"]
+    assert "serve.py" in gates["tracked-files"]["output_tail"]
+
+
 async def test_a_missing_project_file_is_a_failed_check(
     settings: Settings, db: Database, bare: Project
 ) -> None:

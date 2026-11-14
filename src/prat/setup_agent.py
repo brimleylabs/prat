@@ -295,6 +295,33 @@ def problem_gate(problem: str) -> GateResult:
     )
 
 
+def leftover_gate(worktree: Path) -> GateResult | None:
+    """Setup and the environments must leave every tracked file as they found it: in a
+    person's checkout, a modified file stops PRAT from bringing approved work in. None when
+    nothing tracked changed."""
+    from prat.git import Git
+
+    changed = Git(worktree).run("status", "--porcelain", "--untracked-files=no", check=False)
+    lines = [line for line in changed.stdout.splitlines() if line.strip()]
+    if not lines:
+        return None
+    shown = "\n".join(lines[:20]) + ("\n..." if len(lines) > 20 else "")
+    return GateResult(
+        name="tracked-files",
+        command="git status --untracked-files=no",
+        exit_code=1,
+        passed=False,
+        timed_out=False,
+        cancelled=False,
+        duration_seconds=0.0,
+        output_tail=(
+            "Setup or an environment changed files the repository tracks. Leave them as "
+            "they were (build into an ignored folder, or restore what the build rewrote):\n" + shown
+        ),
+        log_path="",
+    )
+
+
 # A page that is an uncaught error, served with a success status (PHP's built-in server does).
 CRASH_MARKERS: tuple[bytes, ...] = (
     b"<b>Fatal error</b>:",

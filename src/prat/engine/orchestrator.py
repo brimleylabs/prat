@@ -114,6 +114,7 @@ from prat.setup_agent import (
     check_environments,
     fallback_database,
     fallback_gate,
+    leftover_gate,
     problem_gate,
     proposed_spec,
     setup_system_prompt,
@@ -1681,6 +1682,10 @@ class Engine:
                     )
                 )
                 gates += [check.as_gate() for check in checks]
+            if ctx.is_setup and not any(g.cancelled for g in gates):
+                leftover = await asyncio.to_thread(leftover_gate, worktree)
+                if leftover is not None:
+                    gates = [*gates, leftover]
             if sandbox is not None:
                 await asyncio.to_thread(sandbox.cleanup)
                 problem = await asyncio.to_thread(sandbox.tampered)
