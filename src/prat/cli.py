@@ -992,7 +992,7 @@ def env_log(ctx: typer.Context, slug: str, name: str) -> None:
 
     settings, _, envs, _variables = _environments(ctx, slug)
     env = _environment(envs, name)
-    typer.echo(_environment_manager(settings).view(slug, env).log_tail, nl=False)
+    _print_text(_environment_manager(settings).view(slug, env).log_tail)
 
 
 @overlay_app.command("init")
@@ -1980,9 +1980,9 @@ if __name__ == "__main__":
 # Lessons --------------------------------------------------------------------
 
 
-def _print_lesson(text: str) -> None:
-    """Lessons quote code and prose with any character in them; a redirected stdout on
-    Windows would otherwise write them in its legacy code page."""
+def _print_text(text: str) -> None:
+    """Lessons and environment output carry any character; a redirected stdout on Windows
+    would otherwise write them in its legacy code page."""
     out = sys.stdout
     if not out.isatty() and isinstance(out, io.TextIOWrapper):
         out.reconfigure(encoding="utf-8")
@@ -2001,7 +2001,7 @@ def lesson_show(ctx: typer.Context, card_id: int) -> None:
         raise _fail(
             f"card {card_id} has no lesson yet; write one with `prat lesson write {card_id}`"
         )
-    _print_lesson(render(found[0]))
+    _print_text(render(found[0]))
 
 
 @lesson_app.command("write")
@@ -2036,7 +2036,7 @@ def lesson_write(
         result = asyncio.run(teach(db, settings.home, agent, run_id, model=model))
     if result.lesson is None:
         raise _fail(f"no lesson written: {result.error}")
-    _print_lesson(render(result.lesson))
+    _print_text(render(result.lesson))
     console.print(
         f"[dim]{len(result.lesson.excerpts)} excerpts checked against the diff, "
         f"{result.lesson.dropped} dropped; ${result.cost_usd:.3f}[/dim]"

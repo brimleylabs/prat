@@ -39,6 +39,10 @@ def dolt_admin(sql: str) -> None:
 # workspace tests; each makes its own database there and drops it afterwards.
 TEST_DOLTGRES_URL = os.environ.get("PRAT_TEST_DOLTGRES_URL", "").strip().rstrip("/")
 
+# PRAT_TEST_POSTGRES_URL=postgresql+psycopg://postgres:password@127.0.0.1:5432 runs the plain
+# PostgreSQL copy tests; each makes its own database there and drops it afterwards.
+TEST_POSTGRES_URL = os.environ.get("PRAT_TEST_POSTGRES_URL", "").strip().rstrip("/")
+
 
 def doltgres_admin(sql: str) -> None:
     from sqlalchemy import create_engine, text

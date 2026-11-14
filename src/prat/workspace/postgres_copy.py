@@ -53,6 +53,15 @@ class PostgresCopyProvider(DoltBranchProvider):
         finally:
             engine.dispose()
 
+    def _admin_execute(self, sql: str) -> None:
+        # CREATE and DROP DATABASE return no rows, so there is nothing to read back.
+        engine = self._admin()
+        try:
+            with engine.connect() as connection:
+                connection.execute(text(sql))
+        finally:
+            engine.dispose()
+
     # Lifecycle -------------------------------------------------------------------------
 
     def exists(self, card_id: int) -> bool:
@@ -67,7 +76,7 @@ class PostgresCopyProvider(DoltBranchProvider):
             return NO_HISTORY
         name = copy_name(self.database, card_id)
         try:
-            self._admin_scalar(f'CREATE DATABASE "{name}" TEMPLATE "{self.database}"')
+            self._admin_execute(f'CREATE DATABASE "{name}" TEMPLATE "{self.database}"')
         except Exception as exc:
             if "being accessed by other users" not in str(exc):
                 raise WorkspaceError(f"could not copy {self.database}: {exc}") from exc
@@ -82,7 +91,7 @@ class PostgresCopyProvider(DoltBranchProvider):
                 f"{self.database} is in use, so it cannot be copied as a template, and "
                 "pg_dump and psql are not on the PATH to copy it another way"
             )
-        self._admin_scalar(f'CREATE DATABASE "{name}"')
+        self._admin_execute(f'CREATE DATABASE "{name}"')
         source = make_url(self.url).set(drivername="postgresql")
         target = source.set(database=name)
         with subprocess.Popen(
@@ -119,7 +128,7 @@ class PostgresCopyProvider(DoltBranchProvider):
         return True
 
     def discard_name(self, name: str) -> None:
-        self._admin_scalar(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        self._admin_execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
     # What the agent sees ---------------------------------------------------------------
 
