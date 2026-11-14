@@ -453,6 +453,43 @@ async def test_crash_then_resume(settings: Settings, db: Database, project: Proj
     assert "run.resumed" in journal_kinds(resumed)
 
 
+async def test_a_run_whose_process_died_just_before_a_restart_is_picked_up(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    """A server killed moments before the next one starts leaves runs whose heartbeat is
+    still fresh: startup recovery must skip them (another process may own them), and the
+    server's watchdog picks them up once they go quiet."""
+    from prat.web.app import _watch_orphans
+
+    card_id = add_card(db, project)
+    script = FakeScript.parse(
+        {
+            "steps": [
+                {"op": "write", "path": "before_crash.txt", "content": "1\n"},
+                {"op": "crash"},
+                {"op": "write", "path": "after_crash.txt", "content": "2\n"},
+                {"op": "finish"},
+            ]
+        }
+    )
+    engine, _ = make_engine(settings, db, script, stale_run_seconds=1)
+    with pytest.raises(FakeCrash):
+        await engine.run_card(card_id)
+
+    restarted, _ = make_engine(settings, db, script, stale_run_seconds=1)
+    assert restarted.recover() == []  # the heartbeat is too fresh to call it abandoned
+    watchdog = asyncio.create_task(_watch_orphans(restarted, 1))
+    try:
+        for _ in range(300):
+            if card_state(db, card_id)[0] is CardStatus.REVIEW:
+                break
+            await asyncio.sleep(0.1)
+    finally:
+        watchdog.cancel()
+    assert card_state(db, card_id)[0] is CardStatus.REVIEW
+    assert "run.resumed" in journal_kinds(last_run(db, card_id))
+
+
 async def test_resume_refuses_finished_runs(
     settings: Settings, db: Database, project: Project
 ) -> None:

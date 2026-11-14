@@ -213,6 +213,27 @@ def render(
     return ctx.templates.TemplateResponse(request, name, data, status_code=status_code)
 
 
+async def _watch_orphans(engine: Engine, stale_seconds: float) -> None:
+    """Pick up runs whose process stopped without suspending them.
+
+    Startup recovery skips a run whose heartbeat is younger than ``stale_seconds``, since
+    another live process may own it. When the old server was killed just before this one
+    started, that run would otherwise wait forever, so look again until it goes stale.
+    """
+    interval = min(max(stale_seconds, 5.0), 60.0)
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            recovered = engine.recover()
+            if recovered:
+                log.warning("runs whose process stopped: %s", recovered)
+                picked = engine.resume_after_restart(recovered)
+                if picked:
+                    log.warning("picked up again: cards %s", picked)
+        except Exception:
+            log.exception("could not recover abandoned runs")
+
+
 def create_app(
     settings: Settings,
     db: Database,
@@ -266,9 +287,13 @@ def create_app(
             context.improve.start()
         if context.dreams is not None:
             context.dreams.start()
+        watchdog = asyncio.create_task(_watch_orphans(engine, settings.stale_run_seconds))
         try:
             yield
         finally:
+            watchdog.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watchdog
             if context.dreams is not None:
                 await context.dreams.stop()
             if context.improve is not None:
