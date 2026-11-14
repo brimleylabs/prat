@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from prat import store
+from prat.domain import CardStatus
 from prat.environments import (
     EnvironmentError,
     EnvironmentManager,
@@ -22,13 +24,18 @@ from prat.environments import (
     preview_path,
     project_environments,
     remove_preview,
+    set_up_checkout,
 )
+from prat.infra import InfraReport, is_checking, last_report, run_check
 from prat.projects import Environment, EnvironmentLink, ProjectSpec
 from prat.web.app import render, web_context
-from prat.web.routes_actions import _flash, _go
+from prat.web.routes_actions import _flash, _go, _submit
 from prat.workspace.dolt_branch import WorkspaceError, providers_for
 
+log = logging.getLogger(__name__)
 router = APIRouter()
+# Environment checks in flight; held so they are not collected before they finish.
+_CHECKS: set[asyncio.Task[None]] = set()
 ACTIONS = ("start", "stop", "restart")
 
 
@@ -41,6 +48,9 @@ class EnvironmentsPanel:
     base: str = ""
     # Quick links from this machine's environments file (prat.environments.load_local).
     links: list[EnvironmentLink] = field(default_factory=list)
+    # The project's last environment check, and whether one is running (prat.infra).
+    check: InfraReport | None = None
+    checking: bool = False
 
 
 def _manager(request: Request) -> EnvironmentManager:
@@ -66,6 +76,7 @@ class CardPreview:
     envs: list[Environment]
     variables: dict[str, str]
     problem: str | None
+    spec: ProjectSpec | None = None
 
 
 def card_environments(request: Request, card_id: int) -> CardPreview:
@@ -92,7 +103,7 @@ def card_environments(request: Request, card_id: int) -> CardPreview:
             variables.update(provider.agent_env(card_id))
     except WorkspaceError as exc:
         problem = f"the card's database branch is not available: {exc}"
-    return CardPreview(slug, agent, branch, envs, variables, problem)
+    return CardPreview(slug, agent, branch, envs, variables, problem, spec)
 
 
 def _find(envs: list[Environment], name: str) -> Environment:
@@ -109,11 +120,51 @@ async def project_panel(request: Request, slug: str) -> Response:
     def load() -> EnvironmentsPanel:
         checkout, envs, problem = _project(request, slug)
         views = [manager.view(slug, env) for env in envs]
-        links = load_local(web_context(request).settings.home, slug).links
-        return EnvironmentsPanel(slug, views, problem, base=str(checkout), links=links)
+        home = web_context(request).settings.home
+        return EnvironmentsPanel(
+            slug,
+            views,
+            problem,
+            base=str(checkout),
+            links=load_local(home, slug).links,
+            check=last_report(home, slug),
+            checking=is_checking(slug),
+        )
 
     panel = await asyncio.to_thread(load)
     return render(request, "_environments.html", {"panel": panel}, nav="projects")
+
+
+@router.post("/projects/{slug}/environments/check")
+async def project_check(request: Request, slug: str) -> Response:
+    """Start an environment check in the background; the panel shows it running and then its
+    report. When something failed, the infra card it filed is queued to run."""
+    ctx = web_context(request)
+    manager = _manager(request)
+    _project(request, slug)  # 404 for an unknown project
+    if is_checking(slug):
+        _flash(request, "An environment check is already running.", "bad")
+        return _go(request, f"/projects/{slug}#environments")
+
+    async def check() -> None:
+        try:
+            report = await asyncio.to_thread(run_check, ctx.settings, ctx.db, manager, slug)
+        except Exception:
+            log.exception("environment check of %s failed", slug)
+            return
+        card_id = report.card_id
+        if card_id is None or ctx.engine.is_scheduled(card_id):
+            return
+        with ctx.db.session() as session:
+            ready = store.get_card(session, card_id).status is CardStatus.READY
+        if ready:
+            _submit(ctx, card_id)
+
+    task = asyncio.create_task(check())
+    _CHECKS.add(task)
+    task.add_done_callback(_CHECKS.discard)
+    _flash(request, "Checking every environment from a fresh checkout.", "ok")
+    return _go(request, f"/projects/{slug}#environments")
 
 
 @router.post("/projects/{slug}/environments/{name}/{action}")
@@ -131,9 +182,10 @@ async def project_action(request: Request, slug: str, name: str, action: str) ->
         ctx = web_context(request)
         variables = checkout_environment_variables(ctx.db, ctx.settings.home, slug)
         if action == "restart":
-            manager.restart(slug, env, checkout, extra_env=variables)
+            manager.stop(slug, env, extra_env=variables)
+            manager.start_with_needs(slug, env, envs, checkout, extra_env=variables)
             return f"{env.title} restarted."
-        manager.start(slug, env, checkout, extra_env=variables)
+        manager.start_with_needs(slug, env, envs, checkout, extra_env=variables)
         return f"{env.title} is starting."
 
     try:
@@ -184,9 +236,20 @@ async def card_action(request: Request, card_id: int, name: str, action: str) ->
         if found.branch is None:
             raise EnvironmentError(found.problem or "nothing to preview")
         if not others_running() or not checkout.is_dir():
-            # Nothing else uses the checkout: start from the tip of the card's branch.
+            # Nothing else uses the checkout: start from the tip of the card's branch, with the
+            # dependencies the project's setup command installs.
             prepare_preview(found.agent_path, found.branch, checkout)
-        manager.start(found.slug, env, checkout, card_id=card_id, extra_env=found.variables)
+            sandbox = (
+                manager.sandboxes(found.slug, card_id, checkout, found.variables)
+                if manager.sandboxes
+                else None
+            )
+            problem = set_up_checkout(found.spec, checkout, found.variables, sandbox=sandbox)
+            if problem is not None:
+                raise EnvironmentError(f"the preview could not be set up: {problem}")
+        manager.start_with_needs(
+            found.slug, env, found.envs, checkout, card_id=card_id, extra_env=found.variables
+        )
         return f"Preview of {env.title} is starting on its own port."
 
     try:

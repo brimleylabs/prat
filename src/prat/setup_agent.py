@@ -35,13 +35,15 @@ from typing import Any
 
 from prat.config import Settings
 from prat.domain import Autonomy
-from prat.environments import EnvironmentError, EnvironmentManager, set_variable
+from prat.environments import EnvironmentError, EnvironmentManager, fill_ports, set_variable
 from prat.projects import (
     PROJECT_FILE_REL,
+    Environment,
     ProjectFileError,
     ProjectSpec,
     parse_spec,
     project_file_at,
+    start_order,
 )
 from prat.verification import GateResult
 
@@ -49,6 +51,8 @@ DATABASE_VARIABLE = "PRAT_DATABASE_URL"
 SETUP_FILE_REL = ".prat/setup.sh"
 ENVIRONMENT_POLL_SECONDS = 1.0
 NO_HEALTH_WAIT_SECONDS = 5.0
+# How long a ``checks`` URL may take to answer once its environment is healthy.
+CHECK_SECONDS = 10.0
 
 SETUP_TITLE = "Set up {name} for PRAT"
 SETUP_GOAL = """\
@@ -63,7 +67,8 @@ SETUP_CRITERIA = """\
   build steps, database migrations) into the worktree, can be run again safely, and fails with a
   clear message when a tool it needs is missing.
 - Each way to run the app is an [[environment]] with a start command, a port or {port}, and a
-  health URL; PRAT starts each one on a free port and it answers.
+  health URL; PRAT starts each one on a free port and it answers. One that depends on another
+  finds it through {port:name} and has checks URLs that answer through it.
 - Nothing secret is committed: credentials and machine-specific addresses come from environment
   variables, and the notes say which ones the app reads.
 - The notes give a future agent the essentials: the layout, how to run and test, and anything
@@ -86,11 +91,17 @@ Dockerfiles, existing scripts). Prefer the project's own tools and versions. The
    "sh .prat/setup.sh", test (and lint, build where they exist), [verify] gates starting with
    setup, and an [[environment]] for each way to run the app: start (a command list or string,
    run without a shell; use {port} for the port PRAT assigns), cwd, env, port, and health (an
-   http://127.0.0.1:{port}/... URL that answers when the app is up).
+   http://127.0.0.1:{port}/... URL that answers when the app is up). An environment that talks
+   to another one (a dev server that proxies an API) gets that one's port as {port:api}, never
+   a fixed port, and lists checks URLs that prove it reaches it, for example
+   checks = ["http://127.0.0.1:{port}/api/health"].
 
 Run your setup script and the gates yourself and fix them until they pass, then start each
-environment the way PRAT will and check its health URL with curl on 127.0.0.1 in the same command,
-stopping it there with kill $! (each tool call is a new shell). Keep logs inside the worktree.
+environment the way PRAT will and check its health URL, in one plain command that stops it there
+(each tool call is a new shell):
+`start-command > server.log 2>&1 & sleep 3; curl -s http://127.0.0.1:PORT/...; kill $!`.
+PRAT's policy allows curl to 127.0.0.1 and kill of that command's own job only, and refuses
+files outside the worktree such as /tmp. Delete the logs before you commit.
 Commit your work."""
 
 PROJECT_FILE_FORMAT = """\
@@ -119,6 +130,13 @@ port = 8000
 env = { APP_ENV = "development" }
 health = "http://127.0.0.1:{port}/health"
 ready_seconds = 60
+
+[[environment]]                  # a second one that uses the first
+name = "web"
+start = ["node", "node_modules/vite/bin/vite.js", "--port", "{port}", "--strictPort"]
+env = { API_PORT = "{port:dev}" }               # the port "dev" runs on; started first
+health = "http://127.0.0.1:{port}/"
+checks = ["http://127.0.0.1:{port}/api/health"] # must answer through this one
 
 [[workspace.database]]           # only when PRAT gave you a database (see below)
 name = "app"
@@ -246,12 +264,12 @@ def problem_gate(problem: str) -> GateResult:
     )
 
 
-def _answers(url: str) -> bool:
+def _answers(url: str, *, below: int = 500) -> bool:
     try:
         with urllib.request.urlopen(url, timeout=2.0) as response:  # noqa: S310
-            return int(response.status) < 500
+            return int(response.status) < below
     except urllib.error.HTTPError as exc:
-        return exc.code < 500
+        return exc.code < below
     except (OSError, ValueError):
         return False
 
@@ -265,47 +283,85 @@ def check_environments(
     variables: Mapping[str, str],
     *,
     stop: Callable[[], bool] = lambda: False,
+    envs: Sequence[Environment] | None = None,
 ) -> list[EnvironmentCheck]:
-    """Start each proposed environment in the worktree on a free port, wait for its health
-    URL to answer (or, without one, for it to stay up), and stop it again."""
+    """Start every environment in the worktree on free ports, each after the ones whose ports
+    it uses, wait for its health URL to answer (or, without one, for it to stay up), then ask
+    each of its ``checks`` URLs, which must answer without an error. All of them stay up until
+    every one is checked, so an environment that talks to another is checked against it; then
+    they are stopped. ``envs`` replaces the spec's environments (this machine's overrides)."""
+    chosen = list(spec.environment if envs is None else envs)
+    try:
+        order = start_order(chosen)
+    except ValueError as exc:
+        return [EnvironmentCheck("environments", False, None, 0.0, str(exc))]
     checks: list[EnvironmentCheck] = []
-    for env in spec.environment:
-        started = time.monotonic()
-        try:
-            view = manager.start(slug, env, worktree, card_id=card_id, extra_env=variables)
-        except EnvironmentError as exc:
-            checks.append(EnvironmentCheck(env.name, False, None, 0.0, f"did not start: {exc}"))
-            continue
-        port = view.port
-        passed, detail = False, ""
-        try:
-            if env.health:
-                url = env.health.replace("{port}", str(port or ""))
-                deadline = started + env.ready_seconds
-                while time.monotonic() < deadline and not stop():
-                    if _answers(url):
-                        passed, detail = True, f"{url} answered"
-                        break
-                    if not manager.view(slug, env, card_id=card_id).running:
-                        detail = "the process exited before answering"
-                        break
-                    time.sleep(ENVIRONMENT_POLL_SECONDS)
-                else:
-                    detail = detail or f"{url} did not answer within {env.ready_seconds:.0f}s"
-            else:
-                time.sleep(NO_HEALTH_WAIT_SECONDS)
-                passed = manager.view(slug, env, card_id=card_id).running
-                detail = "still running (no health URL to check)" if passed else "exited"
-            log_tail = manager.view(slug, env, card_id=card_id).log_tail if not passed else ""
-        finally:
+    running: list[Environment] = []
+    try:
+        for env in order:
+            if stop():
+                break
+            checks.append(_check_one(manager, slug, env, worktree, card_id, variables, stop))
+            if manager.view(slug, env, card_id=card_id).running:
+                running.append(env)
+    finally:
+        for env in reversed(running):
             with contextlib.suppress(EnvironmentError):
                 manager.stop(slug, env, card_id=card_id, extra_env=variables)
-        checks.append(
-            EnvironmentCheck(
-                env.name, passed, port, time.monotonic() - started, detail, log_tail[-2000:]
-            )
-        )
     return checks
+
+
+def _check_one(
+    manager: EnvironmentManager,
+    slug: str,
+    env: Environment,
+    worktree: Path,
+    card_id: int,
+    variables: Mapping[str, str],
+    stop: Callable[[], bool],
+) -> EnvironmentCheck:
+    started = time.monotonic()
+    try:
+        view = manager.start(slug, env, worktree, card_id=card_id, extra_env=variables)
+    except EnvironmentError as exc:
+        return EnvironmentCheck(env.name, False, None, 0.0, f"did not start: {exc}")
+    port = view.port
+    others = manager.ports(slug, card_id)
+    passed, detail = False, ""
+    if env.health:
+        url = fill_ports(env.health, port, others)
+        deadline = started + env.ready_seconds
+        while time.monotonic() < deadline and not stop():
+            if _answers(url):
+                passed, detail = True, f"{url} answered"
+                break
+            if not manager.view(slug, env, card_id=card_id).running:
+                detail = "the process exited before answering"
+                break
+            time.sleep(ENVIRONMENT_POLL_SECONDS)
+        else:
+            detail = detail or f"{url} did not answer within {env.ready_seconds:.0f}s"
+    else:
+        time.sleep(NO_HEALTH_WAIT_SECONDS)
+        passed = manager.view(slug, env, card_id=card_id).running
+        detail = "still running (no health URL to check)" if passed else "exited"
+    if passed:
+        for check in env.checks:
+            url = fill_ports(check, port, others)
+            deadline = time.monotonic() + CHECK_SECONDS
+            answered = _answers(url, below=400)
+            while not answered and time.monotonic() < deadline and not stop():
+                time.sleep(ENVIRONMENT_POLL_SECONDS)
+                answered = _answers(url, below=400)
+            if answered:
+                detail += f"; {url} answered"
+            else:
+                passed = False
+                detail += f"; {url} did not answer without an error"
+    log_tail = manager.view(slug, env, card_id=card_id).log_tail if not passed else ""
+    return EnvironmentCheck(
+        env.name, passed, port, time.monotonic() - started, detail, log_tail[-2000:]
+    )
 
 
 # The project database --------------------------------------------------------------------

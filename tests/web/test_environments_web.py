@@ -5,10 +5,11 @@ from __future__ import annotations
 import socket
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
-from conftest import project_toml
+from conftest import git, project_toml
 from prat.config import Settings
 from prat.db import Database, Project
 from prat.domain import CardStatus
@@ -129,3 +130,25 @@ def test_environments_and_links_defined_on_this_machine_only(
         local.write_text("[[link]]\nlabel = 1\n", encoding="utf-8")
         panel = web.client.get(f"/projects/{project.slug}/environments").text
         assert "was not applied" in panel and "Local site" not in panel
+
+
+def test_check_environments_files_and_queues_an_infra_card(
+    settings: Settings, db: Database, project_factory: Callable[..., Project]
+) -> None:
+    """Two environments that never name each other are a gap: the check files an infra card
+    and queues it."""
+    second = environment_toml(free_port()).replace('name = "web"', 'name = "docs"')
+    project = project_factory(
+        "shop", project_toml=project_toml(extra=environment_toml(free_port()) + second)
+    )
+    checkout = Path(project.checkout_path)
+    git(checkout.parent, "clone", "-q", str(checkout), project.agent_path)
+    with make_web(settings, db, project) as web:
+        panel = web.client.get("/projects/shop/environments").text
+        assert "Environment check" in panel and "not run yet" in panel
+        assert web.post("/projects/shop/environments/check").status_code == 303
+        panel = wait_for(web, "/projects/shop/environments", "Problems found")
+        assert "nothing proves they reach each other" in panel
+        assert 'href="/cards/1"' in panel and "Infra card #1" in panel
+        assert web.wait_for(1, CardStatus.FAILED, CardStatus.REVIEW)  # it was queued and ran
+        assert "Infra</span>" in web.client.get("/cards/1").text

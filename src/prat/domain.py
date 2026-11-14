@@ -105,11 +105,13 @@ def lowest_autonomy(*levels: Autonomy | None) -> Autonomy:
 
 
 class CardKind(StrEnum):
-    """What a card is for. A setup card is the one card allowed to write the project file: its
-    agent works out how to install, test and run the project and proposes ``.prat/``."""
+    """What a card is for. Setup and infra cards are the only cards allowed to write the project
+    file. A setup card's agent works out how to install, test and run a new project and proposes
+    ``.prat/``; an infra card's agent repairs what an environment check found broken in it."""
 
     CHANGE = "change"
     SETUP = "setup"
+    INFRA = "infra"
 
 
 class Complexity(StrEnum):

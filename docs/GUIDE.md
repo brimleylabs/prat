@@ -417,10 +417,43 @@ down the process and everything it started, on every system; an optional `stop` 
 first. Environments keep running when PRAT restarts, and PRAT only stops a remembered process
 after checking it is still the same one.
 
+**Environments that use each other.** A dev server that proxies an API needs the API's port,
+and in a preview that port is a free one PRAT picks. Write `{port:api}` for "the port the `api`
+environment runs on": PRAT starts `api` first and fills it in. `checks` are URLs that must
+answer once the environment is up, so a dev server proves it reaches its API, not just that its
+own page loads:
+
+```toml
+[[environment]]
+name = "api"
+start = ["node", "server/index.js"]
+env = { PORT = "{port}" }
+health = "http://127.0.0.1:{port}/api/health"
+
+[[environment]]
+name = "web"
+start = ["node", "node_modules/vite/bin/vite.js", "--port", "{port}", "--strictPort"]
+env = { API_PORT = "{port:api}" }
+health = "http://127.0.0.1:{port}/"
+checks = ["http://127.0.0.1:{port}/api/health"]
+```
+
 **Previews.** A card in review has a Preview panel: it checks out the tip of the card's branch,
-starts the environment there on a free port, with the card's own database branch when the
-project has one, so you can use the change before approving it. Set `preview = false` for an
-environment that should not be previewed.
+runs the project's setup command there, and starts the environment on a free port (with the ones
+it uses), with the card's own database branch when the project has one, so you can use the change
+before approving it. Set `preview = false` for an environment that should not be previewed.
+
+**Checking them, and an agent that fixes them.** **Check environments** on the project page, or
+`prat env check <slug>`, proves the committed project file the way a fresh preview uses it: a new
+checkout of the default branch, the setup command, then every environment started on free ports,
+each after the ones it uses, with its health URL and every `checks` URL asked while all of them
+run. It also flags environments that run side by side with nothing proving they reach each other.
+When anything fails, PRAT files an infra card with the report and queues it. The infra agent is,
+with the setup agent, the only agent allowed to write `.prat/`: it finds the cause, fixes the
+project file, the setup script or a small thing in the code, and its run is proven by the gates
+and the whole environment check again before it reaches you for review. A later check with the
+card still open adds its report to that card instead of filing another. `--no-fix` checks
+without filing a card.
 
 Machine-specific details (a port, a local host name, extra variables, different links) go in
 `$PRAT_HOME/environments/<slug>.toml`, not in the committed file:
@@ -436,7 +469,7 @@ url = "http://shop.test:{port}"
 ```
 
 From a terminal: `prat env list <slug>`, `prat env start <slug> <name>`, `prat env stop <slug>
-<name>`, `prat env log <slug> <name>`. Environments run the project's code with your user's
+<name>`, `prat env log <slug> <name>`, `prat env check <slug>`. Environments run the project's code with your user's
 rights, like its gates; PRAT's own settings and keys are not passed to them.
 
 A project whose repository should not carry environments can have them on this machine only:

@@ -31,3 +31,25 @@
 {% elif not panel.problem and not panel.links %}
 <p class="panel-note">{% if panel.card_id %}This project has no environment that can preview a card.{% else %}No environments yet. Add <span class="mono">[[environment]]</span> entries to <span class="mono">.prat/project.toml</span>, or, for this machine only, to <span class="mono">environments/{{ panel.slug }}.toml</span> in the PRAT home: a name, a label, the start command, a port and labelled links.{% endif %}</p>
 {% endif %}
+{% if not panel.card_id and panel.views %}
+{% set c = panel.check %}
+<div class="env-check">
+  <div class="env-check-main">
+    <p class="env-title">
+      {% if panel.checking %}<span class="dot tone-accent pulse" aria-hidden="true"></span>Checking every environment from a fresh checkout
+      {% elif c %}<span class="dot tone-{{ 'ok' if c.passed else 'bad' }}" aria-hidden="true"></span>Environment check <span class="badge tone-{{ 'ok' if c.passed else 'bad' }}">{{ 'All working' if c.passed else 'Problems found' }}</span><span class="muted">{{ c.checked_at[:16]|replace('T', ' ') }} UTC</span>
+      {% else %}<span class="dot tone-neutral" aria-hidden="true"></span>Environment check <span class="muted">not run yet</span>{% endif %}
+    </p>
+    {% if c and not panel.checking %}
+    {% if c.problem %}<p class="help">{{ c.problem }}</p>{% endif %}
+    {% if c.setup_problem %}<p class="help">{{ c.setup_problem }}</p>{% endif %}
+    {% for f in c.failures %}<p class="help"><span class="mono">{{ f.name }}</span>: {{ f.detail }}</p>{% endfor %}
+    {% for gap in c.gaps %}<p class="help">{{ gap }}</p>{% endfor %}
+    {% if c.card_id %}<p class="env-links"><a class="btn btn-sm" href="/cards/{{ c.card_id }}">{{ icon('wrench', 13) }}Infra card #{{ c.card_id }}</a></p>{% endif %}
+    {% elif not c and not panel.checking %}<p class="help">Proves each environment from a fresh checkout: setup, then every one started on its own port with its health and check URLs asked. Anything broken goes to an infra card whose agent fixes it.</p>{% endif %}
+  </div>
+  <div class="env-actions">
+    {% if not panel.checking %}<form method="post" action="/projects/{{ panel.slug }}/environments/check" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-sm">{{ icon('check', 14) }}Check environments</button></form>{% endif %}
+  </div>
+</div>
+{% endif %}

@@ -922,7 +922,9 @@ a.fact:hover { color: var(--text); }
 .env-links { display: flex; flex-wrap: wrap; gap: 6px; }
 .env-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 .env-log { max-height: 280px; overflow: auto; }
-@media (max-width: 640px) { .env-row { grid-template-columns: minmax(0, 1fr); } .env-actions { justify-content: flex-start; } }
+.env-check { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.env-check-main { display: grid; gap: 6px; min-width: 0; }
+@media (max-width: 640px) { .env-row, .env-check { grid-template-columns: minmax(0, 1fr); } .env-actions { justify-content: flex-start; } }
 
 /* Knowledge graph -------------------------------------------------------------------------- */
 .kg-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 10px 16px; border-bottom: 1px solid var(--border); }

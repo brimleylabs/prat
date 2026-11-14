@@ -25,6 +25,7 @@
         <a class="fact" href="/projects/{{ page.project.slug }}">{{ icon('folder', 14) }}{{ page.project.slug }}</a>
         {% if card.branch %}<span class="fact mono">{{ icon('branch', 14) }}{{ card.branch }}</span>{% endif %}
         {% if card.kind == 'setup' %}<span class="badge tone-accent" title="This card's agent proposes the project file; PRAT proves it before review.">Project setup</span>{% endif %}
+        {% if card.kind == 'infra' %}<span class="badge tone-accent" title="This card's agent repairs what an environment check found broken; PRAT proves every environment again before review.">Infra</span>{% endif %}
         <span class="fact">Complexity {{ card.complexity }}</span>
         <span class="fact">{{ page.runs|length }} run{{ '' if page.runs|length == 1 else 's' }}</span>
       </div>

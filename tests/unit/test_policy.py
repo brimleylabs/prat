@@ -479,6 +479,12 @@ def test_policy_is_callable(layout: dict[str, Path]) -> None:
     ("command", "allowed"),
     [
         ("python serve.py & sleep 1; curl -s localhost:8000; kill $!", True),
+        # The form the setup and infra agents are told to use for two environments.
+        (
+            "node api.js > api.log 2>&1 & sleep 3; API_PORT=5001 node web.js > web.log 2>&1 & "
+            "sleep 3; curl -s http://127.0.0.1:5002/api/health; kill %1 %2",
+            True,
+        ),
         ('uvicorn app:app --port 8611 & PID=$!; sleep 2; kill "$!"', True),
         ("sleep 100 & kill -TERM %1", True),
         ("sleep 100 & kill -9 $!", True),

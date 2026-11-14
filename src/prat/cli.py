@@ -968,7 +968,9 @@ def env_start(ctx: typer.Context, slug: str, name: str) -> None:
     settings, checkout, envs, variables = _environments(ctx, slug)
     env = _environment(envs, name)
     try:
-        view = _environment_manager(settings).start(slug, env, checkout, extra_env=variables)
+        view = _environment_manager(settings).start_with_needs(
+            slug, env, envs, checkout, extra_env=variables
+        )
     except EnvironmentError as exc:
         raise _fail(str(exc)) from exc
     console.print(f"{escape(env.title)} started (process {view.pid}, port {view.port or 'none'})")
@@ -993,6 +995,35 @@ def env_log(ctx: typer.Context, slug: str, name: str) -> None:
     settings, _, envs, _variables = _environments(ctx, slug)
     env = _environment(envs, name)
     _print_text(_environment_manager(settings).view(slug, env).log_tail)
+
+
+@env_app.command("check")
+def env_check(
+    ctx: typer.Context,
+    slug: str,
+    fix: Annotated[
+        bool,
+        typer.Option("--fix/--no-fix", help="File an infra card when something fails."),
+    ] = True,
+) -> None:
+    """Prove every environment works from a fresh checkout: setup, then each one started on a
+    free port with its health and check URLs asked. Files an infra card when something fails."""
+    from prat import infra
+    from prat.environments import EnvironmentError
+
+    with _database(ctx) as (settings, db):
+        try:
+            report = infra.run_check(settings, db, _environment_manager(settings), slug, fix=fix)
+        except (LookupError, EnvironmentError) as exc:
+            raise _fail(str(exc)) from exc
+    _print_text(report.render())
+    if report.card_id is not None:
+        console.print(
+            f"\ninfra card #{report.card_id} has the report; run it from the board or with "
+            f"[bold]prat card run {report.card_id}[/bold]"
+        )
+    if not report.passed:
+        raise typer.Exit(1)
 
 
 @overlay_app.command("init")

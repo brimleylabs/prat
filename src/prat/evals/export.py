@@ -64,8 +64,8 @@ def export_card(db: Database, settings: Settings, card_id: int, dest: Path) -> E
         raise CaseError(f"{dest} already exists and is not empty")
     with db.session() as session:
         card = store.get_card(session, card_id)
-        if card.kind == CardKind.SETUP:
-            raise CaseError("a setup card writes the project file; it cannot be replayed")
+        if card.kind in (CardKind.SETUP, CardKind.INFRA):
+            raise CaseError(f"a {card.kind} card writes the project file; it cannot be replayed")
         if card.status == CardStatus.RUNNING:
             raise CaseError(f"card {card_id} is running; export it when the run ends")
         runs = [run for run in card.runs if run.status in FINISHED]

@@ -268,6 +268,8 @@ class Workspace(BaseModel):
 
 ENVIRONMENT_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 ENV_VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+# {port:api} in an environment is the port the "api" environment runs on.
+PORT_REFERENCE_RE = re.compile(r"\{port:([a-z][a-z0-9-]{0,31})\}")
 
 
 class EnvironmentLink(BaseModel):
@@ -290,9 +292,11 @@ class Environment(BaseModel):
     """A way to run the project (``[[environment]]``): started, stopped and watched by PRAT.
 
     ``start`` runs without a shell, in ``cwd`` (relative to the repository). ``{port}`` in the
-    command, ``env`` values, ``health`` and links is replaced with the environment's port, which
-    for a card preview is a free one PRAT picks. ``stop`` is optional: without it, PRAT stops the
-    process and everything it started.
+    command, ``env`` values, ``health``, ``checks`` and links is replaced with the environment's
+    port, which for a card preview is a free one PRAT picks; ``{port:api}`` with the port the
+    ``api`` environment runs on, which PRAT starts first. ``checks`` are URLs that must answer
+    once the environment is up, such as an API reached through a dev server's proxy. ``stop`` is
+    optional: without it, PRAT stops the process and everything it started.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -305,6 +309,7 @@ class Environment(BaseModel):
     port: Annotated[int, Field(ge=1, le=65535)] | None = None
     env: dict[str, str] = Field(default_factory=dict)
     health: Annotated[str, Field(max_length=500)] | None = None
+    checks: list[Annotated[str, Field(max_length=500)]] = Field(default_factory=list, max_length=10)
     ready_seconds: Annotated[float, Field(gt=0, le=600)] = 60.0
     # Whether a card in review can be previewed with this environment.
     preview: bool = True
@@ -340,9 +345,63 @@ class Environment(BaseModel):
             raise ValueError("health must be an http:// or https:// URL")
         return value
 
+    @field_validator("checks")
+    @classmethod
+    def _checks(cls, values: list[str]) -> list[str]:
+        for value in values:
+            if not value.startswith(("http://", "https://")):
+                raise ValueError(f"check {value!r} must be an http:// or https:// URL")
+        return values
+
     @property
     def title(self) -> str:
         return self.label or self.name
+
+    @property
+    def needs(self) -> list[str]:
+        """The other environments whose ports this one uses (``{port:name}``), in order."""
+        texts = [
+            *command_argv(self.start),
+            *self.env.values(),
+            self.health or "",
+            *self.checks,
+            *(link.url for link in self.link),
+        ]
+        found = [name for text in texts for name in PORT_REFERENCE_RE.findall(text)]
+        return list(dict.fromkeys(name for name in found if name != self.name))
+
+
+def start_order(envs: list[Environment], names: list[str] | None = None) -> list[Environment]:
+    """The environments to start for ``names`` (default: all), each after the ones whose
+    ports it uses. Raises ``ValueError`` for an unknown name or a loop."""
+    by_name = {env.name: env for env in envs}
+    order: list[Environment] = []
+    visiting: list[str] = []
+
+    def visit(name: str) -> None:
+        if any(env.name == name for env in order):
+            return
+        if name in visiting:
+            loop = " -> ".join([*visiting[visiting.index(name) :], name])
+            raise ValueError(f"environments use each other's ports in a loop: {loop}")
+        if name not in by_name:
+            user = visiting[-1] if visiting else name
+            raise ValueError(f"environment {user!r} uses {{port:{name}}}, but there is no {name!r}")
+        visiting.append(name)
+        for need in by_name[name].needs:
+            visit(need)
+        visiting.pop()
+        order.append(by_name[name])
+
+    for name in names if names is not None else list(by_name):
+        visit(name)
+    return order
+
+
+def check_needs(envs: list[Environment]) -> None:
+    """Raise ``ValueError`` if an environment uses the port of one that does not exist, or
+    environments use each other's ports in a loop."""
+    start_order(envs)
 
 
 def _clean_patterns(values: list[str]) -> list[str]:
@@ -404,6 +463,7 @@ class ProjectSpec(BaseModel):
         names = [value.name for value in values]
         if len(names) != len(set(names)):
             raise ValueError("each [[environment]] needs its own name")
+        check_needs(values)
         return values
 
     @field_validator("models")

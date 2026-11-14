@@ -60,7 +60,14 @@ from prat.db import Database
 from prat.git import Git
 from prat.git.worktree import rmtree
 from prat.proc import ProcessTree, kill_pid_tree, process_started_at, run_tree, spawn
-from prat.projects import ENV_VAR_RE, Environment, EnvironmentLink, command_argv
+from prat.projects import (
+    ENV_VAR_RE,
+    PORT_REFERENCE_RE,
+    Environment,
+    EnvironmentLink,
+    command_argv,
+    start_order,
+)
 from prat.sandbox import Sandbox, SandboxError
 from prat.verification import gate_environment
 
@@ -245,8 +252,16 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def _fill(text: str, port: int | None) -> str:
-    return text.replace("{port}", str(port)) if port is not None else text
+def fill_ports(text: str, port: int | None, ports: Mapping[str, int] | None = None) -> str:
+    """``{port}`` is the environment's own port; ``{port:name}`` is the port of the ``name``
+    environment of the same checkout or card."""
+    if port is not None:
+        text = text.replace("{port}", str(port))
+    if ports:
+        text = PORT_REFERENCE_RE.sub(
+            lambda m: str(ports[m.group(1)]) if m.group(1) in ports else m.group(0), text
+        )
+    return text
 
 
 @dataclass
@@ -324,6 +339,23 @@ class EnvironmentManager:
             return False
         return abs(started - float(expected)) <= SAME_PROCESS_SECONDS
 
+    def ports(self, slug: str, card_id: int | None = None) -> dict[str, int]:
+        """The port of every running environment of the checkout (``card_id`` None) or of one
+        card's preview, by environment name."""
+        folder = self.home / STATE_DIR / "state" / slug
+        suffix = "" if card_id is None else f"--card-{card_id}"
+        found: dict[str, int] = {}
+        for entry in folder.iterdir() if folder.is_dir() else []:
+            if card_id is None and "--card-" in entry.name:
+                continue
+            if card_id is not None and not entry.name.endswith(suffix):
+                continue
+            state = self._read_state(slug, entry.name)
+            port = state.get("port") if state else None
+            if state is not None and isinstance(port, int) and self._alive(state):
+                found[entry.name.removesuffix(suffix) if suffix else entry.name] = port
+        return found
+
     def log_path(self, slug: str, name: str, card_id: int | None = None) -> Path:
         return self._dir(slug, self.key(name, card_id)) / "output.log"
 
@@ -358,8 +390,15 @@ class EnvironmentManager:
             if not paths.is_within(cwd, base) or not cwd.is_dir():
                 raise EnvironmentError(f"{env.cwd} is not a folder in {base}")
             port = free_port() if card_id is not None else env.port
-            argv = [_fill(arg, port) for arg in command_argv(env.start)]
-            variables = {key_: _fill(value, port) for key_, value in env.env.items()}
+            others = self.ports(slug, card_id)
+            missing = [name for name in env.needs if name not in others]
+            if missing:
+                raise EnvironmentError(
+                    f"{env.title} uses the port of {', '.join(missing)}, which is not running; "
+                    "start it first"
+                )
+            argv = [fill_ports(arg, port, others) for arg in command_argv(env.start)]
+            variables = {key_: fill_ports(value, port, others) for key_, value in env.env.items()}
             if port is not None:
                 variables.setdefault("PORT", str(port))
             environ = gate_environment({**variables, **(extra_env or {})})
@@ -433,7 +472,8 @@ class EnvironmentManager:
             in_container = state is not None and bool(state.get("container"))
             if env.stop is not None and alive and state is not None and not in_container:
                 port = state.get("port")
-                argv = [_fill(arg, port) for arg in command_argv(env.stop)]
+                others = self.ports(slug, card_id)
+                argv = [fill_ports(arg, port, others) for arg in command_argv(env.stop)]
                 with contextlib.suppress(OSError, subprocess.SubprocessError):
                     run_tree(
                         argv,
@@ -458,6 +498,27 @@ class EnvironmentManager:
                 while self._alive(state) and time.monotonic() < deadline:
                     time.sleep(0.1)
             self._clear_state(slug, key)
+
+    def start_with_needs(
+        self,
+        slug: str,
+        env: Environment,
+        envs: list[Environment],
+        base: Path,
+        *,
+        card_id: int | None = None,
+        extra_env: Mapping[str, str] | None = None,
+    ) -> EnvironmentView:
+        """Start ``env``, first starting any environment whose port it uses that is not
+        running yet (``envs`` are all of the checkout's or card's environments)."""
+        try:
+            order = start_order(envs, [env.name])
+        except ValueError as exc:
+            raise EnvironmentError(str(exc)) from exc
+        for need in order[:-1]:
+            if not self.view(slug, need, card_id=card_id).running:
+                self.start(slug, need, base, card_id=card_id, extra_env=extra_env)
+        return self.start(slug, env, base, card_id=card_id, extra_env=extra_env)
 
     def restart(
         self,
@@ -489,17 +550,21 @@ class EnvironmentManager:
             result.state = "exited"
             result.message = "it stopped on its own; see the log"
             return result
-        result.links = [(link.label, _fill(link.url, result.port)) for link in env.link]
+        others = self.ports(slug, card_id) if env.needs else {}
+        result.links = [
+            (link.label, fill_ports(link.url, result.port, others)) for link in env.link
+        ]
         if env.health is None:
             result.state = "running"
             return result
-        if _healthy(_fill(env.health, result.port)):
+        health = fill_ports(env.health, result.port, others)
+        if _healthy(health):
             result.state = "running"
         elif time.time() - float(result.started_at or 0) < env.ready_seconds:
             result.state = "starting"
         else:
             result.state = "unhealthy"
-            result.message = f"no answer from {_fill(env.health, result.port)}"
+            result.message = f"no answer from {health}"
         return result
 
     def running_previews(self, slug: str) -> list[tuple[str, int]]:
@@ -552,6 +617,36 @@ def remove_preview(agent_path: Path, path: Path) -> None:
         git.run("worktree", "remove", "--force", str(path), check=False)
         rmtree(path)
     git.run("worktree", "prune", check=False)
+
+
+def set_up_checkout(
+    spec: Any,
+    path: Path,
+    variables: Mapping[str, str],
+    *,
+    sandbox: Sandbox | None = None,
+    stop: threading.Event | None = None,
+) -> str | None:
+    """Run the project's setup command in a fresh checkout (a preview, an environment check),
+    which has none of the dependencies a worktree's gates installed. Returns why it failed, or
+    None (also when the project has no setup command). The log is ``gate-setup.log`` in a
+    ``<checkout>.logs`` folder next to the checkout."""
+    from prat.verification import run_gates
+
+    if spec.commands.get("setup") is None:
+        return None
+    log_dir = path.parent / f"{path.name}.logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (result,) = run_gates(
+        spec,
+        path,
+        log_dir,
+        names=["setup"],
+        stop=stop,
+        env=dict(variables),
+        sandbox=sandbox,
+    )
+    return None if result.passed else f"the setup command failed: {result.summary}"
 
 
 # Which environments a project has ---------------------------------------------------------

@@ -82,6 +82,7 @@ from prat.environments import (
 )
 from prat.errors import record_error
 from prat.git import Git, MergeConflict, WorktreeManager, card_branch
+from prat.infra import INFRA_TASK, infra_system_prompt
 from prat.journal import Journal
 from prat.knowledge.provide import for_card
 from prat.knowledge.select import Selection
@@ -334,12 +335,13 @@ class _Ctx:
     journal: Journal
     run_dir: Path
     plan: str | None = None
-    # A setup card's agent proposes the project file and its proposal is what verify proves.
+    # A setup or infra card's agent proposes the project file and its proposal is what verify
+    # proves, environments included.
     card_kind: CardKind = CardKind.CHANGE
 
     @property
     def is_setup(self) -> bool:
-        return self.card_kind is CardKind.SETUP
+        return self.card_kind in (CardKind.SETUP, CardKind.INFRA)
 
     # Accessors for values that exist once the prepare step has run.
 
@@ -1363,7 +1365,20 @@ class Engine:
         instructions = await asyncio.to_thread(load_repo_instructions, ctx.worktree_path)
         knowledge = await self._knowledge(ctx, Role.BUILDER, ctx.plan or "")
         env = _database_env(ctx.project_spec, ctx.card_id, self._environ(ctx.project_slug))
-        if ctx.is_setup:
+        if ctx.card_kind is CardKind.INFRA:
+            variables = load_local(self.settings.home, ctx.project_slug).variables
+            env = {**variables, **env}
+            system_prompt = infra_system_prompt(
+                name=ctx.project_spec.name,
+                default_branch=ctx.default_branch,
+                autonomy=ctx.run_autonomy,
+                database=DATABASE_VARIABLE in variables,
+                repo_instructions=repository_instructions(instructions),
+            ) + _card_text(ctx)
+            task_prompt = builder_task_prompt(feedback=ctx.feedback, plan=ctx.plan).replace(
+                "Implement the card described in your instructions.", INFRA_TASK, 1
+            )
+        elif ctx.is_setup:
             variables = load_local(self.settings.home, ctx.project_slug).variables
             env = {**variables, **env}
             system_prompt = setup_system_prompt(
