@@ -131,6 +131,23 @@ async def test_a_proposal_that_fails_its_own_checks_does_not_reach_review(
     assert "environment:web" not in gates  # environments are only tried once the gates pass
 
 
+async def test_a_proposal_is_verified_without_what_the_agent_installed(
+    settings: Settings, db: Database, bare: Project
+) -> None:
+    """Ignored files the agent left behind (.venv, node_modules) are gone before the gates
+    run, so the proposal is proved from what a fresh clone has."""
+    with db.session() as session:
+        card_id = add_setup_card(session, store.get_project(session, bare.id), settings).id
+    check = "import os, sys; sys.exit(5 if os.path.exists('.venv/stale') else 0)"
+    script = setup_script(proposal(test_code=check))
+    script.insert(0, {"op": "write", "path": ".venv/stale", "content": "left by the agent\n"})
+    engine, _ = make_engine(settings, db, script)
+    result = await engine.run_card(card_id)
+    gates = {g["name"]: g for g in gates_of(run_of(db, card_id))}
+    assert gates["test"]["passed"], gates["test"]
+    assert result.card_status is CardStatus.REVIEW
+
+
 async def test_a_missing_project_file_is_a_failed_check(
     settings: Settings, db: Database, bare: Project
 ) -> None:

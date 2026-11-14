@@ -1625,6 +1625,11 @@ class Engine:
         if not findings and proposal_problem is not None:
             gates = [problem_gate(proposal_problem)]
         elif not findings:
+            if ctx.is_setup:
+                # A proposed setup must work from a fresh clone, not on top of what the agent
+                # installed while trying things: a stale .venv or node_modules can make its
+                # gates pass, or fail, for reasons the next checkout will not share.
+                await asyncio.to_thread(_reset_worktree, worktree, ignored=True)
             try:
                 sandbox = await asyncio.to_thread(self._sandbox, ctx, gate_env, gate_spec)
             except SandboxError as exc:
@@ -2025,10 +2030,12 @@ def _spec_from_branch(agent_path: Path, branch: str) -> ProjectSpec | None:
     return parse_spec(result.stdout, source=f"{branch}:{PROJECT_FILE_REL}")
 
 
-def _reset_worktree(worktree: Path) -> None:
+def _reset_worktree(worktree: Path, *, ignored: bool = False) -> None:
+    """Back to the commit. With ``ignored``, ignored files go too (.venv, node_modules,
+    vendor), so what runs next starts from what a fresh clone has."""
     git = Git(worktree)
     git.run("reset", "--hard", "--quiet", "HEAD")
-    git.run("clean", "-fd", "--quiet")
+    git.run("clean", "-ffdx" if ignored else "-fd", "--quiet")
 
 
 def _plan_from(run: Run) -> str | None:

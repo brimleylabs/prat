@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -87,6 +88,10 @@ def test_options_restrict_tools_and_isolate_settings(
         assert name in options.disallowed_tools
     assert "Write" not in options.disallowed_tools
     assert options.setting_sources == []
+    # No attribution trailers in the commits agents make.
+    settings = json.loads(options.settings or "{}")
+    assert settings["includeCoAuthoredBy"] is False
+    assert settings["attribution"] == {"commit": "", "pr": ""}
     assert options.strict_mcp_config is True
     assert options.permission_mode == "default"
     assert options.max_budget_usd == 1.0

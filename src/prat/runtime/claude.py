@@ -135,6 +135,8 @@ RESUME_PROMPT = (
     "stopped. Check the current state of the worktree (git status, git log) first."
 )
 DENIAL_PREFIX = "PRAT policy denied this call: "
+# Claude Code settings for every agent session: no attribution in commits or pull requests.
+AGENT_SETTINGS = json.dumps({"includeCoAuthoredBy": False, "attribution": {"commit": "", "pr": ""}})
 BLOCKED_LINE = re.compile(r"^\s*[*_]*BLOCKED[*_]*\s*:\s*[*_]*\s*(?P<reason>.+?)\s*$", re.MULTILINE)
 _GLOB_CHARS = re.compile(r"[*?\[{]")
 
@@ -541,6 +543,9 @@ class ClaudeRuntime:
             },
             can_use_tool=can_use_tool,
             setting_sources=[],
+            # Agents commit as PRAT's agent; Claude Code's own trailers ("Co-Authored-By",
+            # "Generated with") would otherwise end up in the project's history.
+            settings=AGENT_SETTINGS,
             strict_mcp_config=True,
             mcp_servers={},
             cwd=str(task.workdir),

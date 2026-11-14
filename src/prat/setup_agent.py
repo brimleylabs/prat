@@ -96,7 +96,12 @@ Dockerfiles, existing scripts). Prefer the project's own tools and versions. The
    a fixed port, and lists checks URLs that prove it reaches it, for example
    checks = ["http://127.0.0.1:{port}/api/health"].
 
-Run your setup script and the gates yourself and fix them until they pass, then start each
+Before PRAT verifies, it deletes everything git ignores in your worktree (.venv, node_modules,
+vendor) and runs setup from that clean state, so prove the same before you finish: run
+`git clean -ffdx -e .prat-logs` and then setup and every gate, and judge each by its exit code,
+not by piping it through tail. A dependency check in setup.sh must cover everything it installs,
+or a stale environment will skip the install. Run your setup script and the gates yourself and
+fix them until they pass, then start each
 environment the way PRAT will and check its health URL, in one plain command that stops it there
 (each tool call is a new shell):
 `start-command > server.log 2>&1 & sleep 3; curl -s http://127.0.0.1:PORT/...; kill $!`.
