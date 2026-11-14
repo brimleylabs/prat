@@ -27,9 +27,11 @@ import contextlib
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -316,6 +318,55 @@ def _answers(url: str, *, below: int = 500) -> bool:
         return False
 
 
+class _AssetLinks(HTMLParser):
+    """The stylesheets, scripts and images a page asks for."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
+            link = values.get("href")
+        elif tag in ("script", "img"):
+            link = values.get("src")
+        else:
+            return
+        if link and not link.startswith("data:"):
+            self.links.append(link)
+
+
+def _missing_assets(url: str, *, limit: int = 20) -> list[str]:
+    """The page's own stylesheets, scripts and images (on the same host and port) that do
+    not load: an app can answer its health URL with a page whose styles or logo are missing
+    because a build or link step never ran."""
+    try:
+        with urllib.request.urlopen(url, timeout=CHECK_SECONDS) as response:  # noqa: S310
+            final = response.geturl()
+            body = response.read(1_000_000).decode("utf-8", "replace")
+    except (OSError, ValueError):
+        return []
+    parser = _AssetLinks()
+    with contextlib.suppress(Exception):
+        parser.feed(body)
+    origin = urllib.parse.urlsplit(final)
+    missing: list[str] = []
+    for link in dict.fromkeys(parser.links):
+        asset = urllib.parse.urljoin(final, link)
+        parts = urllib.parse.urlsplit(asset)
+        if parts.scheme not in ("http", "https") or parts.port != origin.port:
+            continue
+        if parts.hostname not in (origin.hostname, "127.0.0.1", "localhost"):
+            continue
+        limit -= 1
+        if limit < 0:
+            break
+        if not _answers(asset, below=400):
+            missing.append(parts.path)
+    return missing
+
+
 def check_environments(
     manager: EnvironmentManager,
     slug: str,
@@ -387,6 +438,11 @@ def _check_one(
         time.sleep(NO_HEALTH_WAIT_SECONDS)
         passed = manager.view(slug, env, card_id=card_id).running
         detail = "still running (no health URL to check)" if passed else "exited"
+    if passed and env.health:
+        missing = _missing_assets(fill_ports(env.health, port, others))
+        if missing:
+            passed = False
+            detail += "; the page's own files did not load: " + ", ".join(missing)
     if passed:
         for check in env.checks:
             url = fill_ports(check, port, others)
