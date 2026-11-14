@@ -535,14 +535,6 @@ async def project_create(request: Request) -> Response:
                     client=_chosen_client(session, values["client"]),
                 )
                 slug = project.slug
-                if wants_setup and needs_setup(found["checkout"]):
-                    try:
-                        await asyncio.to_thread(create_project_database, ctx.settings, project.slug)
-                    except Exception as exc:  # the project still gets set up, without one
-                        log.warning("no project database for %s: %s", project.slug, exc)
-                        _flash(request, f"No database was made for the project: {exc}", "warn")
-                    card = add_setup_card(session, project, ctx.settings, database=False)
-                    setup_card = card.id
             except PermissionError as exc:
                 errors["agent_path"] = str(exc)
             except ValueError as exc:
@@ -561,6 +553,17 @@ async def project_create(request: Request) -> Response:
             status_code=422,
             nav="projects",
         )
+    if wants_setup and needs_setup(found["checkout"]):
+        # Made after the project is saved, never inside a transaction: creating a database can
+        # take seconds, and an open SQLite write would hold up every running card meanwhile.
+        try:
+            await asyncio.to_thread(create_project_database, ctx.settings, slug)
+        except Exception as exc:  # the project still gets set up, without one
+            log.warning("no project database for %s: %s", slug, exc)
+            _flash(request, f"No database was made for the project: {exc}", "warn")
+        with ctx.db.session() as session:
+            project = store.get_project(session, slug)
+            setup_card = add_setup_card(session, project, ctx.settings, database=False).id
     if setup_card is not None:
         _submit(ctx, setup_card)
         _flash(

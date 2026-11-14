@@ -116,6 +116,43 @@ def test_set_a_project_client_and_add_a_project_for_one(
             assert store.get_project(session, "widgets").client.slug == "acme"  # type: ignore[union-attr]
 
 
+def test_adding_a_project_does_not_hold_the_store_while_its_database_is_made(
+    settings: Settings,
+    db: Database,
+    project: Project,
+    repo_factory: Callable[..., Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Making a project's database takes seconds on a real server. Running cards write all the
+    time, so the store must not be locked meanwhile (SQLite: 'database is locked')."""
+    if not db.url.startswith("sqlite"):
+        pytest.skip("SQLite only")
+    import sqlite3
+
+    from prat.web import routes_actions
+
+    writable: list[bool] = []
+
+    def make_database(_settings: Settings, _slug: str) -> None:
+        other = sqlite3.connect(settings.sqlite_path, timeout=0.2)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.rollback()
+            writable.append(True)
+        except sqlite3.OperationalError:
+            writable.append(False)
+        finally:
+            other.close()
+
+    monkeypatch.setattr(routes_actions, "create_project_database", make_database)
+    repo = repo_factory("gadgets", project_toml=None)
+    with make_web(settings, db, project) as web:
+        response = web.post("/projects", {"checkout": str(repo), "setup": "on"})
+        assert response.status_code == 303, response.text
+        assert response.headers["location"].startswith("/cards/")
+    assert writable == [True]
+
+
 def test_no_clients_no_switcher(settings: Settings, db: Database, project: Project) -> None:
     with make_web(settings, db, project) as web:
         assert 'action="/client"' not in web.client.get("/board").text

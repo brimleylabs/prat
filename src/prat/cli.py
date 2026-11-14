@@ -418,18 +418,27 @@ def project_add(
             console.print(f"  checkout:   {project.checkout_path}")
             console.print(f"  branch:     {project.default_branch}")
             console.print(f"  agent clone: {project.agent_path} (created on first run)")
-            if needs_setup(checkout) and setup:
-                card = add_setup_card(session, project, settings)
+            added = project.slug
+        if needs_setup(checkout) and setup:
+            # The database is made outside any transaction: it can take seconds, and an open
+            # SQLite write would hold up every running card meanwhile.
+            from prat.setup_agent import create_project_database
+
+            create_project_database(settings, added)
+            with db.session() as session:
+                card = add_setup_card(
+                    session, store.get_project(session, added), settings, database=False
+                )
                 console.print(
                     f"\nNo {PROJECT_FILE_REL} yet: setup card #{card.id} is ready. Its agent "
                     "works out how to install, test and run the project; run it from the board "
                     f"or with [bold]prat card run {card.id}[/bold], then review and approve it."
                 )
-            elif needs_setup(checkout):
-                console.print(
-                    f"\nNo {PROJECT_FILE_REL} yet, so no gates run before review. Run "
-                    f"[bold]prat project suggest {checkout}[/bold] for a starter file to commit."
-                )
+        elif needs_setup(checkout):
+            console.print(
+                f"\nNo {PROJECT_FILE_REL} yet, so no gates run before review. Run "
+                f"[bold]prat project suggest {checkout}[/bold] for a starter file to commit."
+            )
 
 
 @project_app.command("remove")
