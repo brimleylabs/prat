@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import pytest
+from sqlalchemy import update
 
 from conftest import WRITE_GREET, add_card, git, make_engine, project_toml
 from prat import store
@@ -724,6 +725,30 @@ async def test_a_rework_that_only_shows_something_still_reaches_review(
     other = add_card(db, project, title="Nothing")
     engine2, _ = make_engine(settings, db, [{"op": "finish"}])
     assert (await engine2.run_card(other)).card_status is CardStatus.FAILED
+
+
+async def test_running_a_failed_card_again_with_nothing_new_still_verifies(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    """A card that failed a check for reasons outside its work (a PRAT bug, a tool missing on
+    the machine) is run again; its agent finds nothing to change, and the branch is verified."""
+    card_id = add_card(db, project)
+    runs = 0
+
+    def script_for(task: AgentTask) -> FakeScript:
+        nonlocal runs
+        runs += 1
+        if runs == 1:
+            return FakeScript.parse(WRITE_GREET)
+        return FakeScript.parse([{"op": "finish", "message": "already done"}])
+
+    engine, _ = make_engine(settings, db, FakeRuntime(script_for))
+    assert (await engine.run_card(card_id)).card_status is CardStatus.REVIEW
+    with db.session() as session:  # as if its check had failed, then Run was pressed
+        session.execute(update(Card).where(Card.id == card_id).values(status=CardStatus.FAILED))
+        store.set_card_status(session, store.get_card(session, card_id), CardStatus.READY, "run")
+    result = await engine.run_card(card_id)
+    assert result.card_status is CardStatus.REVIEW, result
 
 
 async def test_a_restart_interrupts_running_and_queued_cards_and_picks_them_up(

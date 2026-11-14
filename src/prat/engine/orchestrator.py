@@ -1575,9 +1575,10 @@ class Engine:
                 {"name": project_db.spec.name, "head": head, "tables": len(tables)}
             )
         empty = empty_diff_finding(stats)
-        if empty is not None and ctx.feedback:
-            # A rework may only have to show something (run a check, answer a question): the
-            # card's earlier work is on the branch, and that is what verify and review judge.
+        if empty is not None:
+            # A rework, or a card run again after a failed check, may have nothing new to
+            # write: the card's earlier work is on the branch, and that is what verify and
+            # review judge. A first run has nothing on the branch, so it still fails here.
             card_stats = await asyncio.to_thread(
                 self.worktrees.diff_stats, ctx.worktree_path, ctx.base
             )
