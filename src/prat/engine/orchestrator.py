@@ -1628,6 +1628,11 @@ class Engine:
                 gate_env = checkout_variables(
                     self.settings.home, ctx.project_slug, list(proposed.workspace.database)
                 )
+                # A database the project already declared has a card branch: prove the
+                # proposal there, never on the default branch the person's checkout uses.
+                gate_env.update(
+                    await asyncio.to_thread(_branch_env, proposed, ctx.card_id, environ)
+                )
         timeout = min(gate_spec.verify.timeout_seconds, self.settings.gate_timeout_seconds)
         gates = []
         if not findings and proposal_problem is not None:
@@ -1985,6 +1990,22 @@ def _database_env(
     env: dict[str, str] = {}
     for project_db in _databases(spec, environ):
         env.update(project_db.agent_env(card_id))
+    return env
+
+
+def _branch_env(
+    spec: ProjectSpec, card_id: int, environ: Mapping[str, str] | None = None
+) -> dict[str, str]:
+    """``_database_env`` for the databases that already have a branch for this card."""
+    env: dict[str, str] = {}
+    try:
+        project_dbs = _databases(spec, environ)
+    except WorkspaceError:
+        return env
+    for project_db in project_dbs:
+        with contextlib.suppress(WorkspaceError, SQLAlchemyError):
+            if project_db.exists(card_id):
+                env.update(project_db.agent_env(card_id))
     return env
 
 

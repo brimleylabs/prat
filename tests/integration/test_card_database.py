@@ -18,7 +18,7 @@ from conftest import PY, TEST_DOLT_URL, add_card, dolt_admin, git, make_engine, 
 from prat import store
 from prat.config import Settings
 from prat.db import Database, Project
-from prat.domain import CardStatus, StepName
+from prat.domain import CardKind, CardStatus, StepName
 from prat.engine import ApproveError, FakeReviewer
 from prat.workspace import DoltBranchProvider
 
@@ -148,6 +148,31 @@ async def test_a_data_only_card_is_real_work(
     assert result.card_status is CardStatus.REVIEW, result.reason
     await engine.approve(card_id)
     assert price(appdb, 2) == 31
+
+
+async def test_an_infra_cards_checks_run_on_its_branch_not_the_default(
+    settings: Settings, db: Database, project: Project, appdb: str
+) -> None:
+    """A setup or infra card proves its project file by running it; on a database the project
+    already declared, that must write to the card's branch, not to the data the person's
+    checkout uses."""
+    reprice = (
+        "import os, sqlalchemy as s; "
+        "e = s.create_engine(os.environ['APP_DB_URL'], isolation_level='AUTOCOMMIT'); "
+        "c = e.connect(); c.execute(s.text('UPDATE products SET price = 99 WHERE id = 1')); "
+        "c.close()"
+    )
+    toml = project_toml(test_code=reprice, extra=DB_TOML)
+    script = [
+        {"op": "write", "path": ".prat/project.toml", "content": toml},
+        {"op": "finish", "message": "checks now touch the database"},
+    ]
+    engine, _ = make_engine(settings, db, script)
+    card_id = add_card(db, project, title="Fix the environments", kind=CardKind.INFRA)
+    result = await engine.run_card(card_id)
+    assert result.card_status is CardStatus.REVIEW, result.reason
+    assert price(appdb) == 50
+    assert price(provider(appdb).branch_url(card_id)) == 99
 
 
 async def test_a_data_conflict_lands_nothing(
