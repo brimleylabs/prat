@@ -116,7 +116,7 @@ PROJECT_FILE_FORMAT = """\
 name = "shop"
 default_branch = "main"
 autonomy = "medium"
-notes = \"\"\"Short facts every agent should know.\"\"\"
+notes = \"\"\"Short facts every agent should know.\"\"\"   # at most 4000 characters
 
 [commands]
 setup = "sh .prat/setup.sh"
