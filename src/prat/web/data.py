@@ -22,7 +22,14 @@ from prat.domain import CardStatus, RunStatus, StepName, StepStatus
 from prat.engine import Engine
 from prat.git import DiffStats, Git, GitError, WorktreeManager
 from prat.journal import read_journal
-from prat.projects import ProjectSpec, project_file_at, show_project_file
+from prat.projects import (
+    PROJECT_FILE_REL,
+    ProjectFileError,
+    ProjectSpec,
+    parse_spec,
+    project_file_at,
+    show_project_file,
+)
 from prat.web import views
 
 LIVE_ENTRY_LIMIT = 300
@@ -809,11 +816,21 @@ class SetupView:
 
 
 def _has_gates(project: Project) -> bool:
-    """A project counts as set up once its checkout has a project file, or the
-    registered snapshot already defines gates."""
+    """A project counts as set up once its checkout has a project file, the registered
+    snapshot defines gates, or the project file committed on the default branch of PRAT's
+    clone does: that is where an approved setup card puts it, and what runs read."""
     if project_file_at(Path(project.checkout_path)) is not None:
         return True
-    return bool(registered_spec(project).verify.gates)
+    if registered_spec(project).verify.gates:
+        return True
+    agent = Path(project.agent_path)
+    raw = committed_project_file(agent, project.default_branch) if agent.is_dir() else None
+    if raw is None:
+        return False
+    try:
+        return bool(parse_spec(raw, source=PROJECT_FILE_REL).verify.gates)
+    except ProjectFileError:
+        return False
 
 
 def load_setup(session: Session, *, signed_in: bool, sign_in_detail: str) -> SetupView:

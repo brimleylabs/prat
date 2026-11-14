@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from sqlalchemy import update
 
+from conftest import DEFAULT_TOML, git
 from prat.config import Settings
 from prat.db import Card, Database, Project
 from prat.domain import CardStatus
@@ -63,6 +65,24 @@ def test_steps_tick_off_as_setup_happens(
         with db.session() as session:
             session.execute(update(Card).where(Card.id == card_id).values(status=CardStatus.DONE))
         assert steps(db)["approve"]
+
+
+def test_a_project_file_committed_in_prats_clone_counts(
+    db: Database, project_factory: Callable[..., Project]
+) -> None:
+    """An approved setup card commits the project file to PRAT's clone, not the person's
+    checkout; the checklist must see it there."""
+    bare = project_factory("bare", project_toml=None)
+    assert not steps(db)["gates"]
+    agent = Path(bare.agent_path)
+    git(agent.parent, "clone", "-q", bare.checkout_path, str(agent))
+    (agent / ".prat").mkdir()
+    (agent / ".prat" / "project.toml").write_text(
+        DEFAULT_TOML.replace('"acme-api"', '"bare"'), encoding="utf-8"
+    )
+    git(agent, "add", ".prat")
+    git(agent, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "Add file")
+    assert steps(db)["gates"]
 
 
 def test_the_checklist_goes_away_when_done(
