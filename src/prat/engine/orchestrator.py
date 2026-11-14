@@ -40,7 +40,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from prat import paths, store
+from prat import onboard, paths, store
 from prat.changes import classify_diff
 from prat.config import Settings
 from prat.db import Card, Database, Project, Run, RunStep, as_utc
@@ -651,6 +651,7 @@ class Engine:
                 raise ApproveError(f"card {card_id} has no branch")
             project = card.project
             agent = Path(project.agent_path)
+            checkout = Path(project.checkout_path)
             branch = card.branch
             default = project.default_branch
             title = card.title
@@ -715,6 +716,9 @@ class Engine:
             except BaseException:
                 await _undo_data(merged_data)
                 raise
+            followed = await asyncio.to_thread(
+                _follow_checkout, checkout, agent, default, onboard.projects_dir(self.settings)
+            )
         # A checkpoint: the git merge and each database merge, landed together.
         data_merges = [
             {"name": db.spec.name, "database": db.database, "before": before, "merge": after}
@@ -734,6 +738,7 @@ class Engine:
                     "branch_head": head,
                     "automatic": automatic,
                     "databases": data_merges,
+                    "checkout": followed,
                 },
             )
         # The record commit names the code and data it goes with: all three stay paired.
@@ -2047,6 +2052,22 @@ def _plan_from(run: Run) -> str | None:
             plan = step.detail.get("plan")
             return plan if isinstance(plan, str) else None
     return None
+
+
+def _follow_checkout(checkout: Path, agent: Path, default: str, projects_dir: Path) -> str:
+    """Bring approved work into a checkout PRAT cloned itself (a project added from a link),
+    so its environments run what was approved. A person's own clone is never touched, nor a
+    clone PRAT made that has local changes or another branch checked out."""
+    if not paths.is_within(checkout, projects_dir) or not (checkout / ".git").exists():
+        return "not PRAT's"
+    git = Git(checkout)
+    if git.current_branch() != default or git.is_dirty():
+        return "skipped: changes or another branch checked out"
+    fetched = git.run("fetch", "--quiet", str(agent), default, check=False)
+    if not fetched.ok:
+        return f"skipped: {fetched.stderr.strip()[:200]}"
+    merged = git.run("merge", "--ff-only", "--quiet", "FETCH_HEAD", check=False)
+    return "updated" if merged.ok else "skipped: diverged"
 
 
 def _uses_project_database(spec: ProjectSpec) -> bool:
