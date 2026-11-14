@@ -15,7 +15,14 @@ from prat.db import Card, Database, Project, Run
 from prat.domain import Autonomy, CardKind, CardStatus
 from prat.environments import load_local, set_variable
 from prat.runtime import AgentTask, FakeRuntime, FakeScript
-from prat.setup_agent import DATABASE_VARIABLE, add_setup_card, needs_setup
+from prat.setup_agent import (
+    DATABASE_VARIABLE,
+    MYSQL_DATABASE_VARIABLE,
+    add_setup_card,
+    create_mysql_database,
+    needs_setup,
+    setup_system_prompt,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -214,6 +221,25 @@ def test_the_setup_agent_is_given_the_project_database(
     assert local.problem is None
     assert local.variables[DATABASE_VARIABLE] == "postgresql+psycopg://u:p@127.0.0.1:5480/widgets2"
     assert local.variables["OTHER"] == "x"
+
+
+def test_the_setup_agent_is_told_which_database_engine_to_use() -> None:
+    def prompt(**kw: bool) -> str:
+        return setup_system_prompt(name="w", default_branch="main", autonomy=Autonomy.MEDIUM, **kw)
+
+    both = prompt(database=True, mysql=True)
+    assert MYSQL_DATABASE_VARIABLE in both and 'kind = "dolt"' in both
+    assert "app_url_driver" in both
+    assert "Never change the app's code" in both
+    assert MYSQL_DATABASE_VARIABLE not in prompt(database=True)
+    assert "no database server" in prompt(database=False)
+    assert "no database server" not in prompt(database=False, mysql=True)
+
+
+def test_without_a_dolt_server_no_mysql_database_is_made(settings: Settings, bare: Project) -> None:
+    assert settings.project_mysql_url is None
+    assert create_mysql_database(settings, bare.slug) is None
+    assert MYSQL_DATABASE_VARIABLE not in load_local(settings.home, bare.slug).variables
 
 
 async def test_a_setup_card_runs_at_medium_whatever_the_projects_default(

@@ -109,6 +109,7 @@ from prat.sandbox import Sandbox, SandboxError, environment_sandboxes
 from prat.sandbox import for_settings as sandbox_for
 from prat.setup_agent import (
     DATABASE_VARIABLE,
+    MYSQL_DATABASE_VARIABLE,
     SETUP_TASK,
     check_environments,
     fallback_database,
@@ -1386,6 +1387,7 @@ class Engine:
                 default_branch=ctx.default_branch,
                 autonomy=ctx.run_autonomy,
                 database=DATABASE_VARIABLE in variables,
+                mysql=MYSQL_DATABASE_VARIABLE in variables,
                 repo_instructions=repository_instructions(instructions),
             ) + _card_text(ctx)
             task_prompt = builder_task_prompt(feedback=ctx.feedback, plan=ctx.plan).replace(

@@ -48,6 +48,8 @@ from prat.projects import (
 from prat.verification import GateResult
 
 DATABASE_VARIABLE = "PRAT_DATABASE_URL"
+# The project's database on this machine's Dolt server (MySQL protocol), when it has one.
+MYSQL_DATABASE_VARIABLE = "PRAT_MYSQL_URL"
 SETUP_FILE_REL = ".prat/setup.sh"
 ENVIRONMENT_POLL_SECONDS = 1.0
 NO_HEALTH_WAIT_SECONDS = 5.0
@@ -157,6 +159,7 @@ def setup_system_prompt(
     default_branch: str,
     autonomy: Autonomy,
     database: bool,
+    mysql: bool = False,
     repo_instructions: str | None = None,
 ) -> str:
     parts = [SETUP_ROLE]
@@ -177,9 +180,30 @@ def setup_system_prompt(
             "app_url_env set to the variable the app reads its database URL from (PRAT puts a "
             "plain postgresql:// URL there, pointed at the right branch), and never write the "
             "address into a file. Every later card gets its own branch of this database, so the "
-            "setup script and the app must read that variable, not a fixed address."
+            "setup script and the app must read that variable, not a fixed address. An app "
+            "that names its driver in the URL scheme (postgresql+psycopg://, "
+            'postgresql+asyncpg://) gets it through app_url_driver = "postgresql+psycopg" '
+            "in its [[workspace.database]]; never change the app's code to accept PRAT's URL."
         )
-    else:
+    if mysql:
+        facts.append(
+            f"PRAT also created a MySQL-protocol database for this project and put its address "
+            f"in the variable {MYSQL_DATABASE_VARIABLE} (a mysql:// URL on PRAT's Dolt server, "
+            "which branches per card the same way). Use the database engine the app uses in "
+            "production: an app built for MySQL or MariaDB (a Laravel app whose config defaults "
+            "to mysql, migrations with MySQL-only types) uses this one, declared with "
+            f'kind = "dolt" and url_env = "{MYSQL_DATABASE_VARIABLE}"; an app built for '
+            "PostgreSQL uses the Postgres one. An app that reads separate settings instead of "
+            "a URL (DB_HOST, DB_PORT, DB_DATABASE) can usually read one URL as well (Laravel "
+            "reads DB_URL); set app_url_env to that."
+        )
+    if database or mysql:
+        facts.append(
+            "Never change the app's code, migrations or tests to suit PRAT's database. If the "
+            "app cannot run on the database PRAT gave it, say so in your summary; PRAT tries "
+            "plain PostgreSQL itself when a Doltgres check fails."
+        )
+    if not (database or mysql):
         facts.append(
             "PRAT has no database server for projects on this machine. If the app needs a "
             "database, use what the repository provides for development (SQLite or similar) "
@@ -379,8 +403,10 @@ def database_name(slug: str) -> str:
 def create_project_database(settings: Settings, slug: str) -> str | None:
     """Create the project's database on this machine's Doltgres server (if one is set and the
     database does not exist yet) and record its address as the machine-only variable
-    ``PRAT_DATABASE_URL``. Returns the address, or None without a server."""
+    ``PRAT_DATABASE_URL``. Returns the address, or None without a server. A Dolt server for
+    MySQL projects gets the project's database too."""
     if settings.project_database_url is None:
+        create_mysql_database(settings, slug)
         return None
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import make_url
@@ -399,6 +425,28 @@ def create_project_database(settings: Settings, slug: str) -> str | None:
         engine.dispose()
     address = server.set(database=name).render_as_string(hide_password=False)
     set_variable(settings.home, slug, DATABASE_VARIABLE, address)
+    create_mysql_database(settings, slug)
+    return address
+
+
+def create_mysql_database(settings: Settings, slug: str) -> str | None:
+    """The same on this machine's Dolt server (MySQL protocol), recorded as
+    ``PRAT_MYSQL_URL``. Returns the address, or None without a server."""
+    if settings.project_mysql_url is None:
+        return None
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import make_url
+
+    server = make_url(settings.project_mysql_url.get_secret_value())
+    name = database_name(slug)
+    engine = create_engine(server, isolation_level="AUTOCOMMIT", pool_pre_ping=True)
+    try:
+        with engine.connect() as connection:
+            connection.execute(text(f"CREATE DATABASE IF NOT EXISTS `{name}`"))
+    finally:
+        engine.dispose()
+    address = server.set(database=name).render_as_string(hide_password=False)
+    set_variable(settings.home, slug, MYSQL_DATABASE_VARIABLE, address)
     return address
 
 

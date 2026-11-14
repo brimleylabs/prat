@@ -36,6 +36,14 @@ PRE_PUSH_HOOK = """#!/bin/sh
 echo "PRAT: pushing from an agent clone is disabled" >&2
 exit 1
 """
+# Agents' commits carry no assistant attribution, however the commit was made:
+# a session resumed from before the setting changed still writes the trailer.
+COMMIT_MSG_HOOK = """#!/bin/sh
+grep -v -i -E \\
+  '^(co-authored-by:.*(claude|anthropic)|claude-session:|.*generated with \\[claude code\\])' \\
+  "$1" > "$1.prat"
+mv "$1.prat" "$1"
+"""
 EXCLUDE_BEGIN = "# >>> PRAT"
 EXCLUDE_END = "# <<< PRAT"
 DEFAULT_EXCLUDES: tuple[str, ...] = (
@@ -234,9 +242,10 @@ class WorktreeManager:
         # would be skipped and the person's own hooks would run on agents' merges.
         # The clone's own setting wins over the global one.
         git.config_set("core.hooksPath", hooks.resolve().as_posix())
-        hook = hooks / "pre-push"
-        hook.write_text(PRE_PUSH_HOOK, encoding="utf-8", newline="\n")
-        hook.chmod(0o755)
+        for name, text in (("pre-push", PRE_PUSH_HOOK), ("commit-msg", COMMIT_MSG_HOOK)):
+            hook = hooks / name
+            hook.write_text(text, encoding="utf-8", newline="\n")
+            hook.chmod(0o755)
         self._write_excludes(common / "info" / "exclude")
 
     @staticmethod

@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     # card's checks fail on Doltgres and pass here, the project moves to it (a copy per card
     # instead of a branch). Never printed.
     fallback_database_url: SecretStr | None = None
+    # A Dolt sql-server (MySQL protocol) for projects whose application runs on MySQL, for
+    # example mysql+pymysql://root:...@127.0.0.1:3340/. Branches per card like Doltgres.
+    # Never printed.
+    project_mysql_url: SecretStr | None = None
     # Agent runtime ------------------------------------------------------------
     auth_mode: AuthMode = AuthMode.API_KEY
     # Prefer the ANTHROPIC_API_KEY environment variable; this setting exists for

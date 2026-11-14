@@ -122,6 +122,28 @@ def test_worktree_ignores_build_artefacts(
     assert files == ["real.txt"]
 
 
+def test_agent_commits_carry_no_assistant_attribution(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    manager.prepare_agent_clone(checkout, agent, "main")
+    path = manager.worktree_path("acme-api", 5)
+    manager.create_worktree(agent, path, "card/5-x", "main")
+    (path / "x.txt").write_text("x")
+    git(path, "add", "-A")
+    message = (
+        "Add x\n\nWhy it changed.\n\nCo-Authored-By: Someone <someone@example.com>\n"
+        "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+        "Claude-Session: https://claude.ai/code/session_x\n"
+        "\U0001f916 Generated with [Claude Code](https://claude.com/claude-code)\n"
+    )
+    git(path, "commit", "-q", "-m", message)
+    body = git(path, "log", "-1", "--format=%B")
+    assert body.strip() == (
+        "Add x\n\nWhy it changed.\n\nCo-Authored-By: Someone <someone@example.com>"
+    )
+
+
 def push_attempts(worktree: Path, checkout: Path, branch: str) -> list[list[str]]:
     target = checkout.as_posix()
     return [

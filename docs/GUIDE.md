@@ -129,6 +129,9 @@ project, records its address as `PRAT_DATABASE_URL` in the machine-only
 as a `[[workspace.database]]`, so every card gets its own branch of the data and a preview to
 click into. An app that reads a URL naming its driver (`postgresql+psycopg://...`) says so with
 `app_url_driver = "postgresql+psycopg"` in that entry; otherwise it gets the plain scheme.
+With `project_mysql_url` set to a Dolt sql-server, PRAT creates the project's database there
+too, as `PRAT_MYSQL_URL`, and the setup agent uses whichever matches the database the app runs
+on in production (`kind = "dolt"` for MySQL). It never changes the app's code to fit.
 
 ### Clients
 
@@ -315,6 +318,7 @@ variables:
 | `web_allow_remote` | false | Required to listen on a non-loopback address |
 | `projects_dir` | `~/prat-projects` | Where projects added from a link are cloned |
 | `project_database_url` | unset | A Doltgres server PRAT may create project databases on; never printed |
+| `project_mysql_url` | unset | A Dolt sql-server (MySQL protocol) for projects that run on MySQL; never printed |
 | `web_public_url` | unset | The URL people open, when it differs from host and port (reverse proxy) |
 | `web_session_hours` | 12 | Session lifetime; sessions are kept in the database and survive a restart |
 | `sandbox` | `off` | `docker` runs a card's commands, gates and environments in containers (see below) |
