@@ -55,8 +55,10 @@ def test_a_relative_program_path_is_found_in_the_working_directory(tmp_path: Pat
     work = tmp_path / "work"
     subprocess.run([PY, "-m", "venv", "--without-pip", str(work / "env")], check=True)
     relative = "env/Scripts/python.exe" if sys.platform == "win32" else "env/bin/python"
-    result = run_tree([relative, "-c", "print('ran')"], cwd=work, timeout=30)
-    assert result.stdout.strip() == "ran"
+    # It must run inside the environment: on macOS and Linux its python is a symlink to the
+    # base interpreter, and following the link would leave the environment's packages behind.
+    result = run_tree([relative, "-c", "import sys; print(sys.prefix)"], cwd=work, timeout=30)
+    assert Path(result.stdout.strip()).resolve() == (work / "env").resolve()
     assert proc._program_in(["python", "-V"], tmp_path) == ["python", "-V"]
     assert proc._program_in(["env/missing", "-V"], tmp_path) == ["env/missing", "-V"]
 

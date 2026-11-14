@@ -226,7 +226,11 @@ def _program_in(argv: list[str], cwd: Path | str | None) -> list[str]:
     if Path(program).is_absolute() or ("/" not in program and "\\" not in program):
         return argv
     candidate = Path(cwd) / program
-    return [str(candidate.resolve()), *argv[1:]] if candidate.is_file() else argv
+    if not candidate.is_file():
+        return argv
+    # Absolute, but never through symlinks: a virtual environment's python is a symlink to the
+    # base interpreter, and resolving it would run that interpreter outside the environment.
+    return [os.path.abspath(candidate), *argv[1:]]
 
 
 def _close_pipes(proc: subprocess.Popen[Any]) -> None:
