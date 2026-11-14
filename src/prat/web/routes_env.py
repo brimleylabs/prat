@@ -30,6 +30,7 @@ from prat.infra import InfraReport, is_checking, last_report, run_check
 from prat.projects import Environment, EnvironmentLink, ProjectSpec
 from prat.web.app import render, web_context
 from prat.web.routes_actions import _flash, _go, _submit
+from prat.web.routes_pages import safe_next
 from prat.workspace.dolt_branch import WorkspaceError, providers_for
 
 log = logging.getLogger(__name__)
@@ -114,7 +115,9 @@ def _find(envs: list[Environment], name: str) -> Environment:
 
 
 @router.get("/projects/{slug}/environments")
-async def project_panel(request: Request, slug: str) -> Response:
+async def project_panel(request: Request, slug: str, compact: bool = False) -> Response:
+    """The project page's environments panel, or with ``compact`` the strip on the
+    projects list: each environment's state, start or restart, and every link."""
     manager = _manager(request)
 
     def load() -> EnvironmentsPanel:
@@ -132,7 +135,8 @@ async def project_panel(request: Request, slug: str) -> Response:
         )
 
     panel = await asyncio.to_thread(load)
-    return render(request, "_environments.html", {"panel": panel}, nav="projects")
+    template = "_environments_compact.html" if compact else "_environments.html"
+    return render(request, template, {"panel": panel}, nav="projects")
 
 
 @router.post("/projects/{slug}/environments/check")
@@ -172,6 +176,8 @@ async def project_action(request: Request, slug: str, name: str, action: str) ->
     if action not in ACTIONS:
         raise HTTPException(404, "unknown action")
     manager = _manager(request)
+    back = (await request.form()).get("next")
+    target = safe_next(back) if isinstance(back, str) and back else f"/projects/{slug}#environments"
 
     def act() -> str:
         checkout, envs, _ = _project(request, slug)
@@ -192,7 +198,7 @@ async def project_action(request: Request, slug: str, name: str, action: str) ->
         _flash(request, await asyncio.to_thread(act), "ok")
     except EnvironmentError as exc:
         _flash(request, str(exc), "bad")
-    return _go(request, f"/projects/{slug}#environments")
+    return _go(request, target)
 
 
 @router.get("/cards/{card_id}/preview")

@@ -135,6 +135,8 @@ class Settings(BaseSettings):
     # Server-sent event streams end after this long; browsers reconnect by themselves.
     web_stream_seconds: float = Field(default=300.0, gt=0)
     web_poll_seconds: float = Field(default=0.5, gt=0, le=10)
+    # The client (slug) the pages open on until someone picks another; unset shows all.
+    default_client: str | None = None
 
     @field_validator("home", mode="after")
     @classmethod
@@ -245,6 +247,8 @@ auth_mode = "api_key"
 # web_allow_remote = false
 # web_public_url = "https://prat.example.org"
 # web_session_hours = 12
+# The client the pages open on (see prat client); without it they show every client.
+# default_client = "acme"
 
 # Model per role. Defaults: builder and critic Sonnet, planner Opus, helpers Haiku.
 # [models]

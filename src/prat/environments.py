@@ -213,8 +213,9 @@ def checkout_variables(
             variables[name_env] = url.database
         app_env = getattr(database, "app_url_env", None)
         if app_env:
-            plain = url.set(drivername=url.get_backend_name())
-            variables[app_env] = plain.render_as_string(hide_password=False)
+            backend = url.get_backend_name()
+            driver = getattr(database, "app_driver", lambda b: b)(backend)
+            variables[app_env] = url.set(drivername=driver).render_as_string(hide_password=False)
     return variables
 
 

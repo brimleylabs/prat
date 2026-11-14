@@ -23,7 +23,7 @@ from prat.projects import (
     project_file_at,
 )
 from prat.web import data, views
-from prat.web.app import current_session, render, web_context
+from prat.web.app import active_client, current_session, render, web_context
 from prat.web.sessions import COOKIE_NAME
 from prat.web.tokens import check_login_code, token_permissions_ok, tokens_equal
 
@@ -163,8 +163,9 @@ async def board(request: Request, project: str | None = None) -> Response:
     ctx = web_context(request)
     with ctx.db.session() as session:
         selected = _project_filter(session, project)
-        columns = data.load_board(session, ctx.engine, selected)
-        projects = store.list_projects(session)
+        client = active_client(request, session)
+        columns = data.load_board(session, ctx.engine, selected, client)
+        projects = store.list_projects(session, client)
         selected_slug = selected.slug if selected else ""
     auth = await ctx.auth_status()
     signed_in = auth.usable or ctx.runtime_name.startswith("fake")
@@ -194,7 +195,7 @@ async def board_columns(request: Request, project: str | None = None) -> Respons
     ctx = web_context(request)
     with ctx.db.session() as session:
         selected = _project_filter(session, project)
-        columns = data.load_board(session, ctx.engine, selected)
+        columns = data.load_board(session, ctx.engine, selected, active_client(request, session))
         selected_slug = selected.slug if selected else ""
     return render(
         request,
@@ -210,7 +211,9 @@ async def board_columns(request: Request, project: str | None = None) -> Respons
 async def card_new(request: Request, project: str | None = None) -> Response:
     ctx = web_context(request)
     with ctx.db.session() as session:
-        projects = store.list_projects(session)
+        projects = store.list_projects(session, active_client(request, session))
+        if project and project not in {p.slug for p in projects}:
+            projects = store.list_projects(session)
     return render(
         request,
         "card_new.html",
@@ -326,13 +329,17 @@ async def usage(request: Request, days: int = 30) -> Response:
 async def projects(request: Request) -> Response:
     ctx = web_context(request)
     with ctx.db.session() as session:
-        rows = data.load_projects(session)
+        rows = data.load_projects(session, active_client(request, session))
     return render(request, "projects.html", {"rows": rows}, nav="projects")
 
 
 @router.get("/projects/new")
 async def project_new(request: Request) -> Response:
-    return render(request, "project_new.html", {"form": {}, "errors": {}}, nav="projects")
+    ctx = web_context(request)
+    with ctx.db.session() as session:
+        chosen = active_client(request, session)
+    form = {"client": chosen.slug if chosen else ""}
+    return render(request, "project_new.html", {"form": form, "errors": {}}, nav="projects")
 
 
 def _needs_project_file(checkout: Path) -> bool:
@@ -347,6 +354,7 @@ async def project_detail(request: Request, slug: str) -> Response:
             project = store.get_project(session, slug)
         except store.NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
+        project_client = project.client.slug if project.client else ""
         cards = store.list_cards(session, project)
         recent = sorted(cards, key=lambda c: c.id, reverse=True)[:12]
         fallback = data.registered_spec(project)
@@ -378,6 +386,7 @@ async def project_detail(request: Request, slug: str) -> Response:
         "project.html",
         {
             "project": project,
+            "project_client": project_client,
             "spec": spec,
             "commands": commands,
             "source": source,

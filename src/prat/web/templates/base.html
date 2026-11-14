@@ -30,6 +30,21 @@
       <a href="/settings" title="Settings" {% if nav == 'settings' %}aria-current="page"{% endif %}>{{ icon('sliders') }}<span>Settings</span></a>
     </nav>
     <div class="topbar-actions">
+      {% if clients %}
+      <form method="post" action="/client" class="inline-form client-switch">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ request.url.path }}">
+        <label for="client-switch" class="sr-only">Client</label>
+        <span class="client-switch-icon" aria-hidden="true">{{ icon('briefcase', 14) }}</span>
+        <select id="client-switch" name="client" class="select" data-autosubmit title="Client">
+          <option value="">All clients</option>
+          {% for c in clients %}
+          <option value="{{ c.slug }}" {% if c.slug == client %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-sm">Show</button></noscript>
+      </form>
+      {% endif %}
       <a class="btn btn-primary btn-sm" href="/cards/new" data-shortcut="c">{{ icon('plus') }}<span class="hide-narrow">New card</span><kbd class="kbd-inline hide-narrow">C</kbd></a>
       <button type="button" class="btn btn-ghost btn-icon theme-toggle" data-theme-toggle aria-label="Colour theme: follow the system" title="Colour theme">
         <span class="theme-icon theme-icon-system">{{ icon('monitor') }}</span>

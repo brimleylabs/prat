@@ -34,6 +34,37 @@ def test_upgrade_is_idempotent(db: Database) -> None:
     assert is_current(db)
 
 
+def test_upgrading_keeps_every_card_run_and_comment(tmp_path: Path) -> None:
+    """Migrations that rebuild a table on SQLite (0007 adds a foreign key to projects) must not
+    cascade the old table's drop into the cards, runs and comments that refer to it."""
+    database = Database(f"sqlite:///{(tmp_path / 'old.db').as_posix()}")
+    try:
+        upgrade(database, "0006")
+        with database.engine.begin() as connection:
+            connection.exec_driver_sql(
+                "insert into projects (id, slug, name, checkout_path, agent_path, default_branch,"
+                " config, is_self, created_at, updated_at) values (1, 'shop', 'Shop', '/c', '/a',"
+                " 'main', '{}', 0, '2026-01-01', '2026-01-01')"
+            )
+            connection.exec_driver_sql(
+                "insert into cards (id, project_id, title, goal, acceptance_criteria, complexity,"
+                " kind, status, created_at, updated_at) values (1, 1, 'Keep me', '', '', 'medium',"
+                " 'change', 'review', '2026-01-01', '2026-01-01')"
+            )
+            connection.exec_driver_sql(
+                "insert into comments (id, card_id, author, kind, body, created_at)"
+                " values (1, 1, 'human', 'note', 'still here', '2026-01-01')"
+            )
+        upgrade(database)
+        assert is_current(database)
+        with database.engine.connect() as connection:
+            assert connection.exec_driver_sql("select count(*) from cards").scalar() == 1
+            assert connection.exec_driver_sql("select count(*) from comments").scalar() == 1
+            assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+    finally:
+        database.dispose()
+
+
 def test_fresh_database_is_not_current(tmp_path: Path) -> None:
     database = Database(f"sqlite:///{(tmp_path / 'x.db').as_posix()}")
     try:

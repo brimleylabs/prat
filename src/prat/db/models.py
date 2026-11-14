@@ -85,12 +85,29 @@ class Base(DeclarativeBase):
     type_annotation_map = {datetime: UTC_DATETIME, dict[str, Any]: JSON}  # noqa: RUF012
 
 
+class Client(Base):
+    """Who the work is for. Each installation lists only its own clients; a project
+    belongs to at most one, and the web pages can be narrowed to one client."""
+
+    __tablename__ = "clients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(63), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    projects: Mapped[list[Project]] = relationship(back_populates="client")
+
+
 class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(63), unique=True)
     name: Mapped[str] = mapped_column(String(120))
+    client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     checkout_path: Mapped[str] = mapped_column(Text)
     agent_path: Mapped[str] = mapped_column(Text)
     default_branch: Mapped[str] = mapped_column(String(200))
@@ -103,6 +120,7 @@ class Project(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
     cards: Mapped[list[Card]] = relationship(back_populates="project")
+    client: Mapped[Client | None] = relationship(back_populates="projects")
 
 
 class Card(Base):

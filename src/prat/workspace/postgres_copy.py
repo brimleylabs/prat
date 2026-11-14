@@ -144,7 +144,8 @@ class PostgresCopyProvider(DoltBranchProvider):
             env[self.spec.database_env] = copy_name(self.database, card_id)
         if self.spec.app_url_env:
             backend = make_url(self.url).get_backend_name()
-            env[self.spec.app_url_env] = self.branch_url(card_id, driver=backend)
+            driver = self.spec.app_driver(backend)
+            env[self.spec.app_url_env] = self.branch_url(card_id, driver=driver)
         return env
 
     # Review and landing: a copy has no history --------------------------------------------

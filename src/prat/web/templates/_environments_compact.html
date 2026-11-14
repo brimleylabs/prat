@@ -1,0 +1,27 @@
+{% if panel.problem %}<p class="help">{{ icon('alert', 14) }} {{ panel.problem }}</p>{% endif %}
+{% if panel.views or panel.links %}
+<div class="env-strip">
+  {% for v in panel.views %}
+  <div class="env-strip-row">
+    <span class="env-strip-name"><span class="dot tone-{{ v.tone }}{% if v.state == 'starting' %} pulse{% endif %}" aria-hidden="true"></span>{{ v.title }}<span class="badge tone-{{ v.tone }}">{{ v.state|capitalize }}</span>{% if v.port %}<span class="mono muted">:{{ v.port }}</span>{% endif %}</span>
+    <span class="env-strip-actions">
+      <form method="post" action="/projects/{{ panel.slug }}/environments/{{ v.name }}/{{ 'restart' if v.running else 'start' }}" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="/projects">
+        {% if v.running %}<button type="submit" class="btn btn-sm btn-ghost" title="Restart {{ v.title }}">{{ icon('replay', 14) }}Restart</button>
+        {% else %}<button type="submit" class="btn btn-sm" title="Start {{ v.title }}">{{ icon('play', 14) }}Start</button>{% endif %}
+      </form>
+      {% for label, url in v.links %}<a class="btn btn-sm" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ icon('external', 13) }}{{ label }}</a>{% endfor %}
+    </span>
+  </div>
+  {% endfor %}
+  {% if panel.links %}
+  <div class="env-strip-row">
+    <span class="env-strip-name muted">Links</span>
+    <span class="env-strip-actions">{% for link in panel.links %}<a class="btn btn-sm" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ icon('external', 13) }}{{ link.label }}</a>{% endfor %}</span>
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<p class="help">No environments yet.</p>
+{% endif %}

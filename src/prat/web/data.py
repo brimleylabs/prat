@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from prat import store
-from prat.db import Card, Comment, Event, ImproveCycle, Project, Run, RunStep
+from prat.db import Card, Client, Comment, Event, ImproveCycle, Project, Run, RunStep
 from prat.domain import CardStatus, RunStatus, StepName, StepStatus
 from prat.engine import Engine
 from prat.git import DiffStats, Git, GitError, WorktreeManager
@@ -100,8 +100,10 @@ def _running_step(run: Run | None) -> str | None:
     return None
 
 
-def load_board(session: Session, engine: Engine, project: Project | None) -> list[Column]:
-    cards = store.list_cards(session, project)
+def load_board(
+    session: Session, engine: Engine, project: Project | None, client: Client | None = None
+) -> list[Column]:
+    cards = store.list_cards(session, project, client)
     runs = latest_runs(session, (c.id for c in cards))
     counts = run_counts(session, (c.id for c in cards))
     scheduled = engine.scheduled_cards()
@@ -614,10 +616,11 @@ class ProjectRow:
     project: Project
     counts: dict[str, int]
     total: int
+    client: str = ""
 
 
-def load_projects(session: Session) -> list[ProjectRow]:
-    projects = store.list_projects(session)
+def load_projects(session: Session, client: Client | None = None) -> list[ProjectRow]:
+    projects = store.list_projects(session, client)
     rows = session.execute(
         select(Card.project_id, Card.status, func.count(Card.id)).group_by(
             Card.project_id, Card.status
@@ -630,7 +633,8 @@ def load_projects(session: Session) -> list[ProjectRow]:
     for project in projects:
         found = counts.get(project.id, Counter())
         ordered = {str(s): found[str(s)] for s in views.BOARD_ORDER if found[str(s)]}
-        result.append(ProjectRow(project, ordered, sum(found.values())))
+        owner = project.client.name if project.client else ""
+        result.append(ProjectRow(project, ordered, sum(found.values()), owner))
     return result
 
 

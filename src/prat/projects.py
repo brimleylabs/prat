@@ -233,7 +233,14 @@ class DatabaseWorkspace(BaseModel):
     url_env: str
     database_env: str | None = None
     app_url_env: str | None = None
+    # The URL scheme the app's own variable gets, for an app that names its driver
+    # ("postgresql+psycopg"); without it the plain backend ("postgresql", "mysql").
+    app_url_driver: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*(\+[a-z0-9_]+)?$")] | None = None
     default_branch: Annotated[str, Field(min_length=1, max_length=200)] = "main"
+
+    def app_driver(self, backend: str) -> str:
+        """The scheme for ``app_url_env``, given the backend of PRAT's own URL."""
+        return self.app_url_driver or backend
 
     @field_validator("url_env", "database_env", "app_url_env")
     @classmethod

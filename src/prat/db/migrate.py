@@ -26,11 +26,35 @@ def alembic_config(url: str) -> Config:
     return cfg
 
 
+class MigrationError(RuntimeError):
+    pass
+
+
 def upgrade(db: Database, revision: str = "head") -> None:
     cfg = alembic_config(db.url)
-    with db.engine.begin() as connection:
-        cfg.attributes["connection"] = connection
-        command.upgrade(cfg, revision)
+    if db.engine.dialect.name != "sqlite":
+        with db.engine.begin() as connection:
+            cfg.attributes["connection"] = connection
+            command.upgrade(cfg, revision)
+        return
+    # SQLite changes a table's constraints by building a new table and dropping the old one.
+    # With foreign keys enforced, that drop deletes the old table's rows first, and every
+    # ON DELETE CASCADE that points at it empties the tables that refer to it (a project's
+    # cards, runs and comments). So enforcement is off while migrating (the pragma only takes
+    # effect outside a transaction), and the result is checked before it is committed.
+    with db.engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
+        try:
+            with connection.begin():
+                cfg.attributes["connection"] = connection
+                command.upgrade(cfg, revision)
+                broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+                if broken:
+                    raise MigrationError(f"migration left rows without their parents: {broken[:5]}")
+        finally:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
 
 
 def current_revision(db: Database) -> str | None:

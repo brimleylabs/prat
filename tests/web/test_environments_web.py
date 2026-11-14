@@ -74,6 +74,28 @@ def test_start_and_stop_a_project_environment(
         assert web.post("/projects/shop/environments/web/explode").status_code == 404
 
 
+def test_projects_list_starts_environments_and_links_to_them(
+    settings: Settings, db: Database, project_factory: Callable[..., Project]
+) -> None:
+    port = free_port()
+    project = project_factory("shop", project_toml=project_toml(extra=environment_toml(port)))
+    with make_web(settings, db, project) as web:
+        listing = web.client.get("/projects").text
+        assert 'hx-get="/projects/shop/environments?compact=1"' in listing
+        strip = web.client.get("/projects/shop/environments?compact=1").text
+        assert "Web app" in strip and "Stopped" in strip
+        assert 'name="next" value="/projects"' in strip
+
+        started = web.post("/projects/shop/environments/web/start", {"next": "/projects"})
+        assert started.headers["location"] == "/projects"
+        strip = wait_for(web, "/projects/shop/environments?compact=1", "Running")
+        assert f'href="http://127.0.0.1:{port}/"' in strip and "Restart" in strip
+        restarted = web.post("/projects/shop/environments/web/restart", {"next": "//evil"})
+        assert restarted.headers["location"] == "/board"
+        wait_for(web, "/projects/shop/environments?compact=1", "Running")
+        web.post("/projects/shop/environments/web/stop")
+
+
 def test_preview_a_card_in_review(
     settings: Settings, db: Database, project_factory: Callable[..., Project]
 ) -> None:

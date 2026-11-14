@@ -33,6 +33,17 @@
           <label class="check"><input id="setup" name="setup" type="checkbox" {% if setup is not defined or setup %}checked{% endif %}> Let the setup agent make it runnable</label>
           <p class="help">When the repository has no <span class="mono">.prat/project.toml</span>, an agent works out how to install, test and run it, proves it in a worktree and proposes the file as a card for you to approve. Leave this off to write the project file yourself.</p>
         </div>
+        {% if clients %}
+        <div class="field">
+          <label for="client">Client</label>
+          <select id="client" name="client" class="select">
+            <option value="">No client</option>
+            {% for c in clients %}
+            <option value="{{ c.slug }}" {% if c.slug == form.get('client', '') %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
         <div class="field">
           <label for="agent_path">Agent clone path <span class="optional">optional</span></label>
           <input id="agent_path" name="agent_path" type="text" class="mono" spellcheck="false" autocomplete="off" value="{{ form.get('agent_path', '') }}" placeholder="next to the checkout, with -agent appended" aria-describedby="agent-help{% if errors.get('agent_path') %} agent_path-error{% endif %}" {% if errors.get('agent_path') %}aria-invalid="true"{% endif %}>

@@ -50,6 +50,17 @@ def test_a_missing_program_raises_an_oserror(tmp_path: Path) -> None:
         spawn(["prat-no-such-program-xyz"], cwd=tmp_path)
 
 
+def test_a_relative_program_path_is_found_in_the_working_directory(tmp_path: Path) -> None:
+    # The way a project's own virtualenv is named: .venv/Scripts/python.exe or .venv/bin/python.
+    work = tmp_path / "work"
+    subprocess.run([PY, "-m", "venv", "--without-pip", str(work / "env")], check=True)
+    relative = "env/Scripts/python.exe" if sys.platform == "win32" else "env/bin/python"
+    result = run_tree([relative, "-c", "print('ran')"], cwd=work, timeout=30)
+    assert result.stdout.strip() == "ran"
+    assert proc._program_in(["python", "-V"], tmp_path) == ["python", "-V"]
+    assert proc._program_in(["env/missing", "-V"], tmp_path) == ["env/missing", "-V"]
+
+
 def test_killing_a_tree_kills_the_processes_it_started(tmp_path: Path) -> None:
     heartbeat = tmp_path / "heartbeat"
     with spawn(tree_argv(heartbeat), cwd=tmp_path, stdout=subprocess.DEVNULL) as tree:

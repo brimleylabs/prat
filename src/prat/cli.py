@@ -56,6 +56,9 @@ if TYPE_CHECKING:
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="PRAT: one agent per card.")
 db_app = typer.Typer(no_args_is_help=True, help="Database management.")
 project_app = typer.Typer(no_args_is_help=True, help="Register and inspect projects.")
+client_app = typer.Typer(
+    no_args_is_help=True, help="Clients: who each project's work is for, on this installation."
+)
 card_app = typer.Typer(no_args_is_help=True, help="Create, run, review and merge cards.")
 auth_app = typer.Typer(no_args_is_help=True, help="Agent runtime authentication.")
 store_app = typer.Typer(no_args_is_help=True, help="PRAT's store: SQLite or Dolt, and its history.")
@@ -89,6 +92,7 @@ app.add_typer(db_app, name="db")
 app.add_typer(eval_app, name="eval")
 app.add_typer(checkpoint_app, name="checkpoint")
 app.add_typer(project_app, name="project")
+app.add_typer(client_app, name="client")
 app.add_typer(card_app, name="card")
 app.add_typer(auth_app, name="auth")
 app.add_typer(improve_app, name="improve")
@@ -332,7 +336,9 @@ def project_add(
     ],
     branch: Annotated[
         str | None,
-        typer.Option(help="Branch to work from, for a link (default: the repository's default)."),
+        typer.Option(
+            help="Branch to work from (default: the repository's default, or the project file's)."
+        ),
     ] = None,
     slug: Annotated[str | None, typer.Option(help="Short identifier (default: from name).")] = None,
     agent_path: Annotated[
@@ -346,6 +352,9 @@ def project_add(
             help="Without a project file, add a setup card whose agent writes one.",
         ),
     ] = True,
+    client: Annotated[
+        str | None, typer.Option(help="The client it is for (slug or id; see prat client).")
+    ] = None,
 ) -> None:
     """Register a repository: clone it from a link (into projects_dir), or use your own clone.
     Reads .prat/project.toml if present; without one, a setup card is added to write it."""
@@ -353,6 +362,13 @@ def project_add(
     from prat.setup_agent import add_setup_card, needs_setup
 
     with _database(ctx) as (settings, db):
+        if client is not None:
+            with db.session() as session:
+                try:
+                    store.get_client(session, client)
+                except store.NotFound as exc:
+                    raise _fail(f"{exc}; add it with prat client add") from exc
+        chosen: str | None
         if onboard.is_link(repository):
             try:
                 found = onboard.list_branches(repository)
@@ -370,9 +386,14 @@ def project_add(
             slug = name
         else:
             checkout = Path(repository).expanduser().resolve()
-            chosen = None
+            chosen = branch
         if not (checkout / ".git").exists():
             raise _fail(f"{checkout} is not a git checkout")
+        if branch is not None and not onboard.is_link(repository):
+            from prat.git import Git
+
+            if not Git(checkout).ref_exists(f"refs/heads/{branch}"):
+                raise _fail(f"{checkout} has no branch {branch!r}")
         try:
             spec = load_spec(checkout)
         except ProjectFileError as exc:
@@ -387,10 +408,13 @@ def project_add(
                     checkout_path=checkout,
                     agent_path=agent_path or default_agent_path(checkout),
                     spec=spec,
+                    client=store.get_client(session, client) if client else None,
                 )
             except (ValueError, PermissionError) as exc:
                 raise _fail(str(exc)) from exc
             console.print(f"added project [bold]{project.slug}[/bold] (id {project.id})")
+            if project.client is not None:
+                console.print(f"  client:     {escape(project.client.name)}")
             console.print(f"  checkout:   {project.checkout_path}")
             console.print(f"  branch:     {project.default_branch}")
             console.print(f"  agent clone: {project.agent_path} (created on first run)")
@@ -470,12 +494,13 @@ def project_suggest(
 def project_list(ctx: typer.Context) -> None:
     """List registered projects."""
     with _database(ctx) as (_, db), db.session() as session:
-        table = _table("id", "slug", "name", "default branch", "checkout")
+        table = _table("id", "slug", "name", "client", "default branch", "checkout")
         for project in store.list_projects(session):
             table.add_row(
                 str(project.id),
                 project.slug,
                 project.name,
+                escape(project.client.name) if project.client else "-",
                 project.default_branch,
                 project.checkout_path,
             )
@@ -542,10 +567,87 @@ def project_show(
         except store.NotFound as exc:
             raise _fail(str(exc)) from exc
         console.print(f"[bold]{project.slug}[/bold] (id {project.id}): {project.name}")
+        console.print(f"client:         {escape(project.client.name) if project.client else '-'}")
         console.print(f"checkout:       {project.checkout_path}")
         console.print(f"agent clone:    {project.agent_path}")
         console.print(f"default branch: {project.default_branch}")
         console.print_json(data=project.config)
+
+
+@project_app.command("client")
+def project_client(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Project slug or id.")],
+    client: Annotated[
+        str | None, typer.Argument(help="Client slug or id; leave out with --none.")
+    ] = None,
+    none: Annotated[bool, typer.Option("--none", help="Take the project off its client.")] = False,
+) -> None:
+    """Say which client a project is for, or take it off its client with --none."""
+    if (client is None) == (not none):
+        raise _fail("give a client, or --none")
+    with _database(ctx) as (_, db), db.session() as session:
+        try:
+            project = store.get_project(session, slug)
+            chosen = store.get_client(session, client) if client else None
+        except store.NotFound as exc:
+            raise _fail(str(exc)) from exc
+        store.set_project_client(session, project, chosen)
+        if chosen is None:
+            console.print(f"{escape(project.slug)}: no client")
+        else:
+            console.print(f"{escape(project.slug)}: client {escape(chosen.name)}")
+
+
+# Clients -------------------------------------------------------------------------
+
+
+@client_app.command("add")
+def client_add(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="The client's name, as it should be shown.")],
+    slug: Annotated[str | None, typer.Option(help="Short identifier (default: from name).")] = None,
+) -> None:
+    """Add a client to this installation."""
+    with _database(ctx) as (_, db), db.session() as session:
+        try:
+            client = store.add_client(session, name, slug)
+        except ValueError as exc:
+            raise _fail(str(exc)) from exc
+        console.print(f"added client [bold]{escape(client.name)}[/bold] ({client.slug})")
+
+
+@client_app.command("list")
+def client_list(ctx: typer.Context) -> None:
+    """List this installation's clients and their projects."""
+    with _database(ctx) as (_, db), db.session() as session:
+        table = _table("id", "slug", "name", "projects")
+        for client in store.list_clients(session):
+            table.add_row(
+                str(client.id),
+                client.slug,
+                escape(client.name),
+                ", ".join(p.slug for p in sorted(client.projects, key=lambda p: p.slug)) or "-",
+            )
+        console.print(table)
+
+
+@client_app.command("remove")
+def client_remove(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Client slug or id.")],
+    yes: Annotated[bool, typer.Option("--yes", help="Do not ask for confirmation.")] = False,
+) -> None:
+    """Forget a client. Its projects and their cards stay, with no client."""
+    if not yes and not typer.confirm(f"Remove client {slug}? Its projects stay, with no client."):
+        raise typer.Exit(1)
+    with _database(ctx) as (_, db), db.session() as session:
+        try:
+            removed, released = store.remove_client(session, slug)
+        except store.NotFound as exc:
+            raise _fail(str(exc)) from exc
+        plural = "project now has" if released == 1 else "projects now have"
+        console.print(f"removed client {escape(removed)}; {released} {plural} no client")
 
 
 # Cards ---------------------------------------------------------------------------

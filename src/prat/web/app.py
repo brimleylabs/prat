@@ -24,12 +24,14 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.templating import Jinja2Templates
 
-from prat import __version__, rhythm
+from prat import __version__, rhythm, store
 from prat.config import Settings
 from prat.db import Database
+from prat.db.models import Client
 from prat.dream import DreamScheduler
 from prat.engine import Engine
 from prat.environments import EnvironmentManager
@@ -51,6 +53,9 @@ STATIC_DIR = HERE / "static"
 AUTH_CACHE_SECONDS = 30.0
 # Activity is counted per hour, so one signal a minute is plenty.
 SIGNAL_SECONDS = 60.0
+# A preference, not a secret: the slug of the client the pages are narrowed to.
+CLIENT_COOKIE = "prat_client"
+ALL_CLIENTS = "all"
 
 
 @dataclass
@@ -155,6 +160,30 @@ def current_session(request: Request) -> WebSession | None:
     return session if isinstance(session, WebSession) else None
 
 
+def active_client(request: Request, session: Session) -> Client | None:
+    """The client the pages are narrowed to; None for all. The preference cookie wins
+    (ALL_CLIENTS when someone chose every client); without one, the installation's
+    default_client. A slug this installation does not have counts as all."""
+    slug = request.cookies.get(CLIENT_COOKIE) or web_context(request).settings.default_client
+    if not slug or slug == ALL_CLIENTS:
+        return None
+    try:
+        return store.get_client(session, slug)
+    except store.NotFound:
+        return None
+
+
+def _client_choices(request: Request) -> dict[str, Any]:
+    ctx = web_context(request)
+    with ctx.db.session() as session:
+        chosen = active_client(request, session)
+        return {
+            "clients": [{"slug": c.slug, "name": c.name} for c in store.list_clients(session)],
+            "client": chosen.slug if chosen else "",
+            "client_name": chosen.name if chosen else "",
+        }
+
+
 def render(
     request: Request,
     name: str,
@@ -174,7 +203,12 @@ def render(
         # so they must not use them up before the full page does.
         "flashes": session.pop_flashes() if session and not name.startswith("_") else [],
         "runtime_name": ctx.runtime_name,
+        "clients": [],
+        "client": "",
+        "client_name": "",
     }
+    if session is not None and not name.startswith("_"):
+        data.update(_client_choices(request))
     data.update(context or {})
     return ctx.templates.TemplateResponse(request, name, data, status_code=status_code)
 

@@ -7,6 +7,20 @@
     <div>
       <h1 class="page-title">{{ project.name }}</h1>
       <p class="page-sub"><span class="chip">{{ project.slug }}</span> registered <time datetime="{{ project.created_at|isotime }}" title="{{ project.created_at|timestamp }}">{{ project.created_at|ago }}</time></p>
+      {% if clients %}
+      <form method="post" action="/projects/{{ project.slug }}/client" class="inline-form client-switch project-client">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="project-client" class="sr-only">Client for this project</label>
+        <span class="client-switch-icon" aria-hidden="true">{{ icon('briefcase', 14) }}</span>
+        <select id="project-client" name="client" class="select" data-autosubmit title="Client for this project">
+          <option value="">No client</option>
+          {% for c in clients %}
+          <option value="{{ c.slug }}" {% if c.slug == project_client %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-sm">Save</button></noscript>
+      </form>
+      {% endif %}
     </div>
     <div class="form-actions">
       <a class="btn" href="/board?project={{ project.slug }}">{{ icon('board') }}Board</a>

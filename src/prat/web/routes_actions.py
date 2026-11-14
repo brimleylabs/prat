@@ -19,6 +19,7 @@ from fastapi.responses import RedirectResponse, Response
 from starlette.datastructures import FormData
 
 from prat import onboard, store
+from prat.db import Client
 from prat.domain import CardKind, CardStatus, CommentAuthor, Complexity, RunStatus
 from prat.engine import ApproveError, EngineError, RunResult
 from prat.environments import database_environ
@@ -31,7 +32,15 @@ from prat.projects import (
     validate_slug,
 )
 from prat.setup_agent import add_setup_card, create_project_database, needs_setup
-from prat.web.app import WebContext, current_session, render, web_context
+from prat.web.app import (
+    ALL_CLIENTS,
+    CLIENT_COOKIE,
+    WebContext,
+    current_session,
+    render,
+    web_context,
+)
+from prat.web.routes_pages import safe_next
 from prat.web.sessions import COOKIE_NAME
 from prat.workspace.checkpoints import CheckpointError, undo_card
 
@@ -40,6 +49,7 @@ router = APIRouter()
 
 MAX_TITLE = 200
 MAX_TEXT = 20_000
+CLIENT_COOKIE_SECONDS = 400 * 24 * 3600
 
 
 def _flash(request: Request, message: str, tone: str = "info") -> None:
@@ -443,6 +453,52 @@ async def project_setup(request: Request, slug: str) -> Response:
     return _go(request, f"/cards/{card_id}")
 
 
+def _chosen_client(session: Any, slug: str) -> Client | None:
+    if not slug:
+        return None
+    try:
+        return store.get_client(session, slug)
+    except store.NotFound as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/client")
+async def client_switch(request: Request) -> Response:
+    """Narrow the pages to one client, or show all of them again."""
+    ctx = web_context(request)
+    form = await request.form()
+    with ctx.db.session() as session:
+        chosen = _chosen_client(session, _text(form, "client"))
+    response = RedirectResponse(safe_next(_text(form, "next")), status_code=303)
+    # "All clients" is remembered too, so it is not replaced by the installation's default.
+    response.set_cookie(
+        CLIENT_COOKIE,
+        chosen.slug if chosen else ALL_CLIENTS,
+        max_age=CLIENT_COOKIE_SECONDS,
+        httponly=True,
+        samesite="strict",
+        secure=ctx.security.secure_cookies,
+        path="/",
+    )
+    return response
+
+
+@router.post("/projects/{slug}/client")
+async def project_client(request: Request, slug: str) -> Response:
+    ctx = web_context(request)
+    form = await request.form()
+    with ctx.db.session() as session:
+        try:
+            project = store.get_project(session, slug)
+        except store.NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        chosen = _chosen_client(session, _text(form, "client"))
+        store.set_project_client(session, project, chosen)
+        message = f"{slug} is now for {chosen.name}." if chosen else f"{slug} has no client now."
+    _flash(request, message, "ok")
+    return _go(request, f"/projects/{slug}")
+
+
 @router.post("/projects")
 async def project_create(request: Request) -> Response:
     ctx = web_context(request)
@@ -452,6 +508,7 @@ async def project_create(request: Request) -> Response:
         "slug": _text(form, "slug"),
         "agent_path": _text(form, "agent_path"),
         "branch": _text(form, "branch"),
+        "client": _text(form, "client"),
     }
     wants_setup = form.get("setup") == "on"
     errors: dict[str, str] = {}
@@ -475,6 +532,7 @@ async def project_create(request: Request) -> Response:
                     checkout_path=found["checkout"],
                     agent_path=found["agent"],
                     spec=spec,
+                    client=_chosen_client(session, values["client"]),
                 )
                 slug = project.slug
                 if wants_setup and needs_setup(found["checkout"]):

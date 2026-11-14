@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from prat import paths
 from prat.db import as_utc
-from prat.db.models import Card, Comment, Event, Project, Run
+from prat.db.models import Card, Client, Comment, Event, Project, Run
 from prat.domain import (
     Autonomy,
     CardKind,
@@ -23,7 +23,7 @@ from prat.domain import (
     Complexity,
     RunStatus,
 )
-from prat.projects import ProjectSpec, check_project_paths, validate_slug
+from prat.projects import ProjectSpec, check_project_paths, slugify, validate_slug
 
 
 class NotFound(LookupError):
@@ -44,6 +44,62 @@ def record_event(
     return event
 
 
+# Clients ---------------------------------------------------------------------
+
+
+def add_client(session: Session, name: str, slug: str | None = None) -> Client:
+    name = name.strip()
+    if not name:
+        raise ValueError("client name must not be empty")
+    if len(name) > 120:
+        raise ValueError("client name is longer than 120 characters")
+    slug = validate_slug(slug or slugify(name, 63))
+    if session.scalars(select(Client).where(Client.slug == slug)).first() is not None:
+        raise ValueError(f"client {slug!r} already exists")
+    client = Client(slug=slug, name=name)
+    session.add(client)
+    session.flush()
+    record_event(session, "client.added", data={"slug": slug, "name": name})
+    return client
+
+
+def get_client(session: Session, ref: str | int) -> Client:
+    client: Client | None
+    if isinstance(ref, int) or str(ref).isdigit():
+        client = session.get(Client, int(ref))
+    else:
+        client = session.scalars(select(Client).where(Client.slug == ref)).first()
+    if client is None:
+        raise NotFound(f"no client {ref!r}")
+    return client
+
+
+def list_clients(session: Session) -> list[Client]:
+    return list(session.scalars(select(Client).order_by(Client.name, Client.slug)))
+
+
+def remove_client(session: Session, ref: str | int) -> tuple[str, int]:
+    """Forget a client. Its projects stay, with no client. Returns the slug and how many
+    projects were let go."""
+    client = get_client(session, ref)
+    released = len(client.projects)
+    for project in client.projects:
+        project.client = None
+    session.delete(client)
+    record_event(session, "client.removed", data={"slug": client.slug, "projects": released})
+    return client.slug, released
+
+
+def set_project_client(session: Session, project: Project, client: Client | None) -> None:
+    project.client = client
+    record_event(
+        session,
+        "project.client",
+        project_id=project.id,
+        data={"client": client.slug if client else None},
+    )
+
+
 # Projects --------------------------------------------------------------------
 
 
@@ -54,6 +110,7 @@ def add_project(
     checkout_path: Path,
     agent_path: Path,
     spec: ProjectSpec,
+    client: Client | None = None,
 ) -> Project:
     validate_slug(slug)
     checkout = paths.resolve(checkout_path)
@@ -73,10 +130,12 @@ def add_project(
         agent_path=str(agent),
         default_branch=spec.default_branch,
         config=spec.model_dump(mode="json"),
+        client=client,
     )
     session.add(project)
     session.flush()
-    record_event(session, "project.added", project_id=project.id, data={"slug": slug})
+    data = {"slug": slug, "client": client.slug} if client else {"slug": slug}
+    record_event(session, "project.added", project_id=project.id, data=data)
     return project
 
 
@@ -91,8 +150,12 @@ def get_project(session: Session, ref: str | int) -> Project:
     return project
 
 
-def list_projects(session: Session) -> list[Project]:
-    return list(session.scalars(select(Project).order_by(Project.slug)))
+def list_projects(session: Session, client: Client | None = None) -> list[Project]:
+    """All projects, or only one client's."""
+    query = select(Project).order_by(Project.slug)
+    if client is not None:
+        query = query.where(Project.client_id == client.id)
+    return list(session.scalars(query))
 
 
 def remove_project(session: Session, ref: str | int) -> tuple[str, Path, Path]:
@@ -159,10 +222,14 @@ def get_card(session: Session, card_id: int) -> Card:
     return card
 
 
-def list_cards(session: Session, project: Project | None = None) -> list[Card]:
+def list_cards(
+    session: Session, project: Project | None = None, client: Client | None = None
+) -> list[Card]:
     query = select(Card).order_by(Card.id)
     if project is not None:
         query = query.where(Card.project_id == project.id)
+    elif client is not None:
+        query = query.join(Project).where(Project.client_id == client.id)
     return list(session.scalars(query))
 
 

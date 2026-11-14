@@ -107,6 +107,7 @@ A project is a git repository and the branch PRAT works from. On the Add project
 ```bash
 prat project add https://github.com/acme/shop --branch develop   # clone it, work from develop
 prat project add ~/code/shop                                     # use a clone you already have
+prat project add ~/code/shop --branch develop --client acme      # its develop branch, for a client
 ```
 
 A link is cloned with this machine's git credentials into `projects_dir` (default
@@ -126,7 +127,25 @@ With `project_database_url` set to a Doltgres server, PRAT also creates a databa
 project, records its address as `PRAT_DATABASE_URL` in the machine-only
 `$PRAT_HOME/environments/<slug>.toml` (never in the repository), and the setup agent declares it
 as a `[[workspace.database]]`, so every card gets its own branch of the data and a preview to
-click into.
+click into. An app that reads a URL naming its driver (`postgresql+psycopg://...`) says so with
+`app_url_driver = "postgresql+psycopg"` in that entry; otherwise it gets the plain scheme.
+
+### Clients
+
+A client is who a project's work is for. Each installation keeps its own list, so one machine can
+hold one client's projects and another machine another's. Pick one in the switcher at the top of
+every page and the board, the projects list and the new card form show only its projects; "All
+clients" shows everything. `default_client` in `config.toml` is the client the pages open on
+until someone picks another.
+
+```bash
+prat client add "Acme Corp"                 # slug acme-corp
+prat project client shop acme-corp          # or --none; also on the project's page
+prat client list
+```
+
+The projects list shows each project's environments with their state, start or restart, and
+every link they declare, so the apps, admin pages and sign-in pages are one click away.
 
 ## Quick start with a real agent
 

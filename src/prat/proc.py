@@ -212,8 +212,21 @@ def spawn(
     }
     if text:
         options.update(text=True, encoding="utf-8", errors="replace")
-    proc, job = _start(list(argv), options)
+    proc, job = _start(_program_in(list(argv), cwd), options)
     return ProcessTree(proc, job)
+
+
+def _program_in(argv: list[str], cwd: Path | str | None) -> list[str]:
+    """A relative program path (``.venv/Scripts/python.exe``) names a file in ``cwd``.
+    POSIX resolves it there already; Windows looks next to the parent instead, so it is
+    made absolute when the file is there."""
+    if not argv or cwd is None:
+        return argv
+    program = argv[0]
+    if Path(program).is_absolute() or ("/" not in program and "\\" not in program):
+        return argv
+    candidate = Path(cwd) / program
+    return [str(candidate.resolve()), *argv[1:]] if candidate.is_file() else argv
 
 
 def _close_pipes(proc: subprocess.Popen[Any]) -> None:

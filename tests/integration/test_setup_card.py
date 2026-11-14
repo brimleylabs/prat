@@ -233,3 +233,18 @@ def test_checkout_variables_follow_the_card_branch_rules(settings: Settings, bar
     assert variables["DB_NAME"] == "shop"
     assert variables["DATABASE_URL"] == "postgresql://u:p@127.0.0.1:5480/shop"
     assert variables[DATABASE_VARIABLE].startswith("postgresql+psycopg://")
+
+    # An app that names its driver gets its URL in that form, for a card's copy too.
+    named = database.model_copy(update={"app_url_driver": "postgresql+psycopg2"})
+    variables = checkout_variables(settings.home, bare.slug, [named])
+    assert variables["DATABASE_URL"] == "postgresql+psycopg2://u:p@127.0.0.1:5480/shop"
+    from prat.workspace.postgres_copy import PostgresCopyProvider
+
+    copy = PostgresCopyProvider(
+        named.model_copy(update={"kind": "postgres"}), variables[DATABASE_VARIABLE]
+    )
+    assert (
+        copy.agent_env(7)["DATABASE_URL"] == "postgresql+psycopg2://u:p@127.0.0.1:5480/shop__card_7"
+    )
+    with pytest.raises(ValueError, match="app_url_driver"):
+        DatabaseWorkspace(url_env="X", app_url_driver="postgresql://")
