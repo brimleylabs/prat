@@ -96,6 +96,29 @@ def test_projects_list_starts_environments_and_links_to_them(
         web.post("/projects/shop/environments/web/stop")
 
 
+def test_from_another_device_only_links_that_work_there_are_shown(
+    settings: Settings, db: Database, project_factory: Callable[..., Project]
+) -> None:
+    port = free_port()
+    project = project_factory("shop", project_toml=project_toml(extra=environment_toml(port)))
+    environments = settings.home / "environments"
+    environments.mkdir(parents=True, exist_ok=True)
+    (environments / "shop.toml").write_text(
+        f'[[link]]\nlabel = "Shop (here)"\nurl = "http://127.0.0.1:{port}/"\n\n'
+        '[[link]]\nlabel = "Shop (public)"\nurl = "https://shop.example.org/"\n',
+        encoding="utf-8",
+    )
+    with make_web(settings, db, project, web_public_url="http://prat.example.org") as web:
+        here = web.client.get("/projects/shop/environments?compact=1").text
+        assert "Shop (here)" in here and "Shop (public)" in here
+        away = web.client.get(
+            "/projects/shop/environments?compact=1", headers={"Host": "prat.example.org"}
+        )
+        assert away.status_code == 200, away.text
+        assert f"127.0.0.1:{port}" not in away.text
+        assert "Shop (public)" in away.text
+
+
 def test_preview_a_card_in_review(
     settings: Settings, db: Database, project_factory: Callable[..., Project]
 ) -> None:

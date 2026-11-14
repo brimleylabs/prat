@@ -6,6 +6,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
@@ -135,8 +136,30 @@ async def project_panel(request: Request, slug: str, compact: bool = False) -> R
         )
 
     panel = await asyncio.to_thread(load)
+    if not _on_this_machine(request):
+        _drop_local_links(panel)
     template = "_environments_compact.html" if compact else "_environments.html"
     return render(request, template, {"panel": panel}, nav="projects")
+
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
+
+
+def _on_this_machine(request: Request) -> bool:
+    """Whether the page was opened on this computer, not through a tunnel or proxy."""
+    return (request.url.hostname or "") in LOOPBACK_HOSTS
+
+
+def _drop_local_links(panel: EnvironmentsPanel) -> None:
+    """Links to 127.0.0.1 or localhost open the viewer's own device, not this computer, so a
+    page opened from elsewhere shows only the links that work there (a tunnel's, say)."""
+
+    def local(url: str) -> bool:
+        return (urlsplit(url).hostname or "") in LOOPBACK_HOSTS
+
+    panel.links = [link for link in panel.links if not local(link.url)]
+    for view in panel.views:
+        view.links = [(label, url) for label, url in view.links if not local(url)]
 
 
 @router.post("/projects/{slug}/environments/check")
