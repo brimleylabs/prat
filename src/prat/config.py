@@ -2,7 +2,9 @@
 
 Values come from, highest priority first: explicit overrides passed to
 :func:`load_settings`, environment variables prefixed ``PRAT_``, the TOML file
-``$PRAT_HOME/config.toml``, and the defaults below.
+``$PRAT_HOME/config.toml``, and the defaults below. ``database_url`` is the exception: it
+is never read from the environment, because ``PRAT_DATABASE_URL`` names a project's
+database (see :data:`NOT_FROM_ENVIRONMENT`).
 
 ``PRAT_HOME`` itself is resolved before anything else (argument, then the
 ``PRAT_HOME`` environment variable, then ``~/.prat``) because it decides where
@@ -17,8 +19,10 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
+    EnvSettingsSource,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
     TomlConfigSettingsSource,
@@ -57,6 +61,21 @@ def resolve_home(home: str | os.PathLike[str] | None = None) -> Path:
     else:
         raw = Path.home() / ".prat"
     return raw.expanduser().resolve()
+
+
+# Settings never read from the environment. PRAT_DATABASE_URL is the variable a project's
+# app, setup and checks read for the project's own database; a shell that has exported it
+# must not move PRAT's records onto that database. PRAT's own address comes from config.toml.
+NOT_FROM_ENVIRONMENT = frozenset({"database_url"})
+
+
+class _InstallationEnv(EnvSettingsSource):
+    """The ``PRAT_`` environment, less the names that belong to projects."""
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        if field_name in NOT_FROM_ENVIRONMENT:
+            return None, field_name, False
+        return super().get_field_value(field, field_name)
 
 
 class Settings(BaseSettings):
@@ -167,7 +186,11 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (init_settings, env_settings, TomlConfigSettingsSource(settings_cls))
+        return (
+            init_settings,
+            _InstallationEnv(settings_cls),
+            TomlConfigSettingsSource(settings_cls),
+        )
 
     # Derived locations -------------------------------------------------
 
@@ -227,6 +250,7 @@ DEFAULT_CONFIG_TOML = """\
 # "dolt" (PRAT runs its own Dolt server under this home) or "sqlite".
 # store = "auto"
 # dolt_path = "/usr/local/bin/dolt"
+# PRAT's own records; set here only (PRAT_DATABASE_URL is a project's database, not PRAT's).
 # database_url = "postgresql+psycopg://PRAT@localhost/PRAT"
 max_concurrent_runs = 3
 max_concurrent_per_project = 1

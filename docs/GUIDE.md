@@ -302,7 +302,7 @@ variables:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `database_url` | SQLite at `$PRAT_HOME/prat.db` (WAL) | Any SQLAlchemy URL; Postgres works |
+| `database_url` | SQLite at `$PRAT_HOME/prat.db` (WAL) | Any SQLAlchemy URL; Postgres works. Set in `config.toml` only: `PRAT_DATABASE_URL` is a project's database, so PRAT never reads it as its own |
 | `max_concurrent_runs` | 3 | Runs at once across all projects |
 | `max_concurrent_per_project` | 1 | Runs at once in one project |
 | `max_autonomy` | `medium` | Ceiling that no project file or card can exceed |

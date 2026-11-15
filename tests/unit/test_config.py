@@ -55,6 +55,29 @@ def test_env_beats_toml_and_overrides_beat_env(
     assert load_settings(home, max_concurrent_runs=2).max_concurrent_runs == 2
 
 
+def test_a_projects_database_variable_never_moves_prats_records(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("PRAT_DATABASE_URL", "mysql+pymysql://app@127.0.0.1:3340/shop")
+    assert load_settings(home).db_url.startswith("sqlite:///")
+    (home / "config.toml").write_text(
+        'database_url = "postgresql+psycopg://PRAT@localhost/PRAT"\n', encoding="utf-8"
+    )
+    assert load_settings(home).db_url == "postgresql+psycopg://PRAT@localhost/PRAT"
+
+
+def test_no_variable_prat_gives_projects_names_a_setting() -> None:
+    from prat.config import NOT_FROM_ENVIRONMENT, Settings
+    from prat.setup_agent import DATABASE_VARIABLE, MYSQL_DATABASE_VARIABLE
+
+    read_from_env = {
+        f"PRAT_{name.upper()}" for name in Settings.model_fields if name not in NOT_FROM_ENVIRONMENT
+    }
+    assert not {DATABASE_VARIABLE, MYSQL_DATABASE_VARIABLE} & read_from_env
+
+
 def test_invalid_values_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValidationError):
         load_settings(tmp_path, max_concurrent_runs=0)
