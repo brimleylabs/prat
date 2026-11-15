@@ -28,6 +28,7 @@ from prat.engine import (
     EngineError,
     FakeReviewer,
     FakeSecurityReviewer,
+    MergeResult,
     NoPlanner,
     Planner,
     Reviewer,
@@ -896,8 +897,14 @@ def card_approve(ctx: typer.Context, card_id: int) -> None:
     """Merge a reviewed card into the agent clone's default branch (local, no push)."""
     with _database(ctx) as (settings, db):
         engine = Engine(settings, db, FakeRuntime([]))
+
+        async def approve_and_set_up() -> MergeResult:
+            merged = await engine.approve(card_id)
+            await engine.checkouts_set_up()
+            return merged
+
         try:
-            merged = asyncio.run(engine.approve(card_id))
+            merged = asyncio.run(approve_and_set_up())
         except (ApproveError, store.NotFound, GitError) as exc:
             raise _fail(str(exc)) from exc
         with db.session() as session:
@@ -1106,6 +1113,23 @@ def env_log(ctx: typer.Context, slug: str, name: str) -> None:
     settings, _, envs, _variables = _environments(ctx, slug)
     env = _environment(envs, name)
     _print_text(_environment_manager(settings).view(slug, env).log_tail)
+
+
+@env_app.command("setup")
+def env_setup(ctx: typer.Context, slug: str) -> None:
+    """Run the project's setup command in your checkout (dependencies, built files), with its
+    databases on a throwaway branch: only approved cards change the data your checkout uses.
+    PRAT runs this itself when approved work reaches a checkout it cloned."""
+    from prat import infra
+
+    with _database(ctx) as (settings, db):
+        try:
+            problem = infra.set_up_person_checkout(settings, db, slug)
+        except LookupError as exc:
+            raise _fail(str(exc)) from exc
+    if problem is not None:
+        raise _fail(problem)
+    console.print(f"{slug}'s checkout is set up")
 
 
 @env_app.command("check")

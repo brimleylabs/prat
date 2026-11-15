@@ -402,6 +402,8 @@ class Engine:
         self._tasks: dict[int, asyncio.Task[RunResult]] = {}
         # Lessons being written in the background, so none is lost to the garbage collector.
         self._lessons: set[asyncio.Task[Any]] = set()
+        # Setups of the checkout approved work reached, likewise.
+        self._setups: set[asyncio.Task[Any]] = set()
         settings.ensure_dirs()
 
     # Queue -------------------------------------------------------------------
@@ -751,7 +753,44 @@ class Engine:
             actor=actor,
         ):
             versioning.tag(self.db, f"card-{card_id}-approved", message=f"git {commit}{data_note}")
+        if followed == "updated":
+            self._start_checkout_setup(project.slug, card_id)
         return MergeResult(card_id, branch, commit)
+
+    def _start_checkout_setup(self, slug: str, card_id: int) -> None:
+        """Set up the checkout the approved work just reached (its dependencies and built
+        files), in the background: it never holds up or undoes the approval. Without it the
+        person runs the setup by hand, against the default branch of the database."""
+        from prat.infra import set_up_person_checkout
+
+        async def set_up() -> None:
+            problem = await asyncio.to_thread(set_up_person_checkout, self.settings, self.db, slug)
+            with self.db.session() as session:
+                card = store.get_card(session, card_id)
+                store.record_event(
+                    session,
+                    "checkout.setup",
+                    project_id=card.project_id,
+                    card_id=card_id,
+                    data={"problem": problem},
+                )
+                if problem is not None:
+                    store.add_comment(
+                        session,
+                        card,
+                        f"The approved work is in the checkout, but its setup failed: {problem}",
+                        author=CommentAuthor.SYSTEM,
+                        kind="checkout_setup",
+                    )
+
+        task = asyncio.create_task(set_up(), name=f"prat-checkout-setup-{card_id}")
+        self._setups.add(task)
+        task.add_done_callback(self._setups.discard)
+
+    async def checkouts_set_up(self) -> None:
+        """Wait for checkout setups still running (used by commands that exit after approving)."""
+        if self._setups:
+            await asyncio.gather(*self._setups, return_exceptions=True)
 
     def rework(self, card_id: int, feedback: str | None = None) -> None:
         """Send a card back for another builder run on the same branch.

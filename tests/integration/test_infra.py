@@ -229,6 +229,15 @@ def test_a_passing_check_files_nothing(
     assert "Every environment works." in report.render()
 
 
+def test_the_checkout_is_set_up_in_place(
+    settings: Settings, db: Database, project_factory: Callable[..., Project]
+) -> None:
+    toml = project_file().replace("print('installed')", "open('set-up.txt', 'w').write('yes')")
+    project = cloned(project_factory, toml)
+    assert infra.set_up_person_checkout(settings, db, "game") is None
+    assert (Path(project.checkout_path) / "set-up.txt").read_text() == "yes"
+
+
 async def test_the_infra_card_fixes_the_project_file_and_prat_proves_it(
     settings: Settings, db: Database, game: Project
 ) -> None:

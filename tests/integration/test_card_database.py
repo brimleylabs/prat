@@ -176,28 +176,30 @@ async def test_an_infra_cards_checks_run_on_its_branch_not_the_default(
     assert price(provider(appdb).branch_url(card_id)) == 99
 
 
-def test_an_environment_check_never_writes_to_the_default_branch(
-    settings: Settings, db: Database, project_factory: Callable[..., Project], appdb: str
-) -> None:
-    """The check runs the setup command, whose seeders are not always safe to run twice; run
-    on the default branch, they leave rows that conflict with the next card's merge."""
-    reprice = (
-        "import os, sqlalchemy as s; "
-        "e = s.create_engine(os.environ['APP_DB_URL'], isolation_level='AUTOCOMMIT'); "
-        "c = e.connect(); c.execute(s.text('UPDATE products SET price = 99 WHERE id = 1')); "
-        "c.close()"
-    )
+# A setup command whose seeder is not safe to run twice: it changes a row every time.
+RESEED = (
+    "import os, sqlalchemy as s; "
+    "e = s.create_engine(os.environ['APP_DB_URL'], isolation_level='AUTOCOMMIT'); "
+    "c = e.connect(); c.execute(s.text('UPDATE products SET price = 99 WHERE id = 1')); "
+    "c.close()"
+)
+
+
+def setup_project(
+    project_factory: Callable[..., Project], setup: str, gates: str = '"setup", "test"'
+) -> Project:
+    """A project named game with this setup command and a web environment, cloned by PRAT."""
     toml = f"""
 name = "game"
 default_branch = "main"
 autonomy = "medium"
 {DB_TOML}
 [commands]
-setup = ['{PY}', '-c', "{reprice}"]
+setup = ['{PY}', '-c', "{setup}"]
 test = ['{PY}', '-c', "print('ok')"]
 
 [verify]
-gates = ["setup", "test"]
+gates = [{gates}]
 timeout_seconds = 60
 
 [[environment]]
@@ -210,10 +212,57 @@ ready_seconds = 20
     project = project_factory(name="game", project_toml=toml)
     checkout = Path(project.checkout_path)
     git(checkout.parent, "clone", "-q", str(checkout), project.agent_path)
+    return project
+
+
+def test_an_environment_check_never_writes_to_the_default_branch(
+    settings: Settings, db: Database, project_factory: Callable[..., Project], appdb: str
+) -> None:
+    """The check runs the setup command, whose seeders are not always safe to run twice; run
+    on the default branch, they leave rows that conflict with the next card's merge."""
+    setup_project(project_factory, RESEED)
     report = infra.run_check(settings, db, EnvironmentManager(settings.home), "game")
     assert report.passed, report.render()
     assert price(appdb) == 50
     assert not provider(appdb).exists(infra.CHECK_INSTANCE)
+
+
+async def test_approved_work_sets_up_the_checkout_without_touching_its_data(
+    settings: Settings, db: Database, project_factory: Callable[..., Project], appdb: str
+) -> None:
+    """The checkout needs its dependencies after approved work lands; the data it uses
+    already has the card's changes, so the setup must not write there again."""
+    project = setup_project(
+        project_factory, RESEED + "; open('set-up.txt', 'w').write('yes')", gates='"test"'
+    )
+    checkout = Path(project.checkout_path)
+    script = [
+        {"op": "write", "path": "pricing.py", "content": "MARKUP = 1.3\n"},
+        {"op": "finish"},
+    ]
+    engine, _ = make_engine(settings, db, script, projects_dir=checkout.parent)
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    assert result.card_status is CardStatus.REVIEW, result.reason
+    await engine.approve(card_id)
+    await engine.checkouts_set_up()
+    assert (checkout / "pricing.py").exists()
+    assert (checkout / "set-up.txt").read_text() == "yes"
+    assert price(appdb) == 50
+    assert not provider(appdb).exists(infra.CHECKOUT_INSTANCE)
+    with db.session() as session:
+        events = store.events_for_card(session, store.get_card(session, card_id))
+        (event,) = [e for e in events if e.kind == "checkout.setup"]
+    assert event.data == {"problem": None}
+
+
+def test_a_setup_that_keeps_the_throwaway_address_is_refused(
+    settings: Settings, db: Database, project_factory: Callable[..., Project], appdb: str
+) -> None:
+    keep = "import os; open('app.env', 'w').write(os.environ['APP_DB_URL'])"
+    setup_project(project_factory, keep)
+    problem = infra.set_up_person_checkout(settings, db, "game")
+    assert problem is not None and "app.env" in problem
 
 
 async def test_a_data_conflict_lands_nothing(

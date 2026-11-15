@@ -13,6 +13,9 @@ one is already open. Its agent is, with the setup agent, the only agent allowed 
 ``.prat/``: it diagnoses from the report, fixes the project file, the setup script or a small
 thing in the code that keeps an environment from running, and its verify step runs the gates and
 the whole environment check again. Nothing lands without the person's approval, like any card.
+
+The check, and the setup of the person's checkout (:func:`set_up_person_checkout`), each work
+on a throwaway branch of every project database: only approved cards change the default branch.
 """
 
 from __future__ import annotations
@@ -370,21 +373,96 @@ def _check(
     return report
 
 
-def check_databases(spec: Any, variables: dict[str, str]) -> list[DoltBranchProvider]:
+def check_databases(
+    spec: Any, variables: dict[str, str], instance: int = CHECK_INSTANCE
+) -> list[DoltBranchProvider]:
     """A fresh branch of each project database for a check: the setup command's migrations
     and seeders, and the app itself, write there and never to the default branch, which only
     approved cards change (a seeder run twice there conflicts with the next card's merge)."""
     databases = providers_for(list(spec.workspace.database), environ={**os.environ, **variables})
     for database in databases:
-        database.discard(CHECK_INSTANCE)  # left by a check that was killed
-        database.create(CHECK_INSTANCE)
+        database.discard(instance)  # left by a check that was killed
+        database.create(instance)
     return databases
 
 
-def _discard(databases: list[DoltBranchProvider]) -> None:
+def _discard(databases: list[DoltBranchProvider], instance: int = CHECK_INSTANCE) -> None:
     for database in databases:
         with contextlib.suppress(WorkspaceError, SQLAlchemyError):
-            database.discard(CHECK_INSTANCE)
+            database.discard(instance)
+
+
+# Setting up the person's checkout -------------------------------------------------------
+
+# The throwaway database branch the checkout's setup writes to; no card reaches this number.
+CHECKOUT_INSTANCE = 2_147_483_647
+# Folders a setup fills with other people's code, not searched for the throwaway address.
+_DEPENDENCY_DIRS = frozenset(
+    {".git", "node_modules", "vendor", ".venv", "venv", "__pycache__", ".pytest_cache"}
+)
+
+
+def set_up_person_checkout(
+    settings: Settings, db: Database, slug: str, *, stop: threading.Event | None = None
+) -> str | None:
+    """Run the project's setup command in the checkout its environments run from, after
+    approved work lands there or when the person asks (``prat env setup``). The default
+    branch of each database already holds the approved data, because a card's migrations and
+    seeders ran on its branch and merged with its code; the checkout needs setup for its
+    dependencies and built files only. So its databases point at a throwaway branch, removed
+    afterwards: a seeder run a second time on the default branch conflicts with the next
+    card's merge. Returns why it failed, or None (also when there is no setup command)."""
+    from prat.sandbox import environment_sandboxes
+
+    checkout, spec, problem = committed_spec(db, slug)
+    if problem is not None:
+        return problem
+    if spec.commands.get("setup") is None:
+        return None
+    if not checkout.is_dir():
+        return f"the checkout {checkout} does not exist"
+    variables = checkout_environment_variables(db, settings.home, slug)
+    try:
+        databases = check_databases(spec, variables, CHECKOUT_INSTANCE)
+    except (WorkspaceError, SQLAlchemyError) as exc:
+        return f"PRAT could not give the setup its own copy of the database: {exc}"
+    started = datetime.now(UTC).timestamp()
+    try:
+        for database in databases:
+            variables.update(database.agent_env(CHECKOUT_INSTANCE))
+        sandboxes = environment_sandboxes(settings)
+        sandbox = sandboxes(slug, CHECKOUT_INSTANCE, checkout, variables) if sandboxes else None
+        problem = set_up_checkout(spec, checkout, variables, sandbox=sandbox, stop=stop)
+    finally:
+        _discard(databases, CHECKOUT_INSTANCE)
+    if problem is None and databases:
+        problem = _kept_throwaway_address(checkout, started)
+    return problem
+
+
+def _kept_throwaway_address(checkout: Path, since: float) -> str | None:
+    """A file the setup wrote that holds the throwaway database's address: the app would
+    read a database that no longer exists. The setup must read the address from the
+    environment each time instead."""
+    marks = (f"card-{CHECKOUT_INSTANCE}".encode(), f"card_{CHECKOUT_INSTANCE}".encode())
+    for root, dirs, files in os.walk(checkout):
+        dirs[:] = [d for d in dirs if d not in _DEPENDENCY_DIRS]
+        for name in files:
+            path = Path(root) / name
+            try:
+                info = path.stat()
+                if info.st_mtime < since or info.st_size > 1_000_000:
+                    continue
+                data = path.read_bytes()
+            except OSError:
+                continue
+            if any(mark in data for mark in marks):
+                relative = path.relative_to(checkout).as_posix()
+                return (
+                    f"the setup command wrote the database address into {relative}; it must "
+                    "read it from the environment when the app starts"
+                )
+    return None
 
 
 def file_card(db: Database, slug: str, report: InfraReport) -> int:

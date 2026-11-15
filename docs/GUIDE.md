@@ -476,7 +476,16 @@ with the setup agent, the only agent allowed to write `.prat/`: it finds the cau
 project file, the setup script or a small thing in the code, and its run is proven by the gates
 and the whole environment check again before it reaches you for review. A later check with the
 card still open adds its report to that card instead of filing another. `--no-fix` checks
-without filing a card.
+without filing a card. The check's setup and environments use a throwaway branch of each project
+database, so nothing it runs writes to the data your checkout uses.
+
+**Setting up your checkout.** When approved work reaches a checkout PRAT cloned, PRAT runs the
+setup command there in the background, so new dependencies and built files are in place; a
+failure is posted on the card. `prat env setup <slug>` does the same on request. Either way the
+databases point at a throwaway branch: the default branch already holds the approved card's data,
+and a seeder run there a second time would conflict with the next card's merge. A setup that
+writes the database address into a file fails, because the app must read it from the
+environment.
 
 Machine-specific details (a port, a local host name, extra variables, different links) go in
 `$PRAT_HOME/environments/<slug>.toml`, not in the committed file:
@@ -492,7 +501,7 @@ url = "http://shop.test:{port}"
 ```
 
 From a terminal: `prat env list <slug>`, `prat env start <slug> <name>`, `prat env stop <slug>
-<name>`, `prat env log <slug> <name>`, `prat env check <slug>`. Environments run the project's code with your user's
+<name>`, `prat env log <slug> <name>`, `prat env setup <slug>`, `prat env check <slug>`. Environments run the project's code with your user's
 rights, like its gates; PRAT's own settings and keys are not passed to them.
 
 A project whose repository should not carry environments can have them on this machine only:
