@@ -19,9 +19,10 @@ only reads, except for approve, which merges exactly as ``prat card approve`` do
 from __future__ import annotations
 
 import asyncio
+import time
 import webbrowser
 from datetime import UTC, datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from rich.console import Group, RenderableType
 from rich.table import Table
@@ -30,20 +31,38 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Grid, Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Footer, Static
+from textual.widgets import Button, Footer, Input, OptionList, Static
 
+from prat import crew, governor, skills
+from prat import mission_screens as screens
 from prat.config import Settings
 from prat.db import Database
 from prat.mission import (
     Flight,
     Leg,
     MissionData,
+    RemoteDeck,
     Snapshot,
     Waiting,
+    fetch_remote,
     sparkline,
 )
 
 REFRESH_SECONDS = 2.0
+SLOW_SECONDS = 15.0
+VIEWS = ("crew", "jobs", "epics", "machine", "skills", "usage")
+VIEW_CSS = " ".join(
+    f"Screen.view-{v} #grid {{ display: none; }} Screen.view-{v} #view-{v} {{ display: block; }}"
+    for v in VIEWS
+)
+VIEW_TITLES = {
+    "crew": "crew · who is working, what they remember, how they feel",
+    "jobs": "jobs · long-running work",
+    "epics": "epics · features in parts",
+    "machine": "machine · what PRAT is running on this computer",
+    "skills": "skills · what the crew carries and whether it helps",
+    "usage": "usage · models and prompt cache",
+}
 
 # PRAT's dark theme (web/static/app.css): navy, with amber for what is moving.
 ACCENT = "#f6b73c"
@@ -106,12 +125,20 @@ def flight_block(
     head.append(f"{flight.project}  ", style=MUTED)
     head.append(flight.title, style=TEXT)
     if flight.queued:
-        head.append("   waiting for a slot", style=FAINT)
+        if flight.hold:
+            head.append(f"   held: {flight.hold}", style=WARN)
+        else:
+            head.append("   waiting for a slot", style=FAINT)
         if flight.status == "rework":
             head.append(" (rework)", style=WARN)
         return head
     elapsed = (now - flight.since).total_seconds() if flight.since else None
-    meta = f"   try {flight.attempt} · {clock(elapsed)}"
+    live = flight.live
+    lead = live.get("lead") if isinstance(live.get("lead"), dict) else {}
+    if lead:
+        head.append(f"   {lead.get('name')}", style=f"bold {lead.get('color') or MUTED}")
+    model = str(live.get("model") or "").replace("claude-", "")
+    meta = (f" · {model}" if model else "") + f" · try {flight.attempt} · {clock(elapsed)}"
     head.append(meta, style=FAINT)
     if flight.denials:
         head.append(f" · ⛨ {flight.denials}", style=BAD)
@@ -120,6 +147,37 @@ def flight_block(
     rail = Text("   ")
     rail.append_text(route_text(flight.route))
     lines: list[RenderableType] = [head, rail]
+    gauges = Text("   ")
+    tasks = flight.tasks
+    if tasks:
+        done = sum(1 for t in tasks if t.get("status") == "completed")
+        gauges.append("tasks ", style=FAINT)
+        gauges.append_text(screens.bar(done / len(tasks), 10, OK))
+        gauges.append(f" {done}/{len(tasks)}  ", style=TEXT)
+        current = next((t for t in tasks if t.get("status") == "in_progress"), None)
+        if current:
+            gauges.append(f"now: {current.get('subject')}  ", style=MUTED)
+    share = flight.context_share
+    if share is not None:
+        gauges.append("memory ", style=FAINT)
+        gauges.append_text(screens.bar(share, 8, WARN if share > 0.8 else ACCENT))
+        gauges.append(f" {share:.0%}  ", style=TEXT)
+        if live.get("compactions"):
+            gauges.append(f"compacted {live['compactions']}x  ", style=WARN)
+    running = [h for h in live.get("helpers") or [] if h.get("state") == "running"]
+    if running:
+        gauges.append(
+            "helpers: " + ", ".join(str(h.get("name")) for h in running) + "  ", style=ACCENT
+        )
+    progress = live.get("progress")
+    if isinstance(progress, dict) and progress.get("total"):
+        gauges.append(f"{progress.get('phase') or 'progress'} ", style=FAINT)
+        gauges.append_text(screens.bar(float(progress["done"]) / float(progress["total"]), 8))
+        gauges.append(f" {progress['done']:.0f}/{progress['total']:.0f}  ", style=TEXT)
+    if gauges.plain.strip():
+        gauges.no_wrap = True
+        gauges.overflow = "ellipsis"
+        lines.append(gauges)
     for item in flight.activity[-4:]:
         mark, colour = CATEGORY_MARK.get(item.category, ("·", MUTED))
         line = Text(f"   {mark} ", style=colour)
@@ -169,15 +227,16 @@ class Confirm(ModalScreen[bool]):
         Binding("n,escape", "answer(False)", "no"),
     ]
 
-    def __init__(self, question: str) -> None:
+    def __init__(self, question: str, yes: str = "Approve (y)") -> None:
         super().__init__()
         self.question = question
+        self.yes = yes
 
     def compose(self) -> ComposeResult:
         with Vertical(id="confirm"):
             yield Static(self.question, id="question")
             with Horizontal(id="answers"):
-                yield Button("Approve (y)", id="yes", variant="warning")
+                yield Button(self.yes, id="yes", variant="warning")
                 yield Button("Cancel (n)", id="no")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -219,16 +278,39 @@ class MissionControl(App[None]):
     }}
     #answers {{ height: auto; margin-top: 1; }}
     #answers Button {{ margin-right: 2; }}
+    #alerts {{ height: auto; max-height: 3; padding: 0 1; display: none; }}
+    Screen.alerting #alerts {{ display: block; }}
+    .view {{ display: none; height: 1fr; margin: 0 1; }}
+    {VIEW_CSS}
+    Ask, Pick {{ align: center middle; background: rgba(10, 16, 34, 0.7); }}
+    #ask, #pick {{
+        width: 76; height: auto; max-height: 24; padding: 1 2;
+        border: round {ACCENT}; background: #101930;
+    }}
     """
     BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("1", "view('deck')", "deck"),
+        Binding("2", "view('crew')", "crew"),
+        Binding("3", "view('jobs')", "jobs"),
+        Binding("4", "view('epics')", "epics"),
+        Binding("5", "view('machine')", "machine"),
+        Binding("6", "view('skills')", "skills"),
+        Binding("7", "view('usage')", "usage"),
         Binding("j,down", "move(1)", "next", show=False),
         Binding("k,up", "move(-1)", "previous", show=False),
-        Binding("enter", "follow", "follow"),
+        Binding("enter", "follow", "follow", show=False),
         Binding("escape", "unfollow", "back", show=False),
         Binding("a", "approve", "approve"),
-        Binding("o", "open", "open in web"),
-        Binding("c", "client", "client"),
-        Binding("r", "refresh", "refresh", show=False),
+        Binding("r", "letter('r')", "rework / answer"),
+        Binding("s", "letter('s')", "start job", show=False),
+        Binding("x", "letter('x')", "stop job", show=False),
+        Binding("l", "letter('l')", "land", show=False),
+        Binding("d", "letter('d')", "discard", show=False),
+        Binding("p", "letter('p')", "promote", show=False),
+        Binding("e", "restart_environment", "restart env", show=False),
+        Binding("o", "open", "open in web", show=False),
+        Binding("c", "client", "client", show=False),
+        Binding("f5", "refresh", "refresh", show=False),
         Binding("q", "quit", "quit"),
     ]
 
@@ -242,15 +324,30 @@ class MissionControl(App[None]):
         self.selected: int | None = None
         self.following: int | None = None
         self._loading = False
+        self.view = "deck"
+        # Selection within the jobs and skills screens.
+        self.cursor: dict[str, int] = {"jobs": 0, "skills": 0}
+        self.remotes: list[RemoteDeck] = []
+        self.machine: Any = None
+        self.groups: list[tuple[str, list[Any]]] = []
+        self.verdict = ""
+        self.skill_rows: list[tuple[str, list[tuple[str, str, str, int, float | None, str]]]] = []
+        self.skill_candidates: list[tuple[str, str, str]] = []
+        self._slow_at = 0.0
 
     def compose(self) -> ComposeResult:
         yield Static(id="top")
+        yield Static(id="alerts")
         with Grid(id="grid"):
             yield Panel("in flight", id="flights")
             yield Panel("needs you", id="waiting")
             yield Panel("fleet", id="fleet")
             yield Panel("guardrails · refused in the last day", id="guards")
         yield Panel("following", id="focus")
+        for view in VIEWS:
+            panel = Panel(VIEW_TITLES[view], id=f"view-{view}")
+            panel.add_class("view")
+            yield panel
         yield Panel("pulse", id="pulse")
         yield Footer()
 
@@ -272,7 +369,57 @@ class MissionControl(App[None]):
         except Exception as exc:  # keep drawing; say what went wrong
             self.call_from_thread(self._failed, exc)
             return
+        try:
+            self._load_slow(snapshot)
+        except Exception as exc:
+            self.call_from_thread(
+                self.notify, f"could not read everything: {exc}", severity="warning"
+            )
         self.call_from_thread(self._show, snapshot)
+
+    def _load_slow(self, snapshot: Snapshot) -> None:
+        """The machine, other installations, skills: read less often than the deck."""
+        self.machine = governor.machine(
+            processes=True, root=governor.server_pid(self.settings.home)
+        )
+        self.groups = group_processes(self.machine.processes, self.settings)
+        self.verdict = governor.Governor(self.settings, self.db).headroom()
+        now = time.monotonic()
+        if now - self._slow_at < SLOW_SECONDS:
+            return
+        self._slow_at = now
+        self.remotes = [fetch_remote(remote) for remote in self.settings.remotes]
+        rows = []
+        candidates: list[tuple[str, str, str]] = []
+        for line in snapshot.projects:
+            cards = skills.scorecards(self.db, self.settings.home, line.slug)
+            used = sorted(
+                (c for c in cards.values() if c.loads or c.tier == "project"),
+                key=lambda c: c.loads,
+                reverse=True,
+            )
+            if used:
+                rows.append(
+                    (
+                        line.slug,
+                        [
+                            (
+                                c.name,
+                                c.tier,
+                                crew.skill_phase(self.settings.home, line.slug, c.name),
+                                c.loads,
+                                c.first_review_rate,
+                                c.advice,
+                            )
+                            for c in used
+                        ],
+                    )
+                )
+            candidates += [
+                (line.slug, c.name, c.description)
+                for c in skills.candidates(self.settings.home, line.slug)
+            ]
+        self.skill_rows, self.skill_candidates = rows, candidates
 
     def _failed(self, exc: Exception) -> None:
         self._loading = False
@@ -301,13 +448,43 @@ class MissionControl(App[None]):
             return
         now = datetime.now(UTC)
         self.query_one("#top", Static).update(self._top(snap, now))
-        self.query_one("#flights", Panel).update(self._flights(snap, now))
-        self.query_one("#waiting", Panel).update(self._waiting(snap))
-        self.query_one("#fleet", Panel).update(self._fleet(snap))
-        self.query_one("#guards", Panel).update(self._guards(snap))
+        alerts = list(snap.alerts) + [
+            f"{deck.name}: {alert}" for deck in self.remotes for alert in deck.alerts
+        ]
+        self.screen.set_class(bool(alerts), "alerting")
+        if alerts:
+            text = Text()
+            for alert in alerts[:3]:
+                text.append("▲ ", style=f"bold {WARN}")
+                shown = alert if len(alert) <= 150 else alert[:150] + "..."
+                text.append(shown + "\n", style=WARN)
+            if len(alerts) > 3:
+                text.append(f"  and {len(alerts) - 3} more", style=FAINT)
+            self.query_one("#alerts", Static).update(text)
         self.query_one("#pulse", Panel).update(self._pulse(snap))
-        if self.following is not None:
-            self.query_one("#focus", Panel).update(self._focus(snap, now))
+        if self.view == "deck":
+            self.query_one("#flights", Panel).update(self._flights(snap, now))
+            self.query_one("#waiting", Panel).update(self._waiting(snap))
+            self.query_one("#fleet", Panel).update(self._fleet(snap))
+            self.query_one("#guards", Panel).update(self._guards(snap))
+            if self.following is not None:
+                self.query_one("#focus", Panel).update(self._focus(snap, now))
+            return
+        panel = self.query_one(f"#view-{self.view}", Panel)
+        if self.view == "crew":
+            panel.update(screens.crew_screen(snap))
+        elif self.view == "jobs":
+            panel.update(screens.jobs_screen(snap, self.cursor["jobs"]))
+        elif self.view == "epics":
+            panel.update(screens.epics_screen(snap))
+        elif self.view == "machine" and self.machine is not None:
+            panel.update(screens.machine_screen(snap, self.machine, self.groups, self.verdict))
+        elif self.view == "skills":
+            panel.update(
+                screens.skills_screen(self.skill_rows, self.skill_candidates, self.cursor["skills"])
+            )
+        elif self.view == "usage":
+            panel.update(screens.usage_screen(snap))
 
     def _top(self, snap: Snapshot, now: datetime) -> Text:
         text = Text()
@@ -349,12 +526,27 @@ class MissionControl(App[None]):
                 if item.databases:
                     line.append("  ⛁ with data", style=MUTED)
                 parts.append(line)
+        for deck in self.remotes:
+            parts.append(Text(f"\non {deck.name}", style=f"bold {MUTED}"))
+            if deck.error:
+                parts.append(Text(f"  not reachable: {deck.error}", style=WARN))
+            for flight in deck.flights:
+                parts.append(flight_block(flight, now, selected=False))
+            if not deck.error and not deck.flights:
+                parts.append(Text("  nothing in flight", style=FAINT))
         return Group(*parts)
 
     def _waiting(self, snap: Snapshot) -> RenderableType:
-        if not snap.waiting:
-            return Text("Nothing is waiting on you.", style=FAINT)
-        return Group(*(waiting_block(w, selected=w.card_id == self.selected) for w in snap.waiting))
+        parts: list[RenderableType] = [
+            waiting_block(w, selected=w.card_id == self.selected) for w in snap.waiting
+        ]
+        if not parts:
+            parts.append(Text("Nothing is waiting on you.", style=FAINT))
+        for deck in self.remotes:
+            if deck.waiting:
+                parts.append(Text(f"on {deck.name}", style=f"bold {MUTED}"))
+                parts.extend(waiting_block(w, selected=False) for w in deck.waiting)
+        return Group(*parts)
 
     def _fleet(self, snap: Snapshot) -> RenderableType:
         table = Table.grid(padding=(0, 2), expand=True)
@@ -440,7 +632,26 @@ class MissionControl(App[None]):
 
     # Actions ---------------------------------------------------------------------------
 
+    def action_view(self, view: str) -> None:
+        for name in VIEWS:
+            self.screen.remove_class(f"view-{name}")
+        if view != "deck":
+            self.screen.add_class(f"view-{view}")
+            self.action_unfollow()
+        self.view = view
+        self._draw()
+
     def action_move(self, step: int) -> None:
+        if self.view in self.cursor:
+            count = (
+                len(self.snapshot.jobs)
+                if self.view == "jobs" and self.snapshot
+                else len(self.skill_candidates)
+            )
+            if count:
+                self.cursor[self.view] = (self.cursor[self.view] + step) % count
+            self._draw()
+            return
         order = self._order()
         if not order:
             return
@@ -497,6 +708,12 @@ class MissionControl(App[None]):
         self.push_screen(Confirm(question), answered)
 
     async def _approve(self, card_id: int) -> None:
+        """Through the server when it runs (its engine starts the parts of an approved epic
+        and sets up the checkout), else here, as ``prat card approve`` does."""
+        sent = await asyncio.to_thread(self._post, "approve", {"card_id": card_id})
+        if sent is not None:
+            self._report(sent)
+            return
         from prat.engine import ApproveError, Engine
         from prat.git import GitError
         from prat.runtime import FakeRuntime
@@ -510,6 +727,218 @@ class MissionControl(App[None]):
         self.notify(f"#{card_id} merged as {merged.commit[:10]}", timeout=6)
         self.action_refresh()
         await asyncio.shield(engine.checkouts_set_up())
+
+    # Acting through the server ------------------------------------------------------------
+
+    def _post(self, action: str, body: dict[str, Any]) -> tuple[bool, str] | None:
+        """POST an action to this installation's server; None when it is not running."""
+        import httpx
+
+        from prat.web.tokens import read_access_token
+
+        token = read_access_token(self.settings)
+        if not token:
+            return None
+        host = self.settings.web_host
+        shown = f"[{host}]" if ":" in host else host
+        url = f"http://{shown}:{self.settings.web_port}/api/act/{action}"
+        try:
+            response = httpx.post(
+                url, json=body, headers={"Authorization": f"Bearer {token}"}, timeout=60
+            )
+        except httpx.HTTPError:
+            return None
+        try:
+            data = response.json()
+        except ValueError:
+            return (False, f"the server answered {response.status_code}")
+        if response.status_code == 200:
+            return (True, str(data.get("message") or "done"))
+        return (False, str(data.get("error") or response.status_code))
+
+    def _report(self, sent: tuple[bool, str] | None) -> None:
+        if sent is None:
+            self.notify(
+                "PRAT's server is not running here: start it with prat serve.", severity="error"
+            )
+            return
+        ok, message = sent
+        self.notify(message, severity="information" if ok else "error", timeout=8)
+        self.action_refresh()
+
+    def _act(self, action: str, body: dict[str, Any]) -> None:
+        async def go() -> None:
+            self._report(await asyncio.to_thread(self._post, action, body))
+
+        self.run_worker(go(), exclusive=False, group="act")
+
+    def action_letter(self, letter: str) -> None:
+        if self.view == "jobs":
+            self._job_key(letter)
+        elif self.view == "skills":
+            self._skill_key(letter)
+        elif letter == "r":
+            self._rework()
+
+    def _rework(self) -> None:
+        snap = self.snapshot
+        item = snap.card(self.selected) if snap and self.selected is not None else None
+        if not isinstance(item, Waiting):
+            self.notify("Choose a card that needs you (j/k).", severity="warning")
+            return
+        if item.status == "blocked":
+            question = f"#{item.card_id} asks:\n{item.detail}\n\nYour answer:"
+        else:
+            question = f"Send #{item.card_id} {item.title} back. What should change?"
+
+        def answered(text: str | None) -> None:
+            if text:
+                self._act("rework", {"card_id": item.card_id, "feedback": text})
+
+        self.push_screen(Ask(question), answered)
+
+    def _job_key(self, letter: str) -> None:
+        snap = self.snapshot
+        if snap is None:
+            return
+        if letter == "s":
+            choices = [
+                (f"{slug}: {name}", (slug, name))
+                for slug, names in snap.declared_jobs.items()
+                for name in names
+            ]
+            if not choices:
+                self.notify("No project declares a [[job]].", severity="warning")
+                return
+
+            def chosen(value: Any) -> None:
+                if value:
+                    self._act("job-start", {"project": value[0], "name": value[1]})
+
+            self.push_screen(Pick("Start which job?", choices), chosen)
+            return
+        if not snap.jobs:
+            return
+        job = snap.jobs[min(self.cursor["jobs"], len(snap.jobs) - 1)]
+        action = {"x": "job-stop", "l": "job-land", "d": "job-discard"}.get(letter)
+        if action is None:
+            return
+        verb = {
+            "job-stop": "Stop",
+            "job-land": "Land the data of",
+            "job-discard": "Discard the data of",
+        }[action]
+
+        def confirmed(yes: bool | None) -> None:
+            if yes:
+                self._act(action, {"run_id": job.run_id})
+
+        self.push_screen(
+            Confirm(f"{verb} job run {job.run_id} ({job.title})?", "Yes (y)"), confirmed
+        )
+
+    def _skill_key(self, letter: str) -> None:
+        if letter not in ("p", "r") or not self.skill_candidates:
+            return
+        slug, name, _description = self.skill_candidates[
+            min(self.cursor["skills"], len(self.skill_candidates) - 1)
+        ]
+        try:
+            if letter == "p":
+                skills.promote(self.settings.home, slug, name)
+                self.notify(f"{name} promoted: {slug}'s agents carry it from their next run")
+            else:
+                skills.reject(self.settings.home, slug, name)
+                self.notify(f"{name} rejected")
+        except skills.SkillError as exc:
+            self.notify(str(exc), severity="error")
+        self._slow_at = 0.0
+        self.action_refresh()
+
+    def action_restart_environment(self) -> None:
+        snap = self.snapshot
+        if snap is None:
+            return
+        choices = [
+            (f"{line.slug}: {env.name} ({env.state})", (line.slug, env.name))
+            for line in snap.projects
+            for env in line.environments
+        ]
+        if not choices:
+            return
+
+        def chosen(value: Any) -> None:
+            if value:
+                self._act("env-restart", {"project": value[0], "name": value[1]})
+
+        self.push_screen(Pick("Restart which environment?", choices), chosen)
+
+
+class Ask(ModalScreen[str | None]):
+    """A question with a line of text for the answer."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", "cancel")]
+
+    def __init__(self, question: str) -> None:
+        super().__init__()
+        self.question = question
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="ask"):
+            yield Static(self.question)
+            yield Input(placeholder="type and press enter; esc cancels", id="answer")
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value.strip() or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class Pick(ModalScreen[Any]):
+    """Choose one of a few things."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", "cancel")]
+
+    def __init__(self, question: str, choices: list[tuple[str, Any]]) -> None:
+        super().__init__()
+        self.question = question
+        self.choices = choices
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="pick"):
+            yield Static(self.question)
+            yield OptionList(*(label for label, _value in self.choices), id="options")
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        self.dismiss(self.choices[event.option_index][1])
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+def group_processes(processes: list[Any], settings: Settings) -> list[tuple[str, list[Any]]]:
+    """PRAT's processes grouped by what they are for: each card's worktree, the agents
+    themselves, jobs, the person's checkouts."""
+    worktrees = str(settings.worktrees_dir).lower()
+    jobs_root = str(settings.home / "jobs").lower()
+    groups: dict[str, list[Any]] = {}
+    for process in processes:
+        cwd = (process.cwd or "").lower().replace("\\", "/")
+        name = process.name.lower()
+        if cwd.startswith(worktrees.replace("\\", "/")):
+            folder = cwd[len(worktrees) :].strip("/").split("/")[0]
+            label = f"card worktree {folder}"
+        elif cwd.startswith(jobs_root.replace("\\", "/")) or "jobrunner" in name:
+            label = "jobs"
+        elif "claude" in name:
+            label = "agents (Claude Code)"
+        elif cwd:
+            label = f"in {cwd.rstrip('/').split('/')[-1]}"
+        else:
+            label = name
+        groups.setdefault(label, []).append(process)
+    return sorted(groups.items(), key=lambda kv: -sum(p.memory_mb for p in kv[1]))
 
 
 def run(settings: Settings, db: Database, client: str | None = None) -> None:

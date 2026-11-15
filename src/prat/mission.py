@@ -11,6 +11,8 @@ app's health URL, are refreshed less often than the rest.
 
 from __future__ import annotations
 
+import logging
+import socket
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -26,6 +28,8 @@ from prat.db import Card, Comment, Database, Event, Run
 from prat.domain import STEP_ORDER, CardStatus, RunStatus, StepName, StepStatus
 from prat.journal import read_first_and_last, read_journal
 from prat.web import views
+
+log = logging.getLogger(__name__)
 
 # A card's route, in PRAT's own words (README: prepare, build, verify, review, ...).
 STEP_LABELS: Mapping[StepName, str] = {
@@ -44,6 +48,9 @@ GUARD_RUNS = 20
 GUARD_LIMIT = 40
 ENVIRONMENT_SECONDS = 10.0
 LANDED_LIMIT = 6
+# The crew's records and the declared jobs change slowly; read them this often.
+SLOW_SECONDS = 15.0
+_ROLE_OF = {"critic": "reviewer", "planner": "planner", "security_reviewer": "security reviewer"}
 # Waiting on the person, most urgent first: an agent's question, then work to approve.
 WAITING_ORDER = (CardStatus.BLOCKED, CardStatus.REVIEW, CardStatus.FAILED)
 
@@ -80,10 +87,32 @@ class Flight:
     since: datetime | None
     denials: int
     activity: list[Activity] = field(default_factory=list)
+    # What the run's telemetry says the lead is doing (prat.engine.telemetry): its name, model,
+    # task list, context fill, helpers, skills, last thought, reported progress.
+    live: dict[str, Any] = field(default_factory=dict)
+    # Why the governor holds it back, while it waits.
+    hold: str | None = None
+    parent_id: int | None = None
 
     @property
     def step(self) -> str | None:
         return next((leg.name for leg in self.route if leg.state == "running"), None)
+
+    @property
+    def lead(self) -> str:
+        lead = self.live.get("lead")
+        return str(lead.get("name")) if isinstance(lead, dict) else ""
+
+    @property
+    def tasks(self) -> list[dict[str, str]]:
+        return [t for t in self.live.get("tasks") or [] if isinstance(t, dict)]
+
+    @property
+    def context_share(self) -> float | None:
+        context = self.live.get("context")
+        if not isinstance(context, dict) or not context.get("window"):
+            return None
+        return min(float(context.get("tokens") or 0) / float(context["window"]), 1.0)
 
 
 @dataclass
@@ -156,6 +185,37 @@ class Landing:
 
 
 @dataclass
+class CrewMember:
+    """An agent with a memory: its record, its mood, what it is doing now."""
+
+    agent: str
+    who: str
+    color: str
+    episodes: int
+    beliefs: int
+    landed: int
+    reworked: int
+    mood: float
+    working_on: list[int] = field(default_factory=list)
+    last: str = ""
+
+
+@dataclass
+class UsageRow:
+    model: str
+    input: float
+    output: float
+    cache_read: float
+    cache_write: float
+    usd: float
+
+    @property
+    def cache_share(self) -> float | None:
+        total = self.input + self.cache_read + self.cache_write
+        return self.cache_read / total if total else None
+
+
+@dataclass
 class Snapshot:
     taken_at: datetime
     client: str | None
@@ -166,6 +226,15 @@ class Snapshot:
     projects: list[ProjectLine]
     pulse: Pulse
     landed: list[Landing] = field(default_factory=list)
+    machine: str = ""
+    crew: list[CrewMember] = field(default_factory=list)
+    jobs: list[Any] = field(default_factory=list)  # prat.jobs.JobState
+    declared_jobs: dict[str, list[str]] = field(default_factory=dict)
+    epics: list[Any] = field(default_factory=list)  # prat.epics.EpicView
+    usage: list[UsageRow] = field(default_factory=list)
+    usage_by_role: dict[str, float] = field(default_factory=dict)
+    alerts: list[str] = field(default_factory=list)
+    review_waits: list[float] = field(default_factory=list)  # hours each review card has waited
 
     @property
     def running(self) -> int:
@@ -212,6 +281,8 @@ class MissionData:
         # Journal path -> (size, mtime, refusals in it).
         self._journals: dict[str, tuple[int, float, list[Refusal]]] = {}
         self._environments: dict[str, tuple[float, ProjectLine]] = {}
+        self._crew_cache: tuple[float, list[CrewMember]] | None = None
+        self._declared: tuple[float, dict[str, list[str]]] | None = None
 
     # Snapshot ---------------------------------------------------------------------------
 
@@ -264,8 +335,128 @@ class MissionData:
                 for p in projects
             ]
             pulse = self._pulse(session, project_ids if chosen else None, moment)
+            usage, by_role = self._usage(session, project_ids if chosen else None, moment)
+            review_waits = [
+                max((moment - (views.utc(c.updated_at) or moment)).total_seconds() / 3600, 0.0)
+                for c in cards
+                if c.status == CardStatus.REVIEW
+            ]
+            slugs = {p.slug for p in projects}
         lines = [self._project(*row) for row in project_rows]
-        return Snapshot(moment, client, clients, flights, waiting, refusals, lines, pulse, landed)
+        snap = Snapshot(moment, client, clients, flights, waiting, refusals, lines, pulse, landed)
+        snap.machine = socket.gethostname()
+        snap.usage, snap.usage_by_role, snap.review_waits = usage, by_role, review_waits
+        snap.crew = self._crew(flights)
+        snap.jobs, snap.declared_jobs = self._jobs(project_ids if chosen else None, slugs)
+        from prat import epics
+
+        snap.epics = epics.views(self.db, project_ids if chosen else None)
+        from prat import alerts
+
+        snap.alerts = alerts.from_snapshot(snap, self.settings)
+        return snap
+
+    # The crew, jobs, usage ------------------------------------------------------------------
+
+    def _crew(self, flights: list[Flight]) -> list[CrewMember]:
+        from prat import crew, memory
+
+        now = time.monotonic()
+        if self._crew_cache is not None and now - self._crew_cache[0] < SLOW_SECONDS:
+            members = self._crew_cache[1]
+        else:
+            leads = {m.name.lower(): m for m in crew.MEMBERS.values()}
+            members = []
+            for agent in memory.all_agents(self.settings.home):
+                store_ = memory.AgentMemory(self.settings.home, agent)
+                stats = store_.stats()
+                episodes = store_.episodes()
+                lead = leads.get(agent)
+                members.append(
+                    CrewMember(
+                        agent=agent,
+                        who=f"lead, {lead.stack}" if lead else _ROLE_OF.get(agent, "helper"),
+                        color=lead.color if lead else "",
+                        episodes=stats["episodes"],
+                        beliefs=stats["beliefs"],
+                        landed=stats["outcomes"].get("landed", 0),
+                        reworked=stats["outcomes"].get("reworked", 0),
+                        mood=stats["mood"],
+                        last=episodes[-1].title if episodes else "",
+                    )
+                )
+            self._crew_cache = (now, members)
+        for member in members:
+            member.working_on = [
+                f.card_id
+                for f in flights
+                if not f.queued
+                and (
+                    f.lead.lower() == member.agent
+                    or any(
+                        h.get("name") == member.agent and h.get("state") == "running"
+                        for h in f.live.get("helpers") or []
+                    )
+                )
+            ]
+        return members
+
+    def _jobs(
+        self, project_ids: set[int] | None, slugs: set[str]
+    ) -> tuple[list[Any], dict[str, list[str]]]:
+        from prat import jobs
+        from prat.environments import committed_spec
+
+        try:
+            states = jobs.states(self.db, limit=20, project_ids=project_ids)
+        except Exception:
+            log.exception("could not read the jobs")
+            states = []
+        now = time.monotonic()
+        if self._declared is None or now - self._declared[0] >= SLOW_SECONDS:
+            declared: dict[str, list[str]] = {}
+            for slug in sorted(slugs):
+                try:
+                    spec = committed_spec(self.db, slug)[1]
+                except LookupError:
+                    continue
+                if spec.job:
+                    declared[slug] = [j.name for j in spec.job]
+            self._declared = (now, declared)
+        return states, {k: v for k, v in self._declared[1].items() if k in slugs}
+
+    def _usage(
+        self, session: Any, project_ids: set[int] | None, now: datetime
+    ) -> tuple[list[UsageRow], dict[str, float]]:
+        """The last day's usage by model, and by kind of work (role)."""
+        from prat.usage import merge
+
+        since = (now - timedelta(hours=24)).replace(tzinfo=None)
+        runs = list(
+            session.scalars(select(Run).where(Run.created_at >= since, Run.usage.is_not(None)))
+        )
+        if project_ids is not None:
+            runs = [r for r in runs if r.card.project_id in project_ids]
+        roles: dict[str, float] = {}
+        usages = []
+        for run in runs:
+            for role, data in ((run.usage or {}).get("roles") or {}).items():
+                usages.append(data)
+                spent = sum(float(v.get("usd") or 0) for v in (data.get("models") or {}).values())
+                roles[str(role)] = roles.get(str(role), 0.0) + spent
+        rows = [
+            UsageRow(
+                model,
+                row["input"],
+                row["output"],
+                row["cache_read"],
+                row["cache_write"],
+                row["usd"],
+            )
+            for model, row in merge(usages).items()
+        ]
+        rows.sort(key=lambda r: r.usd, reverse=True)
+        return rows, roles
 
     def _landed(self, session: Any, project_ids: set[int] | None) -> list[Landing]:
         query = select(Event).where(Event.kind == "card.merged").order_by(Event.id.desc())
@@ -316,6 +507,9 @@ class MissionData:
             since=views.utc(run.started_at) if live and run is not None else None,
             denials=denials,
             activity=activity,
+            live=dict(run.live or {}) if live and run is not None else {},
+            hold=card.hold_reason,
+            parent_id=card.parent_id,
         )
 
     def _waiting(self, card: Card, run: Run | None) -> Waiting:
@@ -512,3 +706,108 @@ def sparkline(values: Sequence[float]) -> str:
     if top <= 0:
         return "▁" * len(values)
     return "".join(bars[max(1, round(8 * v / top))] if v > 0 else "▁" for v in values)
+
+
+# Snapshots between machines ----------------------------------------------------------------
+
+
+def to_json(snap: Snapshot) -> dict[str, Any]:
+    """A snapshot as JSON-ready data, for another PRAT's mission control (/api/mission)."""
+    from dataclasses import asdict
+
+    def clean(value: Any) -> Any:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {str(k): clean(v) for k, v in value.items()}
+        if isinstance(value, list | tuple):
+            return [clean(v) for v in value]
+        return value
+
+    data = clean(asdict(snap))
+    data["jobs"] = [
+        {
+            "run_id": j.run_id,
+            "slug": j.slug,
+            "name": j.name,
+            "status": j.status,
+            "stalled": j.stalled,
+        }
+        for j in snap.jobs
+    ]
+    data["epics"] = []
+    return dict(data)
+
+
+def _when(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+@dataclass
+class RemoteDeck:
+    """Another machine's PRAT, as its mission control reported it."""
+
+    name: str
+    flights: list[Flight] = field(default_factory=list)
+    waiting: list[Waiting] = field(default_factory=list)
+    alerts: list[str] = field(default_factory=list)
+    error: str = ""
+
+
+def remote_deck(name: str, data: dict[str, Any]) -> RemoteDeck:
+    deck = RemoteDeck(name, alerts=[str(a) for a in data.get("alerts") or []])
+    for item in data.get("flights") or []:
+        deck.flights.append(
+            Flight(
+                card_id=int(item["card_id"]),
+                title=str(item["title"]),
+                project=str(item["project"]),
+                status=str(item["status"]),
+                queued=bool(item["queued"]),
+                attempt=int(item.get("attempt") or 0),
+                route=[
+                    Leg(str(r["name"]), str(r["state"]), r.get("seconds"))
+                    for r in item.get("route") or []
+                ],
+                since=_when(item.get("since")),
+                denials=int(item.get("denials") or 0),
+                live=dict(item.get("live") or {}),
+                hold=item.get("hold"),
+            )
+        )
+    for item in data.get("waiting") or []:
+        deck.waiting.append(
+            Waiting(
+                card_id=int(item["card_id"]),
+                title=str(item["title"]),
+                project=str(item["project"]),
+                status=str(item["status"]),
+                detail=str(item.get("detail") or ""),
+                verdict=item.get("verdict"),
+                gates_passed=int(item.get("gates_passed") or 0),
+                gates_total=int(item.get("gates_total") or 0),
+                tables_changed=int(item.get("tables_changed") or 0),
+                lesson=bool(item.get("lesson")),
+            )
+        )
+    return deck
+
+
+def fetch_remote(remote: dict[str, str], timeout: float = 5.0) -> RemoteDeck:
+    import httpx
+
+    name = remote.get("name") or remote.get("url") or "remote"
+    url = (remote.get("url") or "").rstrip("/") + "/api/mission"
+    try:
+        response = httpx.get(
+            url, headers={"Authorization": f"Bearer {remote.get('token', '')}"}, timeout=timeout
+        )
+        response.raise_for_status()
+        return remote_deck(name, response.json())
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        return RemoteDeck(name, error=str(exc)[:200])

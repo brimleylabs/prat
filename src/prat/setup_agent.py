@@ -152,7 +152,18 @@ name = "app"
 kind = "doltgres"
 url_env = "PRAT_DATABASE_URL"
 app_url_env = "DATABASE_URL"     # the variable the app reads its full database URL from
-# database_env = "DB_NAME"       # only for an app that reads just the database name"""
+# database_env = "DB_NAME"       # only for an app that reads just the database name
+
+[crew]                           # who works on this project
+lead = "laravel"                 # python, react, node, laravel, php, go or generalist
+skills = ["laravel-development", "php-development", "web-ui-checks"]   # stack skills to carry
+
+[[job]]                          # long-running work: a crawl, a backfill, batch model calls
+name = "enrich"                  # lowercase letters, digits, - and _
+label = "Enrich records"
+command = ["php", "artisan", "app:enrich"]
+database = "branch"              # its own database branch, landed or discarded afterwards
+stall_minutes = 10               # no progress for this long = stalled"""
 
 
 def setup_system_prompt(
@@ -211,6 +222,17 @@ def setup_system_prompt(
             "database, use what the repository provides for development (SQLite or similar) "
             "and say so in the notes."
         )
+    facts.append(
+        "Name the project's crew in [crew]: the lead that fits its main stack and the stack "
+        "skills it should carry (from: python-development, node-typescript-development, "
+        "react-development, laravel-development, php-development, go-development, "
+        "web-ui-checks). Declare a [[job]] for each long-running script the project has (a "
+        "crawl, a backfill, an import, batch model calls) with the command that runs it. If "
+        "the test suite is heavy (minutes, many processes), set gate_slots = 1 at the top "
+        "level (before any [table]). Then propose one skill with the propose_skill tool: the "
+        "project's vocabulary and layout (its domain words, where things live, the commands, "
+        "the traps you found), so every later agent starts already knowing them."
+    )
     parts += [
         "\n".join(facts),
         PROJECT_FILE_FORMAT,

@@ -164,7 +164,10 @@ def same_origin(headers: Headers, allowed: frozenset[str]) -> bool:
     return False
 
 
-PUBLIC_PATHS = frozenset({"/login", "/favicon.ico", "/healthz"})
+# /api/mission checks its own bearer token (the access token): another PRAT reads it.
+PUBLIC_PATHS = frozenset({"/login", "/favicon.ico", "/healthz", "/api/mission"})
+# Routes that take the access token as a bearer token instead of a session (prat mission).
+BEARER_PREFIX = "/api/act/"
 
 
 def is_public(path: str) -> bool:
@@ -194,6 +197,14 @@ class SecurityMiddleware:
         headers = Headers(scope=scope)
         if headers.get("host", "").lower() not in self.config.allowed_hosts:
             await _plain(400, "unknown host")(scope, receive, send)
+            return
+        if path.startswith(BEARER_PREFIX) and headers.get("authorization", "").startswith(
+            "Bearer "
+        ):
+            # Mission control's actions: no browser sends a bearer token by itself, so there is
+            # no cross-site request to guard against; each route checks the token.
+            scope.setdefault("state", {})["session"] = None
+            await self.app(scope, receive, send)
             return
 
         cookies = cookie_parser(headers.get("cookie", ""))

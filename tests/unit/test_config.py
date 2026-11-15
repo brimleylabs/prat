@@ -12,8 +12,8 @@ from prat.domain import Autonomy
 def test_defaults(tmp_path: Path) -> None:
     settings = load_settings(tmp_path / "home")
     assert settings.home == (tmp_path / "home").resolve()
-    assert settings.max_concurrent_runs == 3
-    assert settings.max_concurrent_per_project == 1
+    assert settings.max_concurrent_runs == 6
+    assert settings.max_concurrent_per_project == 5
     assert settings.max_autonomy is Autonomy.MEDIUM
     assert settings.db_url == f"sqlite:///{(settings.home / 'prat.db').as_posix()}"
     assert settings.worktrees_dir == settings.home / "worktrees"

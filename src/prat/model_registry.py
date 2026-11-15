@@ -128,6 +128,11 @@ def _tokens(usage: Mapping[str, Any], key: str) -> int:
     return int(value) if isinstance(value, int | float) and value > 0 else 0
 
 
+def context_window(model: str | None) -> int:
+    """Tokens a model's context holds: 1M for a model id ending ``[1m]``, else 200k."""
+    return 1_000_000 if model and model.lower().endswith("[1m]") else 200_000
+
+
 def estimate_cost(model: str | None, usage: Mapping[str, Any] | None) -> float:
     """Estimated USD for one response's ``usage`` block."""
     if not usage:

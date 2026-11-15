@@ -41,6 +41,7 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from claude_agent_sdk import (
+    AgentDefinition,
     AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
@@ -50,37 +51,55 @@ from claude_agent_sdk import (
     HookMatcher,
     PermissionResult,
     PermissionResultDeny,
+    RateLimitEvent,
     ResultMessage,
     SystemMessage,
+    TaskNotificationMessage,
     TextBlock,
+    ThinkingBlock,
     ToolPermissionContext,
     ToolResultBlock,
     ToolUseBlock,
     UserMessage,
+    create_sdk_mcp_server,
+    tool,
 )
 
-from prat.model_registry import estimate_cost
+from prat.model_registry import context_window, estimate_cost
 from prat.policy import Decision, ToolCall
 from prat.runtime.base import (
     TOOL_BASH,
     TOOL_EDIT,
     TOOL_GLOB,
     TOOL_GREP,
+    TOOL_HELPERS,
     TOOL_MCP,
     TOOL_READ,
+    TOOL_SKILLS,
+    TOOL_TASKS,
     TOOL_WEB_FETCH,
     TOOL_WEB_SEARCH,
     TOOL_WRITE,
     AgentTask,
     BlockedEvent,
+    CompactEvent,
+    ContextEvent,
     CostEvent,
     DoneEvent,
+    HelperEvent,
     Outcome,
+    PratTool,
+    PressureEvent,
     RuntimeEvent,
     SessionStarted,
+    SkillEvent,
+    TaskItem,
+    TasksEvent,
     TextEvent,
+    ThoughtEvent,
     ToolCallEvent,
     ToolResultEvent,
+    UsageEvent,
 )
 
 if TYPE_CHECKING:
@@ -97,7 +116,19 @@ SDK_TOOLS: Mapping[str, tuple[str, ...]] = {
     # Offered only to tasks whose tool set includes them (the researcher).
     TOOL_WEB_SEARCH: ("WebSearch",),
     TOOL_WEB_FETCH: ("WebFetch",),
+    # The crew: the agent's task list, its helpers and its skills.
+    TOOL_TASKS: ("TodoWrite", "TaskCreate", "TaskUpdate", "TaskGet", "TaskList"),
+    TOOL_HELPERS: ("Agent", "Task"),
+    TOOL_SKILLS: ("Skill",),
 }
+# PRAT's own in-process tools: offered when a task carries them, always allowed (they only
+# record what the agent tells PRAT, or read through PRAT's own guarded code).
+PRAT_SERVER = "prat"
+PRAT_TOOL_PREFIX = f"mcp__{PRAT_SERVER}__"
+HELPER_TOOLS = frozenset({"Agent", "Task"})
+TASK_TOOLS = frozenset({"TodoWrite", "TaskCreate", "TaskUpdate", "TaskGet", "TaskList"})
+# At most this many helpers at once per session, and helpers cannot call helpers.
+MAX_CONCURRENT_HELPERS = 3
 # Every built-in tool PRAT knows of. Whatever a task does not enable is listed
 # in disallowed_tools as well as being left out of ``tools``.
 KNOWN_BUILTIN_TOOLS: tuple[str, ...] = (
@@ -122,6 +153,10 @@ KNOWN_BUILTIN_TOOLS: tuple[str, ...] = (
     "Skill",
     "SlashCommand",
     "Task",
+    "TaskCreate",
+    "TaskGet",
+    "TaskList",
+    "TaskUpdate",
     "TodoWrite",
     "ToolSearch",
     "WebFetch",
@@ -242,6 +277,12 @@ def tool_calls_for(tool_name: str, tool_input: Mapping[str, Any]) -> list[ToolCa
         return [ToolCall.web(TOOL_WEB_SEARCH, {"query": text("query") or ""})]
     if tool_name == "WebFetch":
         return [ToolCall.web(TOOL_WEB_FETCH, {"url": text("url") or ""})]
+    if tool_name.startswith(PRAT_TOOL_PREFIX) or tool_name in TASK_TOOLS | HELPER_TOOLS:
+        # Nothing to judge: a task list and PRAT's own tools act on nothing, and every tool
+        # call a helper makes comes through this hook on its own.
+        return []
+    if tool_name == "Skill":
+        return []
     if tool_name.startswith("mcp__"):
         return [ToolCall.mcp(tool_name, dict(tool_input))]
     return Decision.deny(f"tool {tool_name} is not available to PRAT agents")
@@ -274,7 +315,9 @@ def judge(
     """
     try:
         if enabled is not None:
-            if tool_name.startswith("mcp__"):
+            if tool_name.startswith(PRAT_TOOL_PREFIX):
+                pass
+            elif tool_name.startswith("mcp__"):
                 if TOOL_MCP not in enabled:
                     return Decision.deny("MCP tools are not enabled for this agent")
             elif tool_name not in sdk_tool_names(enabled):
@@ -300,6 +343,93 @@ def sdk_tool_names(allowed: frozenset[str]) -> list[str]:
     return names
 
 
+# The crew ----------------------------------------------------------------------
+
+
+def crew_options(task: AgentTask, enabled: Sequence[str]) -> dict[str, Any]:
+    """Helpers (subagents) and the skill loadout for a session, when its tools include them."""
+    options: dict[str, Any] = {}
+    if TOOL_HELPERS in task.allowed_tools and task.helpers:
+        options["agents"] = {
+            name: AgentDefinition(
+                description=spec.description,
+                prompt=spec.prompt,
+                # A helper never gets helpers of its own, nor anything its lead does not have.
+                tools=[
+                    t
+                    for t in sdk_tool_names(spec.tools & task.allowed_tools - {TOOL_HELPERS})
+                    if t in enabled
+                ]
+                + [
+                    f"{PRAT_TOOL_PREFIX}{t.name}"
+                    for t in task.prat_tools
+                    if t.name in READ_ONLY_PRAT_TOOLS
+                ],
+                model=spec.model or "inherit",
+            )
+            for name, spec in task.helpers.items()
+        }
+    if TOOL_SKILLS in task.allowed_tools and task.skill_dirs:
+        options["plugins"] = [{"type": "local", "path": str(path)} for path in task.skill_dirs]
+        # Exactly the loadout's skills, by name: never the machine's own (~/.claude) skills.
+        options["skills"] = loadout_skill_names(task.skill_dirs)
+    if task.thinking:
+        # The model decides how much to think; PRAT keeps a summary of each thought.
+        options["thinking"] = {"type": "adaptive", "display": "summarized"}
+    return options
+
+
+def loadout_skill_names(skill_dirs: Sequence[Path]) -> list[str]:
+    """Each plugin folder's skills as ``<plugin>:<skill>``, the names the SDK loads them by."""
+    names: list[str] = []
+    for root in skill_dirs:
+        try:
+            plugin = json.loads((root / ".claude-plugin" / "plugin.json").read_text("utf-8"))
+        except (OSError, ValueError):
+            continue
+        prefix = str(plugin.get("name") or root.name)
+        skills_root = root / "skills"
+        if skills_root.is_dir():
+            names += [
+                f"{prefix}:{p.name}"
+                for p in sorted(skills_root.iterdir())
+                if (p / "SKILL.md").is_file()
+            ]
+    return names
+
+
+# PRAT tools a helper may use too: they only read.
+READ_ONLY_PRAT_TOOLS = frozenset({"query_database", "job_status"})
+
+
+def crew_env(task: AgentTask) -> dict[str, str]:
+    env: dict[str, str] = {}
+    if TOOL_TASKS in task.allowed_tools:
+        env["CLAUDE_CODE_ENABLE_TODO_TOOLS"] = "1"
+    if TOOL_HELPERS in task.allowed_tools:
+        env["CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS"] = str(MAX_CONCURRENT_HELPERS)
+        env["CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH"] = "1"
+    return env
+
+
+def prat_server(tools: Sequence[PratTool]) -> dict[str, Any]:
+    """PRAT's own tools as an in-process MCP server named ``prat``."""
+    if not tools:
+        return {}
+
+    def wrap(item: PratTool) -> Any:
+        async def run(args: dict[str, Any]) -> dict[str, Any]:
+            try:
+                text = await item.handler(args)
+            except Exception as exc:  # the agent reads the problem; the session goes on
+                return {"content": [{"type": "text", "text": f"failed: {exc}"}], "is_error": True}
+            return {"content": [{"type": "text", "text": text}]}
+
+        return tool(item.name, item.description, dict(item.schema))(run)
+
+    return {PRAT_SERVER: create_sdk_mcp_server(name=PRAT_SERVER, tools=[wrap(t) for t in tools])}
+
+
 # Message mapping ---------------------------------------------------------------
 
 
@@ -321,9 +451,27 @@ def _result_text(content: Any, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + " [trimmed]"
 
 
+_TASK_ID = re.compile(r"#\s*(\d+)")
+# The answer of a helper that runs in the background; its real answer comes as a notification.
+_LAUNCHED = re.compile(
+    r"async_launched|async agent launched|running in the background|launched in the background",
+    re.I,
+)
+
+
+def _int(mapping: Mapping[str, Any] | None, key: str) -> int:
+    value = (mapping or {}).get(key)
+    return int(value) if isinstance(value, int | float) and value > 0 else 0
+
+
 @dataclass
 class MessageMapper:
-    """Turns SDK messages into PRAT runtime events. One per session."""
+    """Turns SDK messages into PRAT runtime events. One per session.
+
+    Besides text, tool calls and cost, it follows the crew: helpers (subagents) starting and
+    finishing, skills loaded, the agent's task list, how full the lead's context is, when the
+    session compacts, rate limit pressure, and the session's own per-model usage at the end.
+    """
 
     resumed: bool = False
     output_limit: int = 4000
@@ -332,10 +480,20 @@ class MessageMapper:
     estimated_usd: float = 0.0
     last_text: str = ""
     _seen_messages: set[str] = field(default_factory=set)
+    # Helper call id -> helper name; helpers still running.
+    _helpers: dict[str, str] = field(default_factory=dict)
+    _running_helpers: set[str] = field(default_factory=set)
+    # Task id -> (subject, status), in creation order; task-create calls awaiting their id.
+    _tasks: dict[str, TaskItem] = field(default_factory=dict)
+    _creating: dict[str, str] = field(default_factory=dict)
 
     def map(self, message: Any) -> list[RuntimeEvent]:
+        if isinstance(message, TaskNotificationMessage):
+            return self._helper_done(message.tool_use_id, message.summary or "", ok=True)
         if isinstance(message, SystemMessage):
             return self._system(message)
+        if isinstance(message, RateLimitEvent):
+            return self._pressure(message)
         if isinstance(message, AssistantMessage):
             return self._assistant(message)
         if isinstance(message, UserMessage):
@@ -351,9 +509,13 @@ class MessageMapper:
         return [SessionStarted(session_id, resumed=self.resumed, **extra)]
 
     def _system(self, message: SystemMessage) -> list[RuntimeEvent]:
+        data = message.data
+        if message.subtype == "compact_boundary":
+            meta = data.get("compact_metadata") if isinstance(data, Mapping) else None
+            meta = meta if isinstance(meta, Mapping) else {}
+            return [CompactEvent(_int(meta, "pre_tokens"), str(meta.get("trigger") or ""))]
         if message.subtype != "init":
             return []
-        data = message.data
         tools = data.get("tools")
         return self._session(
             data.get("session_id"),
@@ -361,50 +523,148 @@ class MessageMapper:
             model=str(data.get("model") or ""),
         )
 
+    @staticmethod
+    def _pressure(message: RateLimitEvent) -> list[RuntimeEvent]:
+        info = message.rate_limit_info
+        resets = getattr(info, "resets_at", None)
+        utilization = getattr(info, "utilization", None)
+        return [
+            PressureEvent(
+                status=str(getattr(info, "status", "") or ""),
+                utilization=float(utilization) if utilization is not None else None,
+                resets_at=float(resets) if isinstance(resets, int | float) else None,
+                kind=str(getattr(info, "rate_limit_type", "") or ""),
+            )
+        ]
+
+    def _agent(self, parent: str | None) -> str:
+        if not parent:
+            return "lead"
+        return self._helpers.get(parent, "helper")
+
     def _assistant(self, message: AssistantMessage) -> list[RuntimeEvent]:
         events: list[RuntimeEvent] = list(self._session(message.session_id))
+        agent = self._agent(message.parent_tool_use_id)
+        lead = agent == "lead"
         for block in message.content:
             if isinstance(block, TextBlock) and block.text.strip():
-                self.last_text = block.text
-                events.append(TextEvent(block.text))
+                if lead:
+                    self.last_text = block.text
+                    events.append(TextEvent(block.text))
+            elif isinstance(block, ThinkingBlock):
+                if lead and block.thinking.strip():
+                    events.append(ThoughtEvent(block.thinking.strip()[: self.output_limit]))
             elif isinstance(block, ToolUseBlock):
-                events.append(ToolCallEvent(block.id, block.name, dict(block.input)))
+                tool_input = dict(block.input)
+                if lead:
+                    events.append(ToolCallEvent(block.id, block.name, tool_input))
+                events.extend(self._crew_call(block.id, block.name, tool_input, agent))
         key = message.message_id or message.uuid
         if message.usage and (key is None or key not in self._seen_messages):
             if key is not None:
                 self._seen_messages.add(key)
-            usd = estimate_cost(message.model, message.usage)
+            usage = message.usage
+            usd = estimate_cost(message.model, usage)
             if usd > 0:
                 self.estimated_usd += usd
                 events.append(
                     CostEvent(
                         usd=usd,
-                        input_tokens=int(message.usage.get("input_tokens") or 0),
-                        output_tokens=int(message.usage.get("output_tokens") or 0),
+                        input_tokens=_int(usage, "input_tokens"),
+                        output_tokens=_int(usage, "output_tokens"),
+                        model=message.model or "",
+                        cache_read_tokens=_int(usage, "cache_read_input_tokens"),
+                        cache_write_tokens=_int(usage, "cache_creation_input_tokens"),
+                        agent=agent,
                     )
                 )
+            if lead:
+                held = (
+                    _int(usage, "input_tokens")
+                    + _int(usage, "cache_read_input_tokens")
+                    + _int(usage, "cache_creation_input_tokens")
+                    + _int(usage, "output_tokens")
+                )
+                if held:
+                    events.append(ContextEvent(held, context_window(message.model)))
         return events
+
+    def _crew_call(
+        self, call_id: str, name: str, tool_input: Mapping[str, Any], agent: str
+    ) -> list[RuntimeEvent]:
+        """Helpers starting, skills loading and the task list changing."""
+        if name in HELPER_TOOLS:
+            helper = str(tool_input.get("subagent_type") or "helper")
+            self._helpers[call_id] = helper
+            self._running_helpers.add(call_id)
+            what = str(tool_input.get("description") or tool_input.get("prompt") or "")
+            return [HelperEvent(call_id, helper, "started", prompt=what[:300])]
+        if name == "Skill":
+            skill = str(tool_input.get("skill") or tool_input.get("name") or "")
+            return [SkillEvent(skill.split(":")[-1], agent)] if skill else []
+        if agent != "lead":
+            return []
+        if name == "TodoWrite":
+            todos = tool_input.get("todos")
+            items = [
+                TaskItem(str(t.get("content") or t.get("subject") or ""), str(t.get("status")))
+                for t in todos or []
+                if isinstance(t, Mapping)
+            ]
+            self._tasks = {str(i): item for i, item in enumerate(items)}
+            return [TasksEvent(tuple(items))]
+        if name == "TaskCreate":
+            self._creating[call_id] = str(
+                tool_input.get("subject") or tool_input.get("description") or ""
+            )
+            return []
+        if name == "TaskUpdate":
+            task_id = str(tool_input.get("taskId") or tool_input.get("task_id") or "")
+            current = self._tasks.get(task_id)
+            if current is None:
+                return []
+            status = str(tool_input.get("status") or current.status)
+            if status == "deleted":
+                self._tasks.pop(task_id, None)
+            else:
+                subject = str(tool_input.get("subject") or current.subject)
+                self._tasks[task_id] = TaskItem(subject, status)
+            return [TasksEvent(tuple(self._tasks.values()))]
+        return []
+
+    def _helper_done(self, call_id: str | None, summary: str, *, ok: bool) -> list[RuntimeEvent]:
+        if not call_id or call_id not in self._running_helpers:
+            return []
+        self._running_helpers.discard(call_id)
+        name = self._helpers.get(call_id, "helper")
+        return [HelperEvent(call_id, name, "finished", summary=summary[:500], ok=ok)]
 
     def _user(self, message: UserMessage) -> list[RuntimeEvent]:
         if isinstance(message.content, str):
             return []
         events: list[RuntimeEvent] = []
+        lead = self._agent(getattr(message, "parent_tool_use_id", None)) == "lead"
         for block in message.content:
             if not isinstance(block, ToolResultBlock):
                 continue
-            reason = self.denials.pop(block.tool_use_id, None)
+            call_id = block.tool_use_id
+            reason = self.denials.pop(call_id, None)
             if reason is not None:
-                events.append(
-                    ToolResultEvent(block.tool_use_id, ok=False, denied=True, reason=reason)
-                )
+                if lead:
+                    events.append(ToolResultEvent(call_id, ok=False, denied=True, reason=reason))
+                events.extend(self._helper_done(call_id, reason, ok=False))
                 continue
-            events.append(
-                ToolResultEvent(
-                    block.tool_use_id,
-                    ok=not block.is_error,
-                    output=_result_text(block.content, self.output_limit),
-                )
-            )
+            text = _result_text(block.content, self.output_limit)
+            if call_id in self._creating:
+                found = _TASK_ID.search(text)
+                subject = self._creating.pop(call_id)
+                if found and not block.is_error:
+                    self._tasks[found.group(1)] = TaskItem(subject, "pending")
+                    events.append(TasksEvent(tuple(self._tasks.values())))
+            if call_id in self._running_helpers and not _LAUNCHED.search(text):
+                events.extend(self._helper_done(call_id, text, ok=not block.is_error))
+            if lead:
+                events.append(ToolResultEvent(call_id, ok=not block.is_error, output=text))
         return events
 
     def _result(self, message: ResultMessage) -> list[RuntimeEvent]:
@@ -415,6 +675,23 @@ class MessageMapper:
                 # Reconcile the running estimate with the session's own total.
                 self.estimated_usd += delta
                 events.append(CostEvent(usd=delta))
+        if message.model_usage:
+            models = {
+                str(model): {
+                    "input": float(_int(row, "inputTokens")),
+                    "output": float(_int(row, "outputTokens")),
+                    "cache_read": float(_int(row, "cacheReadInputTokens")),
+                    "cache_write": float(_int(row, "cacheCreationInputTokens")),
+                    "usd": float(row.get("costUSD") or 0.0),
+                }
+                for model, row in message.model_usage.items()
+                if isinstance(row, Mapping)
+            }
+            events.append(
+                UsageEvent(
+                    models, turns=message.num_turns or 0, duration_ms=message.duration_ms or 0
+                )
+            )
         subtype = message.subtype or ""
         text = message.result or self.last_text
         if "budget" in subtype:
@@ -522,7 +799,9 @@ class ClaudeRuntime:
                 message=DENIAL_PREFIX + f"{tool_name} was not approved by the policy hook"
             )
 
+        crew = crew_options(task, enabled)
         return ClaudeAgentOptions(
+            **crew,
             tools=enabled,
             disallowed_tools=disallowed,
             system_prompt={
@@ -547,7 +826,7 @@ class ClaudeRuntime:
             # "Generated with") would otherwise end up in the project's history.
             settings=AGENT_SETTINGS,
             strict_mcp_config=True,
-            mcp_servers={},
+            mcp_servers=prat_server(task.prat_tools),
             cwd=str(task.workdir),
             model=task.model,
             max_budget_usd=task.budget.max_usd,
@@ -555,7 +834,7 @@ class ClaudeRuntime:
             resume=resume,
             # The Claude Code process passes its environment to the commands it runs;
             # PRAT's own settings are blanked so agent commands cannot read them.
-            env={**_blank_prat_settings(), **self.config.env, **task.env},
+            env={**_blank_prat_settings(), **self.config.env, **crew_env(task), **task.env},
             cli_path=self.config.cli_path,
             stderr=self._stderr.append,
         )

@@ -40,7 +40,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from prat import onboard, paths, store
+from prat import governor, memory, onboard, paths, store
 from prat.changes import classify_diff
 from prat.config import Settings
 from prat.db import Card, Database, Project, Run, RunStep, as_utc
@@ -57,6 +57,7 @@ from prat.domain import (
     Verdict,
     lowest_autonomy,
 )
+from prat.engine import crewing
 from prat.engine.instructions import load_repo_instructions
 from prat.engine.interfaces import (
     NoPlanner,
@@ -70,10 +71,12 @@ from prat.engine.limits import Limiter
 from prat.engine.prompts import (
     builder_system_prompt,
     builder_task_prompt,
+    project_facts,
     repository_instructions,
 )
 from prat.engine.security import SecurityResult, SecurityReviewer, SecurityVerdict
 from prat.engine.summary import render_summary
+from prat.engine.telemetry import RunTelemetry
 from prat.environments import (
     EnvironmentManager,
     checkout_variables,
@@ -104,6 +107,7 @@ from prat.runtime import (
     SessionStarted,
     event_to_dict,
 )
+from prat.runtime.base import PressureEvent
 from prat.runtime.loop import LoopDetector
 from prat.sandbox import Sandbox, SandboxError, environment_sandboxes
 from prat.sandbox import for_settings as sandbox_for
@@ -395,6 +399,8 @@ class Engine:
             author_email=settings.git_author_email,
         )
         self.limiter = Limiter(settings.max_concurrent_runs, settings.max_concurrent_per_project)
+        self.governor = governor.Governor(settings, db)
+        self._start_lock = asyncio.Lock()
         self._project_locks: dict[int, asyncio.Lock] = {}
         self._active: dict[int, _Active] = {}
         # Set by suspend(): a cancelled task is a restart, not a person cancelling.
@@ -402,6 +408,8 @@ class Engine:
         self._tasks: dict[int, asyncio.Task[RunResult]] = {}
         # Lessons being written in the background, so none is lost to the garbage collector.
         self._lessons: set[asyncio.Task[Any]] = set()
+        # Usage and live state per running run (prat.engine.telemetry).
+        self._telemetry: dict[int, RunTelemetry] = {}
         # Setups of the checkout approved work reached, likewise.
         self._setups: set[asyncio.Task[Any]] = set()
         settings.ensure_dirs()
@@ -495,9 +503,19 @@ class Engine:
                 )
             project_id = card.project_id
         try:
-            async with self.limiter.slot(project_id):
-                run_id = self._start_run(card_id)
-                return await self._drive(run_id, card_id)
+            while True:
+                await self._governed(card_id)
+                async with self.limiter.slot(project_id):
+                    # Checked again with the slot held and no other start in between, so two
+                    # cards that collide never both pass.
+                    async with self._start_lock:
+                        reason = await asyncio.to_thread(self.governor.check, card_id)
+                        if reason is None:
+                            self._hold(card_id, None)
+                            run_id = self._start_run(card_id)
+                    if reason is None:
+                        return await self._drive(run_id, card_id)
+                self._hold(card_id, reason)
         except asyncio.CancelledError:
             # Cancelled while still queued: no run exists yet.
             if self._suspending:
@@ -514,6 +532,30 @@ class Engine:
                         card_id, None, None, CardStatus.CANCELLED, "cancelled in queue"
                     )
             raise
+
+    async def _governed(self, card_id: int) -> None:
+        """Wait while the governor holds the card back, saying why on the card."""
+        while True:
+            reason = await asyncio.to_thread(self.governor.check, card_id)
+            self._hold(card_id, reason)
+            if reason is None:
+                return
+            await asyncio.sleep(self.settings.governor_poll_seconds)
+
+    def _hold(self, card_id: int, reason: str | None) -> None:
+        with self.db.session() as session:
+            card = session.get(Card, card_id)
+            if card is None or card.hold_reason == reason:
+                return
+            card.hold_reason = reason
+            if reason is not None:
+                store.record_event(
+                    session,
+                    "card.held",
+                    project_id=card.project_id,
+                    card_id=card_id,
+                    data={"reason": reason},
+                )
 
     async def resume(self, run_id: int) -> RunResult:
         """Continue an interrupted run at its first unfinished step."""
@@ -650,6 +692,12 @@ class Engine:
             card = store.get_card(session, card_id)
             if card.status != CardStatus.REVIEW:
                 raise ApproveError(f"card {card_id} is {card.status}; only cards in review merge")
+            epic = card.kind is CardKind.EPIC
+        if epic:
+            # Approving an epic approves its split: nothing merges, its parts become ready.
+            return await self._approve_epic(card_id)
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
             if not card.branch:
                 raise ApproveError(f"card {card_id} has no branch")
             project = card.project
@@ -755,7 +803,47 @@ class Engine:
             versioning.tag(self.db, f"card-{card_id}-approved", message=f"git {commit}{data_note}")
         if followed == "updated":
             self._start_checkout_setup(project.slug, card_id)
+        with self.db.session() as session:
+            runs = len(store.get_card(session, card_id).runs)
+        self._settle(project.slug, card_id, "landed", first_review=runs == 1)
+        await asyncio.to_thread(self._epic_progress, card_id)
+        await asyncio.to_thread(self._promote_setup_skills, project.slug, card_id)
         return MergeResult(card_id, branch, commit)
+
+    def _promote_setup_skills(self, slug: str, card_id: int) -> None:
+        """Approving a setup card approves the skills its agent proposed (the project's
+        vocabulary and layout): the person reviewed the whole proposal in one go."""
+        from prat import skills
+
+        with self.db.session() as session:
+            if store.get_card(session, card_id).kind is not CardKind.SETUP:
+                return
+        for candidate in skills.candidates(self.settings.home, slug):
+            if f"card {card_id} " in f"{candidate.source} ":
+                with contextlib.suppress(skills.SkillError):
+                    skills.promote(self.settings.home, slug, candidate.name)
+
+    def _settle(
+        self,
+        slug: str,
+        card_id: int,
+        outcome: str,
+        *,
+        feedback: str = "",
+        first_review: bool = False,
+    ) -> None:
+        """Tell every agent that worked on the card how it turned out (prat.memory)."""
+        try:
+            memory.settle(
+                self.settings.home,
+                project=slug,
+                card_id=card_id,
+                outcome=outcome,
+                feedback=feedback,
+                first_review=first_review,
+            )
+        except Exception:
+            log.exception("could not settle the memories of card %s", card_id)
 
     def _start_checkout_setup(self, slug: str, card_id: int) -> None:
         """Set up the checkout the approved work just reached (its dependencies and built
@@ -811,7 +899,12 @@ class Engine:
                     "rework needs feedback: add a comment to the card first or pass feedback"
                 )
             store.set_card_status(session, card, CardStatus.REWORK, "sent back for rework")
+            slug = card.project.slug
+            said = feedback or "\n".join(
+                c.body for c in store.human_comments_since_last_run(session, card)
+            )
         versioning.commit(self.db, f"card {card_id} sent back for rework", actor="person")
+        self._settle(slug, card_id, "reworked", feedback=said or "")
 
     # Run driving --------------------------------------------------------------
 
@@ -858,7 +951,19 @@ class Engine:
             with contextlib.suppress(asyncio.CancelledError):
                 await heartbeat
             self._active.pop(card_id, None)
+            telemetry = self._telemetry.pop(run_id, None)
+            if telemetry is not None and telemetry.flush():
+                self._update_run(run_id, usage=telemetry.usage(), live=dict(telemetry.live))
         result = self._result(run_id)
+        ended = {
+            CardStatus.FAILED: "failed",
+            CardStatus.BLOCKED: "blocked",
+            CardStatus.CANCELLED: "cancelled",
+        }.get(result.card_status)
+        if ended is not None:
+            with self.db.session() as session:
+                slug = store.get_card(session, card_id).project.slug
+            self._settle(slug, card_id, ended, feedback=result.reason or "")
         if result.card_status == CardStatus.REVIEW and self.settings.lessons == "review":
             self._start_lesson(run_id)
         return result
@@ -1267,8 +1372,83 @@ class Engine:
     def _journal_events(self, ctx: _Ctx, role: str) -> Callable[[RuntimeEvent], None]:
         def record(event: RuntimeEvent) -> None:
             ctx.journal.append(f"{role}.{event.type}", event_to_dict(event))
+            self._observe(ctx.run_id, role, event)
 
         return record
+
+    def _crew(self, ctx: _Ctx, role: str) -> crewing.CrewSession | None:
+        """The lead, helpers, skills, memory and PRAT tools for a builder or setup session.
+        A problem here leaves the agent without its crew, never without a run."""
+        try:
+            databases: dict[str, str] = {}
+            with contextlib.suppress(WorkspaceError, SQLAlchemyError):
+                for project_db in _databases(ctx.project_spec, self._environ(ctx.project_slug)):
+                    databases[project_db.spec.name] = project_db.branch_url(ctx.card_id)
+            from prat import jobs
+
+            async def start_job(name: str) -> str:
+                return await asyncio.to_thread(
+                    jobs.start_for_agent,
+                    self.settings,
+                    self.db,
+                    ctx.project_slug,
+                    name,
+                    ctx.card_id,
+                )
+
+            async def job_status(run: int | None) -> str:
+                return await asyncio.to_thread(jobs.describe, self.db, ctx.card_id, run)
+
+            return crewing.prepare(
+                home=self.settings.home,
+                project=ctx.project_slug,
+                spec=ctx.project_spec,
+                worktree=ctx.worktree_path,
+                card_id=ctx.card_id,
+                run_id=ctx.run_id,
+                title=ctx.title,
+                card_text=f"{ctx.goal}\n{ctx.acceptance_criteria}\n{ctx.feedback or ''}",
+                role=role,
+                record=ctx.journal.append,
+                live=functools.partial(self._live, ctx.run_id),
+                databases=databases,
+                start_job=start_job,
+                job_status=job_status,
+            )
+        except Exception:
+            log.exception("could not assemble the crew for run %s", ctx.run_id)
+            return None
+
+    def _live(self, run_id: int, key: str, value: Any) -> None:
+        """Set one live value for mission control (a tool's progress, the lead's name)."""
+        try:
+            telemetry = self._telemetry_of(run_id)
+            telemetry.live[key] = value
+            if telemetry.set_dirty():
+                self._update_run(run_id, usage=telemetry.usage(), live=dict(telemetry.live))
+        except Exception:
+            log.exception("could not record a live value for run %s", run_id)
+
+    def _telemetry_of(self, run_id: int) -> RunTelemetry:
+        telemetry = self._telemetry.get(run_id)
+        if telemetry is None:
+            with self.db.session() as session:
+                run = _get_run(session, run_id)
+                telemetry = RunTelemetry.load(run.usage, run.live)
+            self._telemetry[run_id] = telemetry
+        return telemetry
+
+    def _observe(self, run_id: int, role: str, event: RuntimeEvent) -> None:
+        """Usage and live state for mission control (prat.engine.telemetry); rate limit
+        pressure for the governor. Never fails a run."""
+        try:
+            if isinstance(event, PressureEvent):
+                governor.record_pressure(event)
+            telemetry = self._telemetry_of(run_id)
+            if telemetry.observe(role, event):
+                self._update_run(run_id, usage=telemetry.usage(), live=dict(telemetry.live))
+        except Exception:  # telemetry is never worth a failed run
+            log.exception("could not record telemetry for run %s", run_id)
 
     async def _knowledge(self, ctx: _Ctx, role: Role, extra: str = "") -> Selection:
         """What PRAT has learned about the project, selected for this card and role. The
@@ -1290,9 +1470,120 @@ class Engine:
             )
         return selection
 
+    def _bench_memory(self, ctx: _Ctx, agent: str) -> str:
+        """A bench agent's (planner, reviewer) memory, for its prompt."""
+        try:
+            return memory.briefing(
+                memory.AgentMemory(self.settings.home, agent),
+                project=ctx.project_slug,
+                card_id=ctx.card_id,
+                query=f"{ctx.title}\n{ctx.goal}",
+                budget=1500,
+                episodes=3,
+            )
+        except Exception:
+            log.exception("could not read the memory of %s", agent)
+            return ""
+
+    def _bench_episode(
+        self, ctx: _Ctx, agent: str, what: str, feeling: memory.Feeling, importance: float = 0.4
+    ) -> None:
+        try:
+            memory.AgentMemory(self.settings.home, agent).save(
+                memory.new_episode(
+                    agent,
+                    project=ctx.project_slug,
+                    card_id=ctx.card_id,
+                    run_id=ctx.run_id,
+                    role=agent,
+                    title=ctx.title,
+                    what=what[:1500],
+                    feeling=feeling,
+                    importance=importance,
+                )
+            )
+        except Exception:
+            log.exception("could not record the memory of %s", agent)
+
+    async def _split_epic(self, ctx: _Ctx, knowledge: str, remaining: float | None) -> StepResult:
+        """An epic's run: the planner proposes its parts, which become draft child cards; the
+        run then ends and the epic waits for the person to approve the split (prat.epics)."""
+        from prat import epics
+        from prat.runtime.session import collect
+
+        recalled = await asyncio.to_thread(self._bench_memory, ctx, "planner")
+        task = AgentTask(
+            prompt="Split this epic into parts. Answer with the JSON only.",
+            system_prompt="\n\n".join(
+                t
+                for t in (
+                    epics.EPIC_PROMPT.format(lo=epics.MIN_PARTS, hi=epics.MAX_PARTS),
+                    _card_text(ctx),
+                    project_facts(ctx.project_spec, Autonomy.READ_ONLY),
+                    knowledge,
+                    recalled,
+                )
+                if t
+            ),
+            workdir=ctx.worktree_path,
+            allowed_tools=READ_TOOLS,
+            policy=self._guarded(ctx, Autonomy.READ_ONLY, "planner"),
+            budget=Budget(max_usd=remaining),
+            model=self._model(Role.PLANNER, ctx),
+            metadata={"role": "planner", "card_id": str(ctx.card_id)},
+        )
+        out = await collect(self.runtime, task, on_event=self._journal_events(ctx, "planner"))
+        if out.cost_usd:
+            self._add_cost(ctx.run_id, out.cost_usd)
+        try:
+            parts = epics.parse_parts(out.final_text)
+        except epics.EpicError as exc:
+            return StepResult(
+                StepStatus.FAILED, {"error": str(exc)}, RunStatus.FAILED, str(exc), str(exc)
+            )
+        ids = await asyncio.to_thread(epics.create_parts, self.db, ctx.card_id, parts)
+        await asyncio.to_thread(
+            self._bench_episode,
+            ctx,
+            "planner",
+            "Split the epic into: " + "; ".join(p.title for p in parts),
+            memory.Feeling("thoughtful", 0.3, 0.4),
+            0.6,
+        )
+        reason = f"split into {len(ids)} parts: " + ", ".join(f"#{i}" for i in ids)
+        return StepResult(
+            StepStatus.SUCCEEDED,
+            {"parts": ids, "epic": True},
+            RunStatus.SUCCEEDED,
+            reason,
+        )
+
+    async def _approve_epic(self, card_id: int) -> MergeResult:
+        from prat import epics
+
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
+            branch = card.branch or ""
+        ready = await asyncio.to_thread(epics.approve_split, self.db, card_id)
+        for part in ready:
+            with contextlib.suppress(EngineError):
+                self.submit(part)
+        return MergeResult(card_id, branch, "")
+
+    def _epic_progress(self, card_id: int) -> None:
+        from prat import epics
+
+        try:
+            epics.on_part_landed(self.db, card_id)
+        except Exception:
+            log.exception("could not update the epic of card %s", card_id)
+
     async def _step_plan(self, ctx: _Ctx, active: _Active) -> StepResult:
         remaining = self._remaining_budget(ctx)
         knowledge = await self._knowledge(ctx, Role.PLANNER)
+        if ctx.card_kind is CardKind.EPIC:
+            return await self._split_epic(ctx, knowledge.text, remaining)
+        recalled = await asyncio.to_thread(self._bench_memory, ctx, "planner")
         raw = await self.planner.plan(
             PlanRequest(
                 card_id=ctx.card_id,
@@ -1306,9 +1597,18 @@ class Engine:
                 model=self._model(Role.PLANNER, ctx),
                 budget_usd=remaining,
                 on_event=self._journal_events(ctx, "planner"),
-                knowledge=knowledge.text,
+                knowledge="\n\n".join(t for t in (knowledge.text, recalled) if t),
             )
         )
+        if raw is not None:
+            plan_text = raw if isinstance(raw, str) else (raw.plan or raw.blocked_reason or "")
+            await asyncio.to_thread(
+                self._bench_episode,
+                ctx,
+                "planner",
+                f"Planned it: {plan_text[:1200]}",
+                memory.Feeling("focused", 0.2, 0.3),
+            )
         if raw is None:
             return StepResult(StepStatus.SKIPPED, detail={"reason": "no plan produced"})
         result = PlanResult(plan=raw) if isinstance(raw, str) else raw
@@ -1461,6 +1761,10 @@ class Engine:
             )
         if sandbox is not None:
             system_prompt += SANDBOX_NOTE.format(network="has" if sandbox.network else "has no")
+        crew_session = await asyncio.to_thread(self._crew, ctx, str(role))
+        if crew_session is not None:
+            tools |= crew_session.tools
+            system_prompt = crew_session.prompt + "\n\n" + system_prompt
         task = AgentTask(
             prompt=task_prompt,
             system_prompt=system_prompt,
@@ -1482,11 +1786,18 @@ class Engine:
                 if sandbox is not None
                 else None
             ),
+            helpers=crew_session.helpers if crew_session else {},
+            skill_dirs=crew_session.skill_dirs if crew_session else (),
+            prat_tools=crew_session.prat_tools if crew_session else (),
+            thinking=crew_session.thinking if crew_session else False,
         )
         journal.append(
             "execute.model",
             {
                 "model": model,
+                "lead": crew_session.member.name if crew_session else None,
+                "skills": crew_session.skills if crew_session else [],
+                "helpers": sorted(crew_session.helpers) if crew_session else [],
                 "tools": sorted(tools),
                 "repo_instructions": [item.name for item in instructions],
                 "sandbox": sandbox.image if sandbox is not None else None,
@@ -1508,6 +1819,9 @@ class Engine:
         try:
             async for event in stream:
                 journal.append(f"runtime.{event.type}", event_to_dict(event))
+                self._observe(ctx.run_id, str(role), event)
+                if crew_session is not None:
+                    crew_session.observe(event)
                 if isinstance(event, SessionStarted):
                     active.session_id = event.session_id
                     self._update_run(ctx.run_id, session_id=event.session_id)
@@ -1548,6 +1862,25 @@ class Engine:
         }
         if knowledge.ids:
             detail["knowledge"] = knowledge.ids
+        if crew_session is not None:
+            detail["lead"] = crew_session.member.name
+            detail["skills_carried"] = crew_session.skills
+            if crew_session.tool_ctx.risks:
+                detail["risks"] = list(crew_session.tool_ctx.risks)
+            await asyncio.to_thread(
+                crew_session.finish, str(outcome) if outcome else "failed", message
+            )
+        telemetry = self._telemetry.get(ctx.run_id)
+        if telemetry is not None:
+            usage = telemetry.role_usage(str(role))
+            if usage:
+                detail["usage"] = usage
+            used = sorted({s for s in telemetry.live.get("skills") or []})
+            if used:
+                detail["skills_used"] = used
+            helpers = [h.get("name") for h in telemetry.live.get("helpers") or []]
+            if helpers:
+                detail["helpers_called"] = helpers
         if tampered is not None:
             detail["sandbox"] = tampered
             record_error(
@@ -1832,11 +2165,30 @@ class Engine:
             changes=changes if isinstance(changes, dict) else None,
             head_commit=stats.head,
             databases=databases or None,
-            knowledge=knowledge.text,
+            knowledge="\n\n".join(
+                t
+                for t in (
+                    knowledge.text,
+                    await asyncio.to_thread(self._bench_memory, ctx, "critic"),
+                )
+                if t
+            ),
         )
         result = await self.reviewer.review(request)
         if result.cost_usd:
             self._add_cost(ctx.run_id, result.cost_usd)
+        verdict_word = str(result.verdict)
+        await asyncio.to_thread(
+            self._bench_episode,
+            ctx,
+            "critic",
+            f"Reviewed it and said {verdict_word}: {result.summary}",
+            memory.Feeling(
+                "confident" if verdict_word == "met" else "concerned",
+                0.4 if verdict_word == "met" else -0.2,
+                0.4,
+            ),
+        )
 
         security: SecurityResult | None = None
         if wants_security and not result.needs_rework:

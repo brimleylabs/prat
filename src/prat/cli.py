@@ -21,7 +21,7 @@ from prat import __version__, project_detect, rhythm, store
 from prat.config import DEFAULT_CONFIG_TOML, Settings, load_settings
 from prat.db import Database
 from prat.db.migrate import is_current, upgrade
-from prat.domain import Autonomy, CardStatus, CommentAuthor, Complexity
+from prat.domain import Autonomy, CardKind, CardStatus, CommentAuthor, Complexity
 from prat.engine import (
     ApproveError,
     Engine,
@@ -678,6 +678,10 @@ def card_add(
     ] = None,
     budget: Annotated[float | None, typer.Option(help="Budget in USD for each run.")] = None,
     ready: Annotated[bool, typer.Option("--ready", help="Create the card as ready.")] = False,
+    epic: Annotated[
+        bool,
+        typer.Option("--epic", help="A feature to split into parts: its planner proposes them."),
+    ] = False,
 ) -> None:
     """Create a card (draft unless --ready)."""
     with _database(ctx) as (_, db), db.session() as session:
@@ -693,6 +697,7 @@ def card_add(
                 ready=ready,
                 autonomy=autonomy,
                 budget_usd=budget,
+                kind=CardKind.EPIC if epic else CardKind.CHANGE,
             )
         except (store.NotFound, ValueError) as exc:
             raise _fail(str(exc)) from exc
@@ -2257,3 +2262,7 @@ def lesson_familiarity(
         console.print(f"{name}: {value}")
     if not levels:
         console.print(f"No stacks set; every stack is treated as {DEFAULT_LEVEL!r}.")
+
+
+# Jobs, skills, the crew and epics live in their own module; importing it registers them.
+from prat import cli_more  # noqa: E402,F401

@@ -112,6 +112,8 @@ class CardKind(StrEnum):
     CHANGE = "change"
     SETUP = "setup"
     INFRA = "infra"
+    # A feature too big for one card: its planner splits it into parts (child cards).
+    EPIC = "epic"
 
 
 class Complexity(StrEnum):

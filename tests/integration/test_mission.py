@@ -82,3 +82,24 @@ def test_a_card_not_yet_run_has_every_leg_ahead() -> None:
 def test_sparkline_scales_to_the_busiest_hour() -> None:
     assert sparkline([0.0, 1.0, 2.0]) == "▁▄█"
     assert sparkline([0.0, 0.0]) == "▁▁"
+
+
+async def test_every_screen_draws_from_a_real_installation(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    await in_review(settings, db, project)
+    app = MissionControl(settings, db)
+    async with app.run_test(size=(170, 46)) as pilot:
+        for _ in range(50):
+            await pilot.pause(0.1)
+            if app.snapshot is not None:
+                break
+        assert app.snapshot is not None
+        assert app.snapshot.crew, "the run's agents should remember it"
+        for key, view in zip(
+            "2345671", ("crew", "jobs", "epics", "machine", "skills", "usage", "deck"), strict=True
+        ):
+            await pilot.press(key)
+            await pilot.pause(0.2)
+            assert app.view == view
+        assert app.snapshot.usage == [] or app.snapshot.usage[0].model

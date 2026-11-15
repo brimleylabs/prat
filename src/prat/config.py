@@ -94,8 +94,19 @@ class Settings(BaseSettings):
     store: Literal["auto", "sqlite", "dolt"] = "auto"
     # The dolt binary; default: dolt on the PATH.
     dolt_path: Path | None = None
-    max_concurrent_runs: int = Field(default=3, ge=1, le=64)
-    max_concurrent_per_project: int = Field(default=1, ge=1, le=64)
+    max_concurrent_runs: int = Field(default=6, ge=1, le=64)
+    # Ceilings: under them the governor (prat.governor) holds a card back while starting it
+    # would hurt (its parts not landed, rate limits, a full review queue, low memory, two cards
+    # changing the same files) and says why.
+    max_concurrent_per_project: int = Field(default=5, ge=1, le=64)
+    # No new work while this many cards wait for review; unset = no limit.
+    max_review_queue: int | None = Field(default=None, ge=1)
+    # Free memory the governor keeps in reserve before starting another card.
+    memory_reserve_mb: int | None = Field(default=1024, ge=0)
+    # Hold new work once the service reports this share of a rate limit used; unset = only a
+    # refusal holds it.
+    pressure_hold: float | None = Field(default=0.95, gt=0, le=1)
+    governor_poll_seconds: float = Field(default=5.0, gt=0)
     # Ceiling for every project and card. A project file cannot raise it.
     max_autonomy: Autonomy = Autonomy.MEDIUM
     default_budget_usd: float = Field(default=5.0, gt=0)
@@ -146,6 +157,14 @@ class Settings(BaseSettings):
     # Lessons (prat.lessons): when a card reaches review, a short lesson for the engineer on
     # what was built and why. "review" writes it then, in the background; "off" only on request.
     lessons: Literal["review", "off"] = "review"
+    # Alerts (prat.alerts): a URL each new alert is POSTed to as plain text (an ntfy topic
+    # reaches a phone); a review waiting this many hours; an agent quiet this many minutes.
+    alert_webhook: str | None = None
+    alert_review_hours: float | None = Field(default=4.0, gt=0)
+    alert_silent_minutes: float | None = Field(default=15.0, gt=0)
+    # Other PRAT installations mission control shows on its deck, each
+    # {name = "mac", url = "https://...", token = "..."} (the token from their access-token file).
+    remotes: list[dict[str, str]] = Field(default_factory=list)
     # Web UI ---------------------------------------------------------------------
     # Loopback only by default. A non-loopback address also needs web_allow_remote.
     web_host: str = "127.0.0.1"

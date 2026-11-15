@@ -276,6 +276,10 @@ def create_app(
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        from prat.governor import record_server
+
+        with contextlib.suppress(OSError):
+            record_server(settings.home)
         recovered = engine.recover()
         if recovered:
             log.warning("runs interrupted by an earlier stop: %s", recovered)
@@ -288,12 +292,18 @@ def create_app(
         if context.dreams is not None:
             context.dreams.start()
         watchdog = asyncio.create_task(_watch_orphans(engine, settings.stale_run_seconds))
+        from prat import alerts
+
+        stop_alerts = asyncio.Event()
+        alerting = asyncio.create_task(alerts.watch(settings, context.db, stop_alerts))
         try:
             yield
         finally:
+            stop_alerts.set()
             watchdog.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await watchdog
+            for task in (watchdog, alerting):
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
             if context.dreams is not None:
                 await context.dreams.stop()
             if context.improve is not None:
@@ -315,6 +325,7 @@ def create_app(
     from prat.web.routes_env import router as env_router
     from prat.web.routes_improve import router as improve_router
     from prat.web.routes_knowledge import router as knowledge_router
+    from prat.web.routes_mission import router as mission_router
     from prat.web.routes_pages import router as pages_router
     from prat.web.routes_rhythm import router as rhythm_router
     from prat.web.routes_stream import router as stream_router
@@ -328,6 +339,7 @@ def create_app(
     app.include_router(env_router)
     app.include_router(knowledge_router)
     app.include_router(rhythm_router)
+    app.include_router(mission_router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.exception_handler(StarletteHTTPException)

@@ -435,6 +435,52 @@ class SandboxSpec(BaseModel):
     ) = None
 
 
+class CrewSpec(BaseModel):
+    """Who works on the project (``[crew]``, see prat.crew): the lead (a stack such as
+    ``laravel`` or a crew member's name; default: worked out from the checkout), the helpers it
+    may call (default: all), the stack skills it carries (default: the lead's), and whether it
+    thinks before it acts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lead: Annotated[str, Field(max_length=40)] | None = None
+    helpers: list[Annotated[str, Field(max_length=40)]] | None = Field(default=None, max_length=12)
+    skills: list[Annotated[str, Field(max_length=80)]] | None = Field(default=None, max_length=40)
+    thinking: bool = True
+
+
+class Job(BaseModel):
+    """A long-running piece of work (``[[job]]``, see prat.jobs): a crawl, a backfill, a batch
+    of model calls. PRAT starts it, gives it a progress file (``PRAT_PROGRESS``) and its own
+    database branch, and shows its progress, rate and ETA.
+
+    ``database``: ``branch`` (a throwaway branch of each project database, landed or discarded
+    when the job ends; the default), ``default`` (the data the checkout uses) or ``none``.
+    ``stall_minutes``: no progress for this long and the job is reported stalled.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    label: Annotated[str, Field(max_length=80)] = ""
+    command: Command
+    cwd: str = "."
+    env: dict[str, str] = Field(default_factory=dict)
+    database: Literal["branch", "default", "none"] = "branch"
+    stall_minutes: Annotated[float, Field(gt=0, le=24 * 60)] = 10.0
+
+    @field_validator("name")
+    @classmethod
+    def _job_name(cls, value: str) -> str:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,39}", value):
+            raise ValueError(f"job name {value!r}: lowercase letters, digits, - and _")
+        return value
+
+    @property
+    def title(self) -> str:
+        return self.label or self.name
+
+
 class ProjectSpec(BaseModel):
     """Validated contents of ``.prat/project.toml``."""
 
@@ -463,6 +509,21 @@ class ProjectSpec(BaseModel):
     environment: list[Environment] = Field(default_factory=list, max_length=20)
     # The container image the sandbox runs this project's commands in.
     sandbox: SandboxSpec = Field(default_factory=SandboxSpec)
+    # The lead, its helpers and its skills (prat.crew).
+    crew: CrewSpec = Field(default_factory=CrewSpec)
+    # Long-running work PRAT starts and watches (prat.jobs).
+    job: list[Job] = Field(default_factory=list, max_length=20)
+    # How many of this project's cards may run their gates (tests, builds) at once; heavy
+    # suites want 1. Unset: no limit beyond the run limits.
+    gate_slots: Annotated[int, Field(ge=1, le=16)] | None = None
+
+    @field_validator("job")
+    @classmethod
+    def _unique_jobs(cls, values: list[Job]) -> list[Job]:
+        names = [value.name for value in values]
+        if len(names) != len(set(names)):
+            raise ValueError("each [[job]] needs its own name")
+        return values
 
     @field_validator("environment")
     @classmethod

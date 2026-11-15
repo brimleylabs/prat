@@ -183,7 +183,6 @@ async def test_critic_hook_denies_write_and_bash_even_if_asked(tmp_path: Path) -
         ("Glob", {"pattern": "**/*.py"}, True),
         ("Grep", {"pattern": "def ", "path": "src"}, True),
         ("WebFetch", {"url": "https://example.invalid"}, False),
-        ("Agent", {"prompt": "do it"}, False),
         ("mcp__tools__run", {"command": "ls"}, False),  # unregistered MCP tool
     ],
 )
@@ -192,6 +191,17 @@ def test_judge_maps_every_tool_to_the_policy(
 ) -> None:
     policy = Policy(Autonomy.MEDIUM, tmp_path)
     assert judge(policy, tool, tool_input).allowed is allowed
+
+
+def test_helpers_skills_and_task_lists_need_the_crew_tools(tmp_path: Path) -> None:
+    policy = Policy(Autonomy.MEDIUM, tmp_path)
+    plain = frozenset({"read", "bash"})
+    crew = plain | {"helpers", "skills", "tasks"}
+    for tool in ("Agent", "Skill", "TodoWrite", "TaskCreate"):
+        assert not judge(policy, tool, {}, plain).allowed, tool
+        assert judge(policy, tool, {}, crew).allowed, tool
+    # PRAT's own tools are always its to offer.
+    assert judge(policy, "mcp__prat__report_progress", {"done": 1}, plain).allowed
 
 
 def test_glob_patterns_that_leave_the_root_are_checked(tmp_path: Path) -> None:

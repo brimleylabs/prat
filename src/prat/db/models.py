@@ -146,6 +146,13 @@ class Card(Base):
     branch: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # An epic's parts point at the epic; a part may wait on other cards (their ids) to land.
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("cards.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    depends_on: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    # Why the governor is holding a ready card back, while it does.
+    hold_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
@@ -190,6 +197,10 @@ class Run(Base):
     cancel_requested_at: Mapped[datetime | None] = mapped_column(nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(nullable=True)
     owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Usage per role and model (prat.usage), and what the agent is doing right now: its task
+    # list, its context fill, its helpers and skills (read by mission control).
+    usage: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    live: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -243,6 +254,41 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
     card: Mapped[Card] = relationship(back_populates="comments")
+
+
+class JobRun(Base):
+    """One run of a project's long-running job (``[[job]]`` in the project file): its process,
+    its progress file, and the throwaway database branch it wrote to (see prat.jobs)."""
+
+    __tablename__ = "job_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    card_id: Mapped[int | None] = mapped_column(
+        ForeignKey("cards.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(64))
+    # running, succeeded, failed, stopped
+    status: Mapped[str] = mapped_column(String(16))
+    command: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    workdir: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    progress_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    log_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # branch (its own database branch), default (the data your checkout uses) or none
+    database: Mapped[str] = mapped_column(String(16))
+    # For a job on its own branch, after it ends: landed or discarded.
+    data_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    last: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    project: Mapped[Project] = relationship()
 
 
 class Event(Base):

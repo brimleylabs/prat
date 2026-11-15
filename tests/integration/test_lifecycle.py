@@ -389,7 +389,7 @@ async def test_cancel_queued_card(settings: Settings, db: Database, project: Pro
     first = add_card(db, project, title="first")
     second = add_card(db, project, title="second")
     script = [{"op": "write", "path": "a.txt", "content": "1"}, {"op": "wait", "seconds": 60}]
-    engine, runtime = make_engine(settings, db, script)
+    engine, runtime = make_engine(settings, db, script, max_concurrent_per_project=1)
     t1 = engine.submit(first)
     t2 = engine.submit(second)
     await wait_for(lambda: bool(runtime.executed))

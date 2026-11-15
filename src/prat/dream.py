@@ -41,7 +41,8 @@ from prat.runtime import AgentRuntime
 
 log = logging.getLogger(__name__)
 
-PHASES = ("tidy", "remember", "reflect")
+# consolidate: each agent turns its recent episodes into beliefs (prat.consolidate).
+PHASES = ("tidy", "remember", "consolidate", "reflect")
 TICK_SECONDS = 120.0
 
 
@@ -169,6 +170,17 @@ async def run_dream(
                 )
                 cost += report.cost_usd
                 results[phase] = report.to_dict()
+            elif phase == "consolidate":
+                from prat.consolidate import consolidate
+
+                consolidated = await consolidate(
+                    settings.home,
+                    runtime,
+                    model=resolve_model(Role.LIBRARIAN, settings_models=settings.models),
+                    should_stop=stop,
+                )
+                cost += consolidated.cost_usd
+                results[phase] = consolidated.to_dict()
             else:
                 results[phase] = await asyncio.to_thread(reflect, db, settings, runtime_name)
             _finish(db, dream_id, results=dict(results), cost_usd=cost)
