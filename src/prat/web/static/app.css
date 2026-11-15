@@ -1061,7 +1061,17 @@ a.fact:hover { color: var(--text); }
 .crew-card p { margin: 8px 0 0; }
 .crew-head { display: flex; align-items: center; gap: 12px; }
 .crew-head .badge { margin-left: auto; }
-.crew-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; color: #0a1022; flex: none; }
+.crew-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: #9aa6bc; flex: none; }
+.av-python { background: #3776ab; }
+.av-react { background: #0f7fa3; }
+.av-node { background: #3c873a; }
+.av-laravel { background: #d4261b; }
+.av-php { background: #777bb4; }
+.av-go { background: #007d9c; }
+.av-generalist, .av-other { background: #9aa6bc; color: #0a1022; }
+.crew-about ul { margin: 4px 0 12px; padding-left: 20px; }
+.crew-about li { margin-bottom: 4px; }
+.crew-about h3 { margin: 16px 0 4px; }
 .crew-name { font-weight: 600; }
 .crew-standup { display: grid; gap: 12px; }
 .crew-report p { margin: 4px 0 0; }

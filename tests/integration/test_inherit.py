@@ -153,3 +153,21 @@ def test_the_briefing_says_inherited_memories_are_from_the_record(
     assert "(from the record, before you kept memories)" in text
     assert "You felt" not in text
     assert "Round per line, not at the end." in text
+
+
+def test_long_text_is_shortened_at_a_whole_sentence() -> None:
+    from prat.memory import clip
+
+    text = "First sentence here. Second one is longer and keeps going past the limit."
+    assert clip(text, 40) == "First sentence here."
+    assert clip("short", 40) == "short"
+
+
+def test_the_record_for_the_person_is_about_the_agent(
+    db: Database, project: Project, tmp_path: Path
+) -> None:
+    history(db, project)
+    home = tmp_path / "home"
+    lead = inherit.inherit(db, home).leads[project.slug]
+    text = track_record(AgentMemory(home, lead), reader="person")
+    assert text.startswith("Record: 2 cards landed") and "Your" not in text

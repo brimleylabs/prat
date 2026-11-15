@@ -34,7 +34,9 @@ class AgentCard:
     personality: str
     drive: str
     chosen: bool
-    color: str
+    # The avatar's colour class (app.css .av-*): the lead's stack, else "other". The page's
+    # content security policy allows no inline styles.
+    tone: str
     episodes: int
     landed: int
     reworked: int
@@ -57,7 +59,7 @@ def _cards(home: Any, db: Any) -> list[AgentCard]:
                 personality=who.personality if who.chosen else "",
                 drive=who.drive,
                 chosen=who.chosen,
-                color=member.color if member else "#9aa6bc",
+                tone=member.key if member else "other",
                 episodes=stats["episodes"],
                 landed=stats["outcomes"].get("landed", 0),
                 reworked=stats["outcomes"].get("reworked", 0),
@@ -101,7 +103,8 @@ async def agent_page(request: Request, key: str) -> Response:
     beliefs = sorted(
         memory.AgentMemory(home, key).beliefs(), key=lambda b: b.strength, reverse=True
     )
-    episodes = memory.AgentMemory(home, key).episodes()[-8:][::-1]
+    # Newest first by when it happened: inherited episodes are added later but are older.
+    episodes = sorted(memory.AgentMemory(home, key).episodes(), key=lambda e: e.at)[-8:][::-1]
     work = await asyncio.to_thread(converse.at_work, ctx.db, key)
     return render(
         request,
@@ -113,7 +116,7 @@ async def agent_page(request: Request, key: str) -> Response:
             "beliefs": beliefs[:10],
             "episodes": episodes,
             "work": work,
-            "record": memory.track_record(memory.AgentMemory(home, key)),
+            "record": memory.track_record(memory.AgentMemory(home, key), reader="person"),
             "clock": lambda t: time.strftime("%b %d %H:%M", time.localtime(t)),
         },
         nav="crew",

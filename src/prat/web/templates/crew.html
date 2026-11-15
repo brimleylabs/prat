@@ -33,7 +33,7 @@
     {% for c in cards %}
     <a class="panel crew-card" href="/crew/{{ c.key }}">
       <div class="crew-head">
-        <span class="crew-avatar" style="background: {{ c.color }}">{{ c.name[:1] }}</span>
+        <span class="crew-avatar av-{{ c.tone }}">{{ c.name[:1] }}</span>
         <div>
           <div class="crew-name">{{ c.name }}</div>
           <div class="muted small">{{ c.role }}</div>

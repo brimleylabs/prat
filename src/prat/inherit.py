@@ -37,6 +37,7 @@ from prat.memory import (
     Feeling,
     _safe,
     apply_outcome,
+    clip,
 )
 
 log = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ class Record:
 
     added: dict[str, Counter[str]] = field(default_factory=dict)
     skipped: int = 0
+    updated: int = 0
     leads: dict[str, str] = field(default_factory=dict)
 
     def add(self, agent: str, outcome: str) -> None:
@@ -63,6 +65,7 @@ class Record:
         return {
             "added": {agent: dict(c) for agent, c in self.added.items()},
             "skipped": self.skipped,
+            "updated": self.updated,
             "leads": self.leads,
         }
 
@@ -114,8 +117,9 @@ def describe(home: Path, record: Record) -> str:
     """One line per agent: who inherited what."""
     from prat import identity
 
+    refreshed = f" {record.updated} refreshed from the record." if record.updated else ""
     if not record.total:
-        return f"Nothing new to inherit ({record.skipped} already remembered)."
+        return f"Nothing new to inherit ({record.skipped} already remembered).{refreshed}"
     lines = []
     for agent, outcomes in sorted(record.added.items()):
         counts = ", ".join(f"{n} {outcome}" for outcome, n in outcomes.most_common())
@@ -123,6 +127,7 @@ def describe(home: Path, record: Record) -> str:
     lines.append(
         f"{record.total} episodes inherited"
         + (f", {record.skipped} already remembered." if record.skipped else ".")
+        + refreshed
     )
     return "\n".join(lines)
 
@@ -134,11 +139,28 @@ def _save(home: Path, episodes: list[Episode], record: Record, *, dry_run: bool)
     for agent, mine in by_agent.items():
         memory = AgentMemory(home, agent)
         known = memory.episodes()
-        ids = {e.id for e in known}
+        ids = {e.id: e for e in known}
         lived = {(e.project, e.run_id) for e in known if not e.inherited and e.run_id}
         for episode in mine:
-            if episode.id in ids or (episode.project, episode.run_id) in lived:
+            if (episode.project, episode.run_id) in lived:
                 record.skipped += 1
+                continue
+            old = ids.get(episode.id)
+            if old is not None:
+                # Already inherited: refresh it only if the record now reads differently,
+                # keeping how often it was recalled and how much it came to matter.
+                if (old.what, old.lesson, old.feedback, old.outcome) != (
+                    episode.what,
+                    episode.lesson,
+                    episode.feedback,
+                    episode.outcome,
+                ):
+                    episode.recalled, episode.importance = old.recalled, old.importance
+                    if not dry_run:
+                        memory.save(episode)
+                    record.updated += 1
+                else:
+                    record.skipped += 1
                 continue
             if not dry_run:
                 memory.save(episode)
@@ -268,7 +290,7 @@ def _episode(
         run_id=run.id,
         role=role,
         title=card.title,
-        what=" ".join(what.split())[:WHAT_CHARS],
+        what=clip(what, WHAT_CHARS),
         lesson=lesson,
         importance=0.5 if role != "critic" else 0.4,
         tags=tags or [],
@@ -301,7 +323,7 @@ def _lesson(comment: Any) -> tuple[str, list[str]]:
     title = str(data.get("title") or "").strip()
     trap = " ".join(str(data.get("trap") or "").split())
     text = f"{title}. {trap}" if title and trap else title or trap
-    return text[:500], [str(t) for t in data.get("tags") or []][:6]
+    return clip(text, 900), [str(t) for t in data.get("tags") or []][:6]
 
 
 def _moment(run: Run, stamp: datetime | None = None) -> float:

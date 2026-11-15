@@ -317,9 +317,10 @@ class AgentMemory:
 # Briefing an agent --------------------------------------------------------------------
 
 
-def track_record(memory: AgentMemory) -> str:
+def track_record(memory: AgentMemory, *, reader: str = "agent") -> str:
     """The agent's own record, so it knows where it stands and what it means to improve: cards
-    landed, landed on the first review, sent back, its current streak and its resolutions."""
+    landed, landed on the first review, sent back, its current streak and its resolutions.
+    ``reader="person"`` words it for the person reading about the agent."""
     work = [
         e
         for e in memory.episodes()
@@ -336,14 +337,23 @@ def track_record(memory: AgentMemory) -> str:
         if episode.outcome != "landed":
             break
         streak += 1
+    person = reader == "person"
+    failed = sum(1 for e in work if e.outcome == "failed")
     lines = [
-        f"Your record: {landed} cards landed ({first} on the first review), {sent_back} sent "
-        f"back, {sum(1 for e in work if e.outcome == 'failed')} failed. "
-        + (f"You have landed {streak} in a row; keep it going." if streak > 1 else "")
+        f"{'Record' if person else 'Your record'}: {landed} cards landed ({first} on the first "
+        f"review), {sent_back} sent back, {failed} failed."
     ]
+    if streak > 1:
+        lines[0] += (
+            f" {streak} landed in a row."
+            if person
+            else f" You have landed {streak} in a row; keep it going."
+        )
     intentions = [e.intention for e in memory.episodes() if e.intention][-3:]
     if intentions:
-        lines.append("You resolved, after earlier work:")
+        lines.append(
+            "They resolved, after earlier work:" if person else "You resolved, after earlier work:"
+        )
         lines.extend(f"- {text}" for text in intentions)
     return "\n".join(lines)
 
@@ -460,7 +470,7 @@ def apply_outcome(episode: Episode, outcome: str, felt: Feeling, feedback: str =
     mistakes are remembered more."""
     episode.outcome = outcome
     if feedback:
-        episode.feedback = " ".join(feedback.split())[:400]
+        episode.feedback = clip(feedback, 600)
     episode.feeling = Feeling(
         felt.words
         if episode.feeling.words == "neutral"
@@ -470,6 +480,16 @@ def apply_outcome(episode: Episode, outcome: str, felt: Feeling, feedback: str =
     )
     if outcome in ("reworked", "failed"):
         episode.importance = min(1.0, episode.importance + 0.2)
+
+
+def clip(text: str, limit: int) -> str:
+    """At most ``limit`` characters, ending at a whole sentence when it must be shortened."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    return cut[: end + 1] if end > 0 else cut.rsplit(" ", 1)[0] + "."
 
 
 def new_episode(
