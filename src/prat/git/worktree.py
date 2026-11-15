@@ -147,8 +147,14 @@ def _force_remove(func: Callable[..., Any], path: str, _exc: BaseException) -> N
 
 
 def rmtree(path: Path) -> None:
-    if path.exists():
-        shutil.rmtree(path, onexc=_force_remove)
+    if not path.exists():
+        return
+    target = str(path)
+    if os.name == "nt" and not target.startswith("\\\\?\\"):
+        # Installed packages nest past Windows' 260-character path limit; the extended form
+        # lets every file be removed instead of leaving a half-deleted worktree behind.
+        target = "\\\\?\\" + str(path.resolve())
+    shutil.rmtree(target, onexc=_force_remove)
 
 
 class WorktreeManager:
@@ -298,8 +304,13 @@ class WorktreeManager:
             if key in registered:
                 raise CloneError(f"{path} is a worktree for another branch")
             if any(path.iterdir()):
-                raise CloneError(f"{path} exists and is not a PRAT worktree")
-            path.rmdir()
+                if not paths.is_within(path, self.worktrees_root):
+                    raise CloneError(f"{path} exists and is not a PRAT worktree")
+                # PRAT's own folder for this card, left behind by a removal that did not
+                # finish (git no longer knows it): clear it and start the worktree again.
+                rmtree(path)
+            else:
+                path.rmdir()
         path.parent.mkdir(parents=True, exist_ok=True)
         if git.branch_exists(branch):
             git.run("worktree", "add", "--quiet", str(path), branch)

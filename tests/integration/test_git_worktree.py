@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -105,6 +106,40 @@ def test_worktree_lifecycle(manager: WorktreeManager, checkout: Path, tmp_path: 
     assert Git(agent).branch_exists(branch)
     again = manager.create_worktree(agent, path, branch, "main")
     assert again.created and (path / "src" / "greet.py").exists()
+
+
+def test_a_half_removed_worktree_is_cleared_for_the_next_run(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    manager.prepare_agent_clone(checkout, agent, "main")
+    branch = card_branch(8, "Docs")
+    path = manager.worktree_path("acme-api", 8)
+    manager.create_worktree(agent, path, branch, "main")
+    # A removal that stopped partway: git forgot the worktree, files stayed behind.
+    Git(agent).run("worktree", "remove", "--force", str(path))
+    (path / "node_modules" / "pkg").mkdir(parents=True)
+    (path / "node_modules" / "pkg" / "index.js").write_text("x")
+    again = manager.create_worktree(agent, path, branch, "main")
+    assert again.created and Git(path).current_branch() == branch
+    assert not (path / "node_modules").exists()
+
+
+def test_rmtree_removes_paths_past_the_windows_limit(tmp_path: Path) -> None:
+    from prat.git.worktree import rmtree
+
+    deep = tmp_path / "tree"
+    target = deep
+    while len(str(target)) < 300:
+        target = target / "a-long-folder-name-for-nesting"
+    try:
+        os.makedirs("\\\\?\\" + str(target) if os.name == "nt" else target)
+    except OSError:
+        pytest.skip("cannot make a path this long here")
+    file = Path(("\\\\?\\" if os.name == "nt" else "") + str(target / "f.txt"))
+    file.write_text("x")
+    rmtree(deep)
+    assert not deep.exists()
 
 
 def test_worktree_ignores_build_artefacts(
