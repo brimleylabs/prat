@@ -111,7 +111,10 @@ src/prat/
     icons.py         inline SVG icons (the only markup built outside templates)
     templates/       Jinja2, autoescaped
     static/          CSS, the UI script, theme script, vendored htmx
-  cli.py             typer command line (including serve, login-url, rotate-token)
+  mission.py         mission control's snapshot: flights on their route, what needs the person,
+                     refusals, the fleet, the pulse (reads only)
+  mission_app.py     prat mission: the Textual terminal app drawn from that snapshot
+  cli.py             typer command line (including serve, mission, login-url, rotate-token)
 ```
 
 Dependencies point one way: `domain`, `paths`, `proc` and `model_registry` depend on nothing in

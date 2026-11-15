@@ -419,6 +419,28 @@ letting agents push) are held, not filed. `prat improve allow <id>` (or **Let it
 web UI's Improve page) puts one back in the queue for the text you read; reworded later, it is
 held again. Everything above is also on the Improve page.
 
+## Mission control
+
+`prat mission` is the terminal's view of everything PRAT is doing, beside the web UI. One screen,
+redrawn every two seconds from PRAT's own records:
+
+- **In flight**: each card an agent is working on, drawn on its route (prepare, plan, build,
+  verify, review, summary, finish) with the leg it is on, how long it has run, its spend, how many
+  of its actions the policy refused, and the last things its agent did. Cards waiting for a slot
+  follow, then the cards that landed most recently, with their commit and whether data came too.
+- **Needs you**: an agent's question first, then cards to approve with the reviewer's verdict,
+  the gates, the tables changed and whether the lesson is written, then failures.
+- **Fleet**: every project with its client, its databases and each environment's state and port.
+- **Guardrails**: everything the policy refused in the last day, newest first.
+- **Pulse**: spend by hour over the last day, runs, cards landed, lessons written and the dream
+  window.
+
+`j`/`k` move between cards, `enter` follows one (its route with the time on each leg and its
+whole recent session), `esc` comes back, `a` approves a card in review after a confirmation (the
+same merge as `prat card approve`), `o` opens the card in the web UI, `c` switches client, and
+`q` quits. `--client <slug>` opens on one client; otherwise it opens on `default_client`. It
+reads the same database as the server, so it runs alongside it, over SSH too.
+
 ## Environments
 
 Declare how to run a project in its `.prat/project.toml`, and start, stop and open it from PRAT:

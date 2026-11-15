@@ -1,0 +1,505 @@
+"""Mission control: everything PRAT is doing, as one snapshot a terminal can draw.
+
+``prat mission`` (see :mod:`prat.mission_app`) redraws it every couple of seconds. This module
+only reads: the cards in flight with where each is on its route (prepare, plan, build, verify,
+review, summary, finish) and what its agent last did; the cards waiting on the person (a
+question, a review, a failure); every decision the policy refused; each project's environments
+and databases; and the day's pulse (spend by hour, cards landed, lessons written, the dream
+window). Journals are read whole only when they change, and environments, which ask each
+app's health URL, are refreshed less often than the rest.
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy import func, select
+
+from prat import store
+from prat.config import Settings
+from prat.db import Card, Comment, Database, Event, Run
+from prat.domain import STEP_ORDER, CardStatus, RunStatus, StepName, StepStatus
+from prat.journal import read_first_and_last, read_journal
+from prat.web import views
+
+# A card's route, in PRAT's own words (README: prepare, build, verify, review, ...).
+STEP_LABELS: Mapping[StepName, str] = {
+    StepName.PREPARE: "prepare",
+    StepName.PLAN: "plan",
+    StepName.EXECUTE: "build",
+    StepName.VERIFY: "verify",
+    StepName.CRITIQUE: "review",
+    StepName.SUMMARIZE: "summary",
+    StepName.FINALIZE: "finish",
+}
+# What an agent's recent activity shows: what it says and does, not bookkeeping.
+ACTIVITY_CATEGORIES = frozenset({"text", "tool", "denied", "verify"})
+ACTIVITY_LINES = 40
+GUARD_RUNS = 20
+GUARD_LIMIT = 40
+ENVIRONMENT_SECONDS = 10.0
+LANDED_LIMIT = 6
+# Waiting on the person, most urgent first: an agent's question, then work to approve.
+WAITING_ORDER = (CardStatus.BLOCKED, CardStatus.REVIEW, CardStatus.FAILED)
+
+
+@dataclass
+class Leg:
+    """One step of a card's route."""
+
+    name: str
+    state: str  # done, running, failed, skipped, pending
+    seconds: float | None = None
+
+
+@dataclass
+class Activity:
+    offset: float
+    agent: str
+    category: str
+    tone: str
+    title: str
+
+
+@dataclass
+class Flight:
+    """A card an agent is working on, or one waiting for a slot."""
+
+    card_id: int
+    title: str
+    project: str
+    status: str
+    queued: bool
+    attempt: int
+    route: list[Leg]
+    since: datetime | None
+    cost_usd: float
+    denials: int
+    activity: list[Activity] = field(default_factory=list)
+
+    @property
+    def step(self) -> str | None:
+        return next((leg.name for leg in self.route if leg.state == "running"), None)
+
+
+@dataclass
+class Waiting:
+    """A card that needs the person: a question to answer, work to approve, a failure."""
+
+    card_id: int
+    title: str
+    project: str
+    status: str
+    detail: str
+    verdict: str | None = None
+    gates_passed: int = 0
+    gates_total: int = 0
+    tables_changed: int = 0
+    lesson: bool = False
+    updated_at: datetime | None = None
+
+
+@dataclass
+class Refusal:
+    """A decision the policy refused: the guardrail doing its job."""
+
+    at: datetime
+    card_id: int
+    project: str
+    agent: str
+    title: str
+
+
+@dataclass
+class EnvironmentState:
+    name: str
+    state: str
+    port: int | None
+
+
+@dataclass
+class ProjectLine:
+    slug: str
+    client: str | None
+    branch: str
+    databases: list[str]
+    environments: list[EnvironmentState]
+    open_cards: int
+    problem: str | None = None
+
+
+@dataclass
+class Pulse:
+    spend_today: float
+    spend_hours: list[float]  # the last 24 hours, oldest first
+    landed_today: int
+    lessons_today: int
+    runs_today: int
+    dream: str | None
+
+
+@dataclass
+class Landing:
+    """A card that landed: a checkpoint of its code and data."""
+
+    at: datetime
+    card_id: int
+    title: str
+    project: str
+    commit: str
+    databases: int
+
+
+@dataclass
+class Snapshot:
+    taken_at: datetime
+    client: str | None
+    clients: list[str]
+    flights: list[Flight]
+    waiting: list[Waiting]
+    refusals: list[Refusal]
+    projects: list[ProjectLine]
+    pulse: Pulse
+    landed: list[Landing] = field(default_factory=list)
+
+    @property
+    def running(self) -> int:
+        return sum(1 for f in self.flights if not f.queued)
+
+    @property
+    def queued(self) -> int:
+        return sum(1 for f in self.flights if f.queued)
+
+    def card(self, card_id: int) -> Flight | Waiting | None:
+        items: list[Flight | Waiting] = [*self.flights, *self.waiting]
+        return next((item for item in items if item.card_id == card_id), None)
+
+
+def route_of(run: Run | None, now: datetime) -> list[Leg]:
+    """Every step of PRAT's route with how far the run got along it."""
+    steps = {step.name: step for step in run.steps} if run is not None else {}
+    legs = []
+    for name in STEP_ORDER:
+        step = steps.get(name)
+        state = "pending"
+        seconds = None
+        if step is not None:
+            state = {
+                StepStatus.SUCCEEDED: "done",
+                StepStatus.RUNNING: "running",
+                StepStatus.FAILED: "failed",
+                StepStatus.SKIPPED: "skipped",
+            }.get(step.status, "pending")
+            began = views.utc(step.started_at)
+            ended = views.utc(step.finished_at) or (now if state == "running" else None)
+            if began is not None and ended is not None:
+                seconds = max((ended - began).total_seconds(), 0.0)
+        legs.append(Leg(STEP_LABELS[name], state, seconds))
+    return legs
+
+
+class MissionData:
+    """Builds snapshots for one PRAT home, keeping what is costly to read between them."""
+
+    def __init__(self, settings: Settings, db: Database) -> None:
+        self.settings = settings
+        self.db = db
+        # Journal path -> (size, mtime, refusals in it).
+        self._journals: dict[str, tuple[int, float, list[Refusal]]] = {}
+        self._environments: dict[str, tuple[float, ProjectLine]] = {}
+
+    # Snapshot ---------------------------------------------------------------------------
+
+    def snapshot(self, client: str | None = None, now: datetime | None = None) -> Snapshot:
+        moment = now or datetime.now(UTC)
+        with self.db.session() as session:
+            clients = [c.slug for c in store.list_clients(session)]
+            chosen = None
+            if client is not None:
+                try:
+                    chosen = store.get_client(session, client)
+                except store.NotFound:
+                    client = None
+            cards = store.list_cards(session, None, chosen)
+            from prat.web.data import latest_runs
+
+            runs = latest_runs(session, (c.id for c in cards))
+            flights = [
+                self._flight(card, runs.get(card.id), moment)
+                for card in cards
+                if card.status in (CardStatus.RUNNING, CardStatus.READY, CardStatus.REWORK)
+            ]
+            flights.sort(key=lambda f: (f.queued, f.card_id))
+            waiting = [
+                self._waiting(card, runs.get(card.id))
+                for card in cards
+                if card.status in WAITING_ORDER
+            ]
+            waiting.sort(
+                key=lambda w: (
+                    WAITING_ORDER.index(CardStatus(w.status)),
+                    -(views.utc(w.updated_at) or moment).timestamp(),
+                )
+            )
+            projects = store.list_projects(session, chosen)
+            project_ids = {p.id for p in projects}
+            refusals = self._refusals(session, project_ids if chosen else None, moment)
+            landed = self._landed(session, project_ids if chosen else None)
+            open_cards = {
+                p.id: sum(
+                    1
+                    for c in cards
+                    if c.project_id == p.id
+                    and c.status not in (CardStatus.DONE, CardStatus.CANCELLED)
+                )
+                for p in projects
+            }
+            project_rows = [
+                (p.slug, p.client.slug if p.client else None, p.default_branch, open_cards[p.id])
+                for p in projects
+            ]
+            pulse = self._pulse(session, project_ids if chosen else None, moment)
+        lines = [self._project(*row) for row in project_rows]
+        return Snapshot(moment, client, clients, flights, waiting, refusals, lines, pulse, landed)
+
+    def _landed(self, session: Any, project_ids: set[int] | None) -> list[Landing]:
+        query = select(Event).where(Event.kind == "card.merged").order_by(Event.id.desc())
+        if project_ids is not None:
+            query = query.where(Event.project_id.in_(project_ids))
+        found = []
+        for event in session.scalars(query.limit(LANDED_LIMIT)):
+            card = session.get(Card, event.card_id) if event.card_id is not None else None
+            if card is None:
+                continue
+            data = event.data or {}
+            found.append(
+                Landing(
+                    at=views.utc(event.created_at) or event.created_at,
+                    card_id=card.id,
+                    title=card.title,
+                    project=card.project.slug,
+                    commit=str(data.get("commit") or "")[:10],
+                    databases=len(data.get("databases") or []),
+                )
+            )
+        return found
+
+    # Cards ------------------------------------------------------------------------------
+
+    def _flight(self, card: Card, run: Run | None, now: datetime) -> Flight:
+        live = run is not None and run.status == RunStatus.RUNNING
+        activity: list[Activity] = []
+        denials = 0
+        if live and run is not None and run.journal_path:
+            first, last = read_first_and_last(Path(run.journal_path), 80)
+            start = first.ts if first is not None else None
+            shown = [views.present(entry, start) for entry in last]
+            denials = sum(1 for e in shown if e.category == "denied")
+            activity = [
+                Activity(e.offset, e.agent, e.category, e.tone, describe(e))
+                for e in shown
+                if e.category in ACTIVITY_CATEGORIES
+            ][-ACTIVITY_LINES:]
+        return Flight(
+            card_id=card.id,
+            title=card.title,
+            project=card.project.slug,
+            status=str(card.status),
+            queued=not live,
+            attempt=run.attempt if run is not None else 0,
+            route=route_of(run if live else None, now),
+            since=views.utc(run.started_at) if live and run is not None else None,
+            cost_usd=float(run.cost_usd or 0.0) if live and run is not None else 0.0,
+            denials=denials,
+            activity=activity,
+        )
+
+    def _waiting(self, card: Card, run: Run | None) -> Waiting:
+        from prat.web.data import _databases_of, _verdict_of, _verify_detail
+
+        gates, _findings = _verify_detail(run)
+        tables = sum(len(d.get("tables") or []) for d in _databases_of(run))
+        if card.status == CardStatus.BLOCKED:
+            detail = card.status_reason or "the agent asked a question"
+        elif card.status == CardStatus.REVIEW:
+            detail = card.summary or card.status_reason or "ready for your review"
+        else:
+            detail = card.status_reason or (run.reason if run is not None else None) or "failed"
+        return Waiting(
+            card_id=card.id,
+            title=card.title,
+            project=card.project.slug,
+            status=str(card.status),
+            detail=_one_line(detail),
+            verdict=_verdict_of(run),
+            gates_passed=sum(1 for g in gates if g.passed),
+            gates_total=len(gates),
+            tables_changed=tables,
+            lesson=any(c.kind == "lesson" for c in card.comments),
+            updated_at=card.updated_at,
+        )
+
+    # The guardrail feed -----------------------------------------------------------------
+
+    def _refusals(self, session: Any, project_ids: set[int] | None, now: datetime) -> list[Refusal]:
+        since = (now - timedelta(hours=24)).replace(tzinfo=None)
+        query = (
+            select(Run)
+            .where(Run.created_at >= since, Run.journal_path.is_not(None))
+            .order_by(Run.id.desc())
+            .limit(GUARD_RUNS)
+        )
+        found: list[Refusal] = []
+        for run in session.scalars(query):
+            if project_ids is not None and run.card.project_id not in project_ids:
+                continue
+            found.extend(self._journal_refusals(run))
+        found.sort(key=lambda r: r.at, reverse=True)
+        return found[:GUARD_LIMIT]
+
+    def _journal_refusals(self, run: Run) -> list[Refusal]:
+        path = Path(str(run.journal_path))
+        try:
+            info = path.stat()
+        except OSError:
+            return []
+        key = str(path)
+        cached = self._journals.get(key)
+        if cached is not None and cached[0] == info.st_size and cached[1] == info.st_mtime:
+            return cached[2]
+        refusals = []
+        for entry in read_journal(path):
+            shown = views.present(entry)
+            if shown.category != "denied":
+                continue
+            refusals.append(
+                Refusal(
+                    at=views.utc(entry.ts) or entry.ts,
+                    card_id=run.card_id,
+                    project=run.card.project.slug,
+                    agent=shown.agent,
+                    title=describe(shown),
+                )
+            )
+        self._journals[key] = (info.st_size, info.st_mtime, refusals)
+        return refusals
+
+    # Projects ---------------------------------------------------------------------------
+
+    def _project(self, slug: str, client: str | None, branch: str, open_cards: int) -> ProjectLine:
+        cached = self._environments.get(slug)
+        if cached is not None and time.monotonic() - cached[0] < ENVIRONMENT_SECONDS:
+            line = cached[1]
+            line.open_cards = open_cards
+            return line
+        line = self._load_project(slug, client, branch, open_cards)
+        self._environments[slug] = (time.monotonic(), line)
+        return line
+
+    def _load_project(
+        self, slug: str, client: str | None, branch: str, open_cards: int
+    ) -> ProjectLine:
+        from prat.environments import (
+            EnvironmentManager,
+            committed_spec,
+            load_local,
+            merged,
+        )
+
+        try:
+            _checkout, spec, problem = committed_spec(self.db, slug)
+        except LookupError as exc:
+            return ProjectLine(slug, client, branch, [], [], open_cards, str(exc))
+        manager = EnvironmentManager(self.settings.home)
+        envs = merged(list(spec.environment), load_local(self.settings.home, slug))
+        states = []
+        for env in envs:
+            try:
+                view = manager.view(slug, env)
+            except OSError:
+                continue
+            states.append(EnvironmentState(env.name, view.state, view.port))
+        databases = [f"{db.kind}" for db in spec.workspace.database]
+        return ProjectLine(slug, client, branch, databases, states, open_cards, problem)
+
+    # Pulse ------------------------------------------------------------------------------
+
+    def _pulse(self, session: Any, project_ids: set[int] | None, now: datetime) -> Pulse:
+        day_start = now.astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+        since = (now - timedelta(hours=24)).replace(tzinfo=None)
+        runs = list(session.scalars(select(Run).where(Run.created_at >= since)))
+        if project_ids is not None:
+            runs = [r for r in runs if r.card.project_id in project_ids]
+        hours = [0.0] * 24
+        today = 0.0
+        runs_today = 0
+        for run in runs:
+            when = views.utc(run.created_at) or now
+            index = 23 - int((now - when).total_seconds() // 3600)
+            if 0 <= index < 24:
+                hours[index] += float(run.cost_usd or 0.0)
+            if when >= day_start:
+                today += float(run.cost_usd or 0.0)
+                runs_today += 1
+        start = day_start.astimezone(UTC).replace(tzinfo=None)
+        landed_query = select(func.count(Event.id)).where(
+            Event.kind == "card.merged", Event.created_at >= start
+        )
+        lessons_query = select(func.count(Comment.id)).where(
+            Comment.kind == "lesson", Comment.created_at >= start
+        )
+        if project_ids is not None:
+            landed_query = landed_query.where(Event.project_id.in_(project_ids))
+            lessons_query = lessons_query.join(Card).where(Card.project_id.in_(project_ids))
+        return Pulse(
+            spend_today=today,
+            spend_hours=hours,
+            landed_today=int(session.scalar(landed_query) or 0),
+            lessons_today=int(session.scalar(lessons_query) or 0),
+            runs_today=runs_today,
+            dream=self._dream(now),
+        )
+
+    def _dream(self, now: datetime) -> str | None:
+        from prat.rhythm import dream_window
+
+        try:
+            window = dream_window(self.db, now)
+        except Exception:  # the pulse never fails over the dream window
+            return None
+        if window is None:
+            return None
+        start, end = window.start.strftime("%H:%M"), window.end.strftime("%H:%M")
+        if window.contains(now.astimezone(window.start.tzinfo)):
+            return f"dreaming until {end}"
+        return f"dreams {start}-{end}" + (" (learned)" if window.learned else "")
+
+
+def describe(entry: views.EntryView) -> str:
+    """One line for a journal entry: the tool and its target, what the agent said, or what
+    the policy refused and why."""
+    if entry.category == "text":
+        return _one_line(entry.detail)
+    if entry.category == "denied":
+        reason = f"({entry.detail})" if entry.detail else ""
+        return _one_line(entry.code or entry.title, reason)
+    return _one_line(entry.title, entry.code or entry.detail)
+
+
+def _one_line(*parts: str | None) -> str:
+    text = " ".join(p for p in parts if p)
+    return " ".join(text.split())
+
+
+def sparkline(values: Sequence[float]) -> str:
+    """Eight-level bars for a short series; an empty series is blank."""
+    bars = " ▁▂▃▄▅▆▇█"
+    top = max(values, default=0.0)
+    if top <= 0:
+        return "▁" * len(values)
+    return "".join(bars[max(1, round(8 * v / top))] if v > 0 else "▁" for v in values)

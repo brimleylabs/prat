@@ -184,7 +184,8 @@ machine, your own Claude Code login (`auth_mode = "claude_login"`). See
       <b>Built to be watched</b><br>
       A live board, a wall of running agents, live session streams, full replays of every run,
       spend per role and card, project environments and per-card previews you can click into
-      before you approve.
+      before you approve. In a terminal, `prat mission` puts it all on one screen: each card on
+      its route, what needs you, what the policy refused, the fleet and the day's pulse.
     </td>
   </tr>
   <tr>

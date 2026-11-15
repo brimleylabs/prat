@@ -1534,6 +1534,21 @@ def serve(
         run_server(settings, web, host=bind_host, port=bind_port)
 
 
+@app.command()
+def mission(
+    ctx: typer.Context,
+    client: Annotated[
+        str | None, typer.Option(help="Open on one client (default: default_client).")
+    ] = None,
+) -> None:
+    """Mission control in the terminal: cards in flight on their route, what needs you, the
+    fleet's environments, what the policy refused, and the day's pulse. Runs beside the web UI."""
+    from prat.mission_app import run
+
+    with _database(ctx) as (settings, db):
+        run(settings, db, client)
+
+
 @app.command("login-url")
 def login_url_command(
     ctx: typer.Context,
