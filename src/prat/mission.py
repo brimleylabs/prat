@@ -4,7 +4,7 @@
 only reads: the cards in flight with where each is on its route (prepare, plan, build, verify,
 review, summary, finish) and what its agent last did; the cards waiting on the person (a
 question, a review, a failure); every decision the policy refused; each project's environments
-and databases; and the day's pulse (spend by hour, cards landed, lessons written, the dream
+and databases; and the day's pulse (agent minutes by hour, cards landed, lessons written, the dream
 window). Journals are read whole only when they change, and environments, which ask each
 app's health URL, are refreshed less often than the rest.
 """
@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from prat import store
 from prat.config import Settings
@@ -78,7 +78,6 @@ class Flight:
     attempt: int
     route: list[Leg]
     since: datetime | None
-    cost_usd: float
     denials: int
     activity: list[Activity] = field(default_factory=list)
 
@@ -135,8 +134,9 @@ class ProjectLine:
 
 @dataclass
 class Pulse:
-    spend_today: float
-    spend_hours: list[float]  # the last 24 hours, oldest first
+    # Agent minutes in each of the last 24 hours, oldest first. Spend is not shown here: it has
+    # one page of its own (web /usage), never a figure per card.
+    busy_minutes: list[float]
     landed_today: int
     lessons_today: int
     runs_today: int
@@ -314,7 +314,6 @@ class MissionData:
             attempt=run.attempt if run is not None else 0,
             route=route_of(run if live else None, now),
             since=views.utc(run.started_at) if live and run is not None else None,
-            cost_usd=float(run.cost_usd or 0.0) if live and run is not None else 0.0,
             denials=denials,
             activity=activity,
         )
@@ -432,20 +431,31 @@ class MissionData:
     def _pulse(self, session: Any, project_ids: set[int] | None, now: datetime) -> Pulse:
         day_start = now.astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
         since = (now - timedelta(hours=24)).replace(tzinfo=None)
-        runs = list(session.scalars(select(Run).where(Run.created_at >= since)))
+        query = select(Run).where(
+            Run.started_at.is_not(None),
+            or_(Run.finished_at.is_(None), Run.finished_at >= since),
+        )
+        runs = list(session.scalars(query))
         if project_ids is not None:
             runs = [r for r in runs if r.card.project_id in project_ids]
+        # Agent minutes in each of the last 24 hours: how busy the slots were.
         hours = [0.0] * 24
-        today = 0.0
+        window_start = now - timedelta(hours=24)
         runs_today = 0
         for run in runs:
-            when = views.utc(run.created_at) or now
-            index = 23 - int((now - when).total_seconds() // 3600)
-            if 0 <= index < 24:
-                hours[index] += float(run.cost_usd or 0.0)
-            if when >= day_start:
-                today += float(run.cost_usd or 0.0)
+            began = views.utc(run.started_at) or now
+            ended = views.utc(run.finished_at) or now
+            if run.status != RunStatus.RUNNING and run.finished_at is None:
+                ended = began
+            if began >= day_start:
                 runs_today += 1
+            cursor = max(began, window_start)
+            while cursor < ended:
+                index = min(int((cursor - window_start).total_seconds() // 3600), 23)
+                bucket_end = window_start + timedelta(hours=index + 1)
+                step = min(ended, bucket_end)
+                hours[index] += (step - cursor).total_seconds() / 60
+                cursor = step if step > cursor else ended
         start = day_start.astimezone(UTC).replace(tzinfo=None)
         landed_query = select(func.count(Event.id)).where(
             Event.kind == "card.merged", Event.created_at >= start
@@ -457,8 +467,7 @@ class MissionData:
             landed_query = landed_query.where(Event.project_id.in_(project_ids))
             lessons_query = lessons_query.join(Card).where(Card.project_id.in_(project_ids))
         return Pulse(
-            spend_today=today,
-            spend_hours=hours,
+            busy_minutes=hours,
             landed_today=int(session.scalar(landed_query) or 0),
             lessons_today=int(session.scalar(lessons_query) or 0),
             runs_today=runs_today,

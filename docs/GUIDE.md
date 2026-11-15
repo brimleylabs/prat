@@ -425,15 +425,15 @@ held again. Everything above is also on the Improve page.
 redrawn every two seconds from PRAT's own records:
 
 - **In flight**: each card an agent is working on, drawn on its route (prepare, plan, build,
-  verify, review, summary, finish) with the leg it is on, how long it has run, its spend, how many
-  of its actions the policy refused, and the last things its agent did. Cards waiting for a slot
+  verify, review, summary, finish) with the leg it is on, how long it has run, how many of its
+  actions the policy refused, and the last things its agent did. Cards waiting for a slot
   follow, then the cards that landed most recently, with their commit and whether data came too.
 - **Needs you**: an agent's question first, then cards to approve with the reviewer's verdict,
   the gates, the tables changed and whether the lesson is written, then failures.
 - **Fleet**: every project with its client, its databases and each environment's state and port.
 - **Guardrails**: everything the policy refused in the last day, newest first.
-- **Pulse**: spend by hour over the last day, runs, cards landed, lessons written and the dream
-  window.
+- **Pulse**: how many agent minutes each of the last 24 hours held, runs, cards landed, lessons
+  written and the dream window. Spend stays on the web UI's Usage page; no card shows a price.
 
 `j`/`k` move between cards, `enter` follows one (its route with the time on each leg and its
 whole recent session), `esc` comes back, `a` approves a card in review after a confirmation (the

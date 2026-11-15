@@ -9,7 +9,7 @@ One screen, five panels, redrawn every two seconds from :class:`prat.mission.Mis
   the gates, the data they change and their lesson, then failures.
 * **Fleet**: every project with its client, its databases and the state of each environment.
 * **Guardrails**: what the policy refused in the last day, newest first.
-* **Pulse**: spend by hour, runs, cards landed, lessons written and the dream window.
+* **Pulse**: agent minutes by hour, runs, cards landed, lessons written and the dream window.
 
 Keys: ``j``/``k`` move between cards, ``enter`` follows one, ``a`` approves a card in review
 (after a confirmation), ``o`` opens it in the web UI, ``c`` switches client, ``q`` quits. It
@@ -111,7 +111,7 @@ def flight_block(
             head.append(" (rework)", style=WARN)
         return head
     elapsed = (now - flight.since).total_seconds() if flight.since else None
-    meta = f"   try {flight.attempt} · {clock(elapsed)} · ${flight.cost_usd:.2f}"
+    meta = f"   try {flight.attempt} · {clock(elapsed)}"
     head.append(meta, style=FAINT)
     if flight.denials:
         head.append(f" · ⛨ {flight.denials}", style=BAD)
@@ -325,7 +325,6 @@ class MissionControl(App[None]):
         text.append(f" · ◆ {need} need you", style=WARN if need else FAINT)
         refused = len(snap.refusals)
         text.append(f" · ⛨ {refused} refused", style=BAD if refused else FAINT)
-        text.append(f" · ${snap.pulse.spend_today:.2f} today", style=MUTED)
         text.append(f"   {now.astimezone().strftime('%H:%M:%S')}", style=FAINT)
         return text
 
@@ -400,10 +399,11 @@ class MissionControl(App[None]):
     def _pulse(self, snap: Snapshot) -> Text:
         pulse = snap.pulse
         text = Text()
-        text.append("spend 24h ", style=FAINT)
-        text.append(sparkline(pulse.spend_hours), style=ACCENT)
-        text.append(f"  ${pulse.spend_today:.2f} today", style=TEXT)
-        text.append(f"  ·  {pulse.runs_today} runs", style=MUTED)
+        busy = sum(pulse.busy_minutes)
+        text.append("agents busy 24h ", style=FAINT)
+        text.append(sparkline(pulse.busy_minutes), style=ACCENT)
+        text.append(f"  {clock(busy * 60)} agent time", style=TEXT)
+        text.append(f"  ·  {pulse.runs_today} runs today", style=MUTED)
         text.append(f"  ·  {pulse.landed_today} landed", style=OK if pulse.landed_today else MUTED)
         text.append(f"  ·  {pulse.lessons_today} lessons", style=MUTED)
         if pulse.dream:
