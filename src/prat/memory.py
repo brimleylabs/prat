@@ -110,6 +110,8 @@ class Episode:
     what: str = ""
     reasoning: str = ""
     lesson: str = ""
+    # What the agent resolved to do better next time.
+    intention: str = ""
     feeling: Feeling = field(default_factory=Feeling)
     outcome: str = "pending"  # pending, landed, reworked, failed, blocked, cancelled
     feedback: str = ""
@@ -312,6 +314,37 @@ class AgentMemory:
 # Briefing an agent --------------------------------------------------------------------
 
 
+def track_record(memory: AgentMemory) -> str:
+    """The agent's own record, so it knows where it stands and what it means to improve: cards
+    landed, landed on the first review, sent back, its current streak and its resolutions."""
+    work = [
+        e
+        for e in memory.episodes()
+        if e.role not in ("conversation", "helper")
+        and e.outcome in ("landed", "reworked", "failed")
+    ]
+    if not work:
+        return ""
+    landed = sum(1 for e in work if e.outcome == "landed")
+    first = sum(1 for e in work if e.outcome == "landed" and "proud" in e.feeling.words)
+    sent_back = sum(1 for e in work if e.outcome == "reworked")
+    streak = 0
+    for episode in reversed(work):
+        if episode.outcome != "landed":
+            break
+        streak += 1
+    lines = [
+        f"Your record: {landed} cards landed ({first} on the first review), {sent_back} sent "
+        f"back, {sum(1 for e in work if e.outcome == 'failed')} failed. "
+        + (f"You have landed {streak} in a row; keep it going." if streak > 1 else "")
+    ]
+    intentions = [e.intention for e in memory.episodes() if e.intention][-3:]
+    if intentions:
+        lines.append("You resolved, after earlier work:")
+        lines.extend(f"- {text}" for text in intentions)
+    return "\n".join(lines)
+
+
 def briefing(
     memory: AgentMemory,
     *,
@@ -320,9 +353,13 @@ def briefing(
     query: str,
     budget: int = 3500,
     episodes: int = 4,
+    name: str | None = None,
 ) -> str:
     """What the agent should remember at the start of a session, within ``budget`` characters."""
     parts: list[str] = []
+    record = track_record(memory)
+    if record:
+        parts.append(record)
     beliefs = sorted(
         (b for b in memory.beliefs() if b.project in (None, project)),
         key=lambda b: b.strength,
@@ -362,7 +399,7 @@ def briefing(
     text = "\n".join(
         [
             "# Your memory",
-            f"You are {memory.agent}. These are your own memories of past work, written by you.",
+            f"You are {name or memory.agent}. These are your own memories of past work.",
             *parts,
             "Use recall to search everything you have ever done, and remember to keep notes, "
             "thoughts and feelings as you work. Before you finish, reflect: what you did, how "

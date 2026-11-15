@@ -29,7 +29,7 @@ from rich.table import Table
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Grid, Horizontal, Vertical
+from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Input, OptionList, Static
 
@@ -282,8 +282,8 @@ class MissionControl(App[None]):
     Screen.alerting #alerts {{ display: block; }}
     .view {{ display: none; height: 1fr; margin: 0 1; }}
     {VIEW_CSS}
-    Ask, Pick {{ align: center middle; background: rgba(10, 16, 34, 0.7); }}
-    #ask, #pick {{
+    Ask, Pick, Reply {{ align: center middle; background: rgba(10, 16, 34, 0.7); }}
+    #ask, #pick, #reply {{
         width: 76; height: auto; max-height: 24; padding: 1 2;
         border: round {ACCENT}; background: #101930;
     }}
@@ -308,6 +308,9 @@ class MissionControl(App[None]):
         Binding("d", "letter('d')", "discard", show=False),
         Binding("p", "letter('p')", "promote", show=False),
         Binding("e", "restart_environment", "restart env", show=False),
+        Binding("t", "letter('t')", "talk", show=False),
+        Binding("u", "letter('u')", "stand-up", show=False),
+        Binding("i", "letter('i')", "introduce", show=False),
         Binding("o", "open", "open in web", show=False),
         Binding("c", "client", "client", show=False),
         Binding("f5", "refresh", "refresh", show=False),
@@ -326,7 +329,7 @@ class MissionControl(App[None]):
         self._loading = False
         self.view = "deck"
         # Selection within the jobs and skills screens.
-        self.cursor: dict[str, int] = {"jobs": 0, "skills": 0}
+        self.cursor: dict[str, int] = {"jobs": 0, "skills": 0, "crew": 0}
         self.remotes: list[RemoteDeck] = []
         self.machine: Any = None
         self.groups: list[tuple[str, list[Any]]] = []
@@ -472,7 +475,7 @@ class MissionControl(App[None]):
             return
         panel = self.query_one(f"#view-{self.view}", Panel)
         if self.view == "crew":
-            panel.update(screens.crew_screen(snap))
+            panel.update(screens.crew_screen(snap, self.cursor["crew"]))
         elif self.view == "jobs":
             panel.update(screens.jobs_screen(snap, self.cursor["jobs"]))
         elif self.view == "epics":
@@ -643,11 +646,12 @@ class MissionControl(App[None]):
 
     def action_move(self, step: int) -> None:
         if self.view in self.cursor:
-            count = (
-                len(self.snapshot.jobs)
-                if self.view == "jobs" and self.snapshot
-                else len(self.skill_candidates)
-            )
+            snap = self.snapshot
+            count = {
+                "jobs": len(snap.jobs) if snap else 0,
+                "crew": len(snap.crew) if snap else 0,
+                "skills": len(self.skill_candidates),
+            }[self.view]
             if count:
                 self.cursor[self.view] = (self.cursor[self.view] + step) % count
             self._draw()
@@ -777,8 +781,44 @@ class MissionControl(App[None]):
             self._job_key(letter)
         elif self.view == "skills":
             self._skill_key(letter)
+        elif self.view == "crew":
+            self._crew_key(letter)
         elif letter == "r":
             self._rework()
+
+    def _crew_key(self, letter: str) -> None:
+        snap = self.snapshot
+        if letter == "u":
+            self.notify("Stand-up: everyone who worked today is giving their report...")
+            self._converse("standup", {}, "Stand-up")
+            return
+        if snap is None or not snap.crew:
+            return
+        member = snap.crew[min(self.cursor["crew"], len(snap.crew) - 1)]
+        name = member.name or member.agent
+        if letter == "t":
+
+            def said(text: str | None) -> None:
+                if text:
+                    self._converse("talk", {"agent": member.agent, "message": text}, name)
+
+            self.push_screen(Ask(f"Say something to {name}:"), said)
+        elif letter == "i":
+            self._converse("introduce", {"agent": member.agent}, f"{name} introduces themselves")
+
+    def _converse(self, action: str, body: dict[str, Any], title: str) -> None:
+        async def go() -> None:
+            sent = await asyncio.to_thread(self._post, action, body)
+            if sent is None:
+                self._report(None)
+                return
+            ok, message = sent
+            self.push_screen(Reply(title, message if ok else f"Could not: {message}"))
+            self._slow_at = 0.0
+            self.data._crew_cache = None
+            self.action_refresh()
+
+        self.run_worker(go(), exclusive=False, group="converse")
 
     def _rework(self) -> None:
         snap = self.snapshot
@@ -872,6 +912,26 @@ class MissionControl(App[None]):
                 self._act("env-restart", {"project": value[0], "name": value[1]})
 
         self.push_screen(Pick("Restart which environment?", choices), chosen)
+
+
+class Reply(ModalScreen[None]):
+    """What an agent said back, or the crew's stand-up."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape,enter,q", "close", "close")]
+
+    def __init__(self, title: str, text: str) -> None:
+        super().__init__()
+        self.title_text = title
+        self.text = text
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="reply"):
+            yield Static(Text(self.title_text, style=f"bold {ACCENT}"))
+            yield Static(Text(self.text, style=TEXT))
+            yield Static(Text("esc closes", style=FAINT))
+
+    def action_close(self) -> None:
+        self.dismiss(None)
 
 
 class Ask(ModalScreen[str | None]):

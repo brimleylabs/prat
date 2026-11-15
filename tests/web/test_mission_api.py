@@ -64,3 +64,25 @@ def test_a_card_is_sent_back_from_the_terminal_and_its_agent_runs_again(
         approved = web.client.post("/api/act/approve", json={"card_id": card_id}, headers=headers)
         assert approved.status_code == 200, approved.text
         assert wait_status(db, card_id, {CardStatus.DONE}) is CardStatus.DONE
+
+
+def test_the_crew_pages_show_who_they_are_and_take_a_message(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    from prat import identity
+
+    with make_web(settings, db, project) as web:
+        identity.save(
+            web.settings.home,
+            identity.Identity(
+                "python", "Mara", "I build the APIs.", "calm", "eng", 1.0, "I want it right."
+            ),
+        )
+        page = web.client.get("/crew")
+        assert page.status_code == 200 and "Mara" in page.text and "I build the APIs." in page.text
+        agent = web.client.get("/crew/python")
+        assert agent.status_code == 200 and "I want it right." in agent.text
+        sent = web.post("/crew/python/talk", data={"message": "How was your day?"})
+        assert sent.status_code == 303
+        again = web.client.get("/crew/python")
+        assert "How was your day?" in again.text

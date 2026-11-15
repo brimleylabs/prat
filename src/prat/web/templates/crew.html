@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Crew{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Crew</h1>
+      <p class="page-sub">The agents who work here, in their own words. Each chose its name, bio and personality, remembers its work, and wants it to land. Talk with any of them at any time; it never interrupts their work.</p>
+    </div>
+    <form method="post" action="/crew/standup" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-primary">{{ icon('message') }}Stand-up</button>
+    </form>
+  </div>
+
+  {% if standup %}
+  <section class="panel" id="standup" aria-labelledby="standup-h">
+    <header class="panel-head"><h2 id="standup-h">{{ icon('message') }}Stand-up, {{ standup.at }}</h2></header>
+    <div class="panel-body crew-standup">
+      {% for r in standup.reports %}
+      <div class="crew-report">
+        <a class="crew-name" href="/crew/{{ r.key }}">{{ r.name }}</a>
+        <p class="pre">{{ r.text }}</p>
+      </div>
+      {% else %}
+      <p class="muted">Nobody worked in the last day.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="crew-grid">
+    {% for c in cards %}
+    <a class="panel crew-card" href="/crew/{{ c.key }}">
+      <div class="crew-head">
+        <span class="crew-avatar" style="background: {{ c.color }}">{{ c.name[:1] }}</span>
+        <div>
+          <div class="crew-name">{{ c.name }}</div>
+          <div class="muted small">{{ c.role }}</div>
+        </div>
+        {% if c.working_on %}<span class="badge tone-accent">working on {% for w in c.working_on %}#{{ w }} {% endfor %}</span>{% endif %}
+      </div>
+      {% if c.bio %}<p>{{ c.bio }}</p>{% else %}<p class="muted">Has not introduced themselves yet.</p>{% endif %}
+      {% if c.personality %}<p class="muted small">{{ c.personality }}</p>{% endif %}
+      {% if c.drive %}<p class="small"><em>{{ c.drive }}</em></p>{% endif %}
+      <p class="muted small">{{ c.landed }} landed · {{ c.reworked }} sent back · {{ c.episodes }} memories · mood {{ '%+.1f'|format(c.mood) }}</p>
+    </a>
+    {% else %}
+    <p class="muted">No agent has worked yet. The crew introduces itself the first time each agent is needed.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

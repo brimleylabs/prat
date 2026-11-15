@@ -183,9 +183,23 @@ machine, your own Claude Code login (`auth_mode = "claude_login"`). See
     <td valign="top">
       <b>Built to be watched</b><br>
       A live board, a wall of running agents, live session streams, full replays of every run,
-      spend per role and card, project environments and per-card previews you can click into
-      before you approve. In a terminal, `prat mission` puts it all on one screen: each card on
-      its route, what needs you, what the policy refused, the fleet and the day's pulse.
+      project environments and per-card previews you can click into before you approve. In a
+      terminal, `prat mission` has seven screens: the deck, the crew, jobs with ETAs, epics, the
+      machine, skills and usage by model, with alerts that can reach your phone.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>A crew, not a pipeline</b><br>
+      One lead per card, with helpers it calls in parallel: scout, tester, pair, data analyst,
+      web checker, self-review. Each agent chose its own name and bio, remembers its work, how it
+      reasoned and how it felt, wants its cards to land, and will talk with you at any time.
+    </td>
+    <td valign="top">
+      <b>Jobs, epics and a governor</b><br>
+      Long-running jobs report progress, rate and ETA on their own database branch. Epics split a
+      feature into parts that run in parallel. A governor runs up to five cards a project and
+      holds back the ones that would collide, saying why.
     </td>
   </tr>
   <tr>
@@ -358,8 +372,8 @@ Doltgres for data. More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Pre-release, in daily use on real projects. The engine, policy, gates, reviewers, approvals,
 checkpoints, setup agent, environment checks with the infra agent, data branches on Doltgres and
-Dolt with the PostgreSQL fallback, clients, knowledge and dreams, and the web UI are built and
-tested, and so are an optional container sandbox for macOS and Linux
+Dolt with the PostgreSQL fallback, clients, the crew with its memory, skills, jobs, epics, the
+governor, mission control, knowledge and dreams, and the web UI are built and tested, and so are an optional container sandbox for macOS and Linux
 and an evaluation harness. Next: per-card database users. Interfaces may still change.
 
 ## Documentation

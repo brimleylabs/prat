@@ -50,7 +50,17 @@ ENVIRONMENT_SECONDS = 10.0
 LANDED_LIMIT = 6
 # The crew's records and the declared jobs change slowly; read them this often.
 SLOW_SECONDS = 15.0
-_ROLE_OF = {"critic": "reviewer", "planner": "planner", "security_reviewer": "security reviewer"}
+_ROLE_OF = {
+    "critic": "reviewer",
+    "planner": "planner",
+    "security_reviewer": "security reviewer",
+    "scout": "helper, scout",
+    "tester": "helper, tester",
+    "pair": "helper, pair",
+    "data-analyst": "helper, data analyst",
+    "web-checker": "helper, web checker",
+    "reviewer": "helper, self-review",
+}
 # Waiting on the person, most urgent first: an agent's question, then work to approve.
 WAITING_ORDER = (CardStatus.BLOCKED, CardStatus.REVIEW, CardStatus.FAILED)
 
@@ -102,6 +112,11 @@ class Flight:
     def lead(self) -> str:
         lead = self.live.get("lead")
         return str(lead.get("name")) if isinstance(lead, dict) else ""
+
+    @property
+    def lead_key(self) -> str:
+        lead = self.live.get("lead")
+        return str(lead.get("key") or "") if isinstance(lead, dict) else ""
 
     @property
     def tasks(self) -> list[dict[str, str]]:
@@ -198,6 +213,10 @@ class CrewMember:
     mood: float
     working_on: list[int] = field(default_factory=list)
     last: str = ""
+    # The name, bio and personality the agent chose for itself (prat.identity).
+    name: str = ""
+    bio: str = ""
+    personality: str = ""
 
 
 @dataclass
@@ -359,23 +378,23 @@ class MissionData:
     # The crew, jobs, usage ------------------------------------------------------------------
 
     def _crew(self, flights: list[Flight]) -> list[CrewMember]:
-        from prat import crew, memory
+        from prat import crew, identity, memory
 
         now = time.monotonic()
         if self._crew_cache is not None and now - self._crew_cache[0] < SLOW_SECONDS:
             members = self._crew_cache[1]
         else:
-            leads = {m.name.lower(): m for m in crew.MEMBERS.values()}
             members = []
             for agent in memory.all_agents(self.settings.home):
                 store_ = memory.AgentMemory(self.settings.home, agent)
                 stats = store_.stats()
                 episodes = store_.episodes()
-                lead = leads.get(agent)
+                lead = crew.MEMBERS.get(agent)
+                who = identity.of(self.settings.home, agent)
                 members.append(
                     CrewMember(
                         agent=agent,
-                        who=f"lead, {lead.stack}" if lead else _ROLE_OF.get(agent, "helper"),
+                        who=f"lead, {lead.stack}" if lead else _ROLE_OF.get(agent, agent),
                         color=lead.color if lead else "",
                         episodes=stats["episodes"],
                         beliefs=stats["beliefs"],
@@ -383,6 +402,9 @@ class MissionData:
                         reworked=stats["outcomes"].get("reworked", 0),
                         mood=stats["mood"],
                         last=episodes[-1].title if episodes else "",
+                        name=who.name,
+                        bio=who.bio if who.chosen else "",
+                        personality=who.personality if who.chosen else "",
                     )
                 )
             self._crew_cache = (now, members)
@@ -392,7 +414,7 @@ class MissionData:
                 for f in flights
                 if not f.queued
                 and (
-                    f.lead.lower() == member.agent
+                    f.lead_key == member.agent
                     or any(
                         h.get("name") == member.agent and h.get("state") == "running"
                         for h in f.live.get("helpers") or []

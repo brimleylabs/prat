@@ -6,7 +6,7 @@ Registered on PRAT's main command (prat.cli) when it is imported.
 from __future__ import annotations
 
 import time
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.markup import escape
@@ -191,18 +191,17 @@ def skill_reject(ctx: typer.Context, project: str, name: str) -> None:
 @crew_app.command("list")
 def crew_list(ctx: typer.Context) -> None:
     """Every agent with a memory: episodes, beliefs, how its work turned out, recent mood."""
-    from prat import crew, memory
+    from prat import crew, identity, memory
 
     home = _settings(ctx).home
-    leads = {m.name.lower(): m for m in crew.MEMBERS.values()}
-    table = _table("agent", "who", "episodes", "beliefs", "landed", "sent back", "mood")
+    table = _table("name", "role", "episodes", "beliefs", "landed", "sent back", "mood")
     for agent in memory.all_agents(home):
         stats = memory.AgentMemory(home, agent).stats()
-        member = leads.get(agent)
+        member = crew.MEMBERS.get(agent)
         outcomes = stats["outcomes"]
         table.add_row(
-            agent,
-            f"lead, {member.stack}" if member else "helper or reviewer",
+            identity.of(home, agent).name,
+            f"lead, {member.stack}" if member else agent,
             str(stats["episodes"]),
             str(stats["beliefs"]),
             str(outcomes.get("landed", 0)),
@@ -220,9 +219,18 @@ def crew_memory(
     limit: Annotated[int, typer.Option(help="How many episodes.")] = 10,
 ) -> None:
     """An agent's beliefs and episodes: what it did, how it reasoned and felt, how it ended."""
+    from prat import identity
     from prat.memory import AgentMemory
 
-    memory = AgentMemory(_settings(ctx).home, agent)
+    home = _settings(ctx).home
+    key = _agent_key(ctx, agent)
+    who = identity.of(home, key)
+    console.print(f"[bold]{escape(who.name)}[/bold], {escape(who.role)}")
+    if who.chosen:
+        console.print(escape(f"{who.bio} ({who.personality})"))
+        if who.drive:
+            console.print(escape(f"Drive: {who.drive}"))
+    memory = AgentMemory(home, key)
     beliefs = sorted(memory.beliefs(), key=lambda b: b.strength, reverse=True)
     if beliefs:
         console.print("[bold]Beliefs[/bold]")
@@ -267,3 +275,106 @@ def epic_list(ctx: typer.Context) -> None:
             waits = ", ".join(f"#{d}" for d in part["depends_on"])
             needs = f" waits on {waits}" if waits else ""
             console.print(f"   #{part['id']} {escape(part['title'])} [{part['status']}]{needs}")
+
+
+# Talking with the crew -------------------------------------------------------------------------
+
+
+def _through_server(settings: Any, action: str, body: dict[str, Any]) -> tuple[bool, str] | None:
+    """Ask the running server to act (its runtime is signed in); None when none runs."""
+    import httpx
+
+    from prat.web.tokens import read_access_token
+
+    token = read_access_token(settings)
+    if not token:
+        return None
+    host = settings.web_host
+    shown = f"[{host}]" if ":" in host else host
+    try:
+        response = httpx.post(
+            f"http://{shown}:{settings.web_port}/api/act/{action}",
+            json=body,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=300,
+        )
+    except httpx.HTTPError:
+        return None
+    try:
+        data = response.json()
+    except ValueError:
+        return (False, f"the server answered {response.status_code}")
+    if response.status_code == 200:
+        return (True, str(data.get("message") or ""))
+    return (False, str(data.get("error") or response.status_code))
+
+
+def _locally(ctx: typer.Context, action: str, body: dict[str, Any]) -> str:
+    import asyncio
+
+    from prat import converse, identity
+    from prat.model_registry import Role, resolve_model
+    from prat.runtime.claude import ClaudeRuntime
+
+    with _database(ctx) as (settings, db):
+        runtime = ClaudeRuntime.from_settings(settings)
+        model = resolve_model(Role.CREW, settings_models=settings.models)
+        if action == "talk":
+            return asyncio.run(
+                converse.talk(
+                    settings.home, db, runtime, body["agent"], body["message"], model=model
+                )
+            )
+        if action == "introduce":
+            who = asyncio.run(
+                identity.introduce(settings.home, runtime, body["agent"], model=model)
+            )
+            return f"{who.name}: {who.bio}"
+        reports = asyncio.run(converse.standup(settings.home, db, runtime, model=model))
+        return "\n\n".join(f"{r.name}\n{r.text}" for r in reports) or "Nobody worked today."
+
+
+def _converse(ctx: typer.Context, action: str, body: dict[str, Any]) -> None:
+    sent = _through_server(_settings(ctx), action, body)
+    if sent is None:
+        text = _locally(ctx, action, body)
+    else:
+        ok, text = sent
+        if not ok:
+            raise _fail(text)
+    console.print(escape(text))
+
+
+def _agent_key(ctx: typer.Context, agent: str) -> str:
+    """An agent by its key (python, scout, critic) or by the name it chose."""
+    from prat import identity, memory
+
+    home = _settings(ctx).home
+    wanted = agent.strip().lower()
+    for key in memory.all_agents(home):
+        if key == wanted or identity.of(home, key).name.lower() == wanted:
+            return key
+    from prat import crew
+
+    if wanted in crew.MEMBERS or wanted in crew.HELPER_PROMPTS or wanted in identity.BENCH:
+        return wanted
+    raise _fail(f"no agent called {agent!r}; see prat crew list")
+
+
+@crew_app.command("talk")
+def crew_talk(ctx: typer.Context, agent: str, message: str) -> None:
+    """Say something to an agent (by its name or role) and read its answer. It never
+    interrupts the agent's work."""
+    _converse(ctx, "talk", {"agent": _agent_key(ctx, agent), "message": message})
+
+
+@crew_app.command("standup")
+def crew_standup(ctx: typer.Context) -> None:
+    """Every agent that worked in the last day reports: done, doing, blockers, how they feel."""
+    _converse(ctx, "standup", {})
+
+
+@crew_app.command("introduce")
+def crew_introduce(ctx: typer.Context, agent: str) -> None:
+    """Ask an agent to choose its name, bio and personality (again)."""
+    _converse(ctx, "introduce", {"agent": _agent_key(ctx, agent)})

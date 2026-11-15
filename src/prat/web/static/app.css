@@ -1053,3 +1053,23 @@ a.fact:hover { color: var(--text); }
 .lesson-q { font-weight: 550; margin-bottom: 8px; }
 .lesson-meta { margin-top: 4px; }
 .lesson .prose, .lesson-alts { max-width: 86ch; }
+
+/* Crew ------------------------------------------------------------------------------- */
+.crew-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+.crew-card { display: block; padding: 16px; color: inherit; text-decoration: none; }
+.crew-card:hover { border-color: var(--border-strong); text-decoration: none; }
+.crew-card p { margin: 8px 0 0; }
+.crew-head { display: flex; align-items: center; gap: 12px; }
+.crew-head .badge { margin-left: auto; }
+.crew-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; color: #0a1022; flex: none; }
+.crew-name { font-weight: 600; }
+.crew-standup { display: grid; gap: 12px; }
+.crew-report p { margin: 4px 0 0; }
+.crew-chat { display: grid; gap: 12px; }
+.crew-turn { padding: 8px 12px; border-radius: var(--radius-md); background: var(--surface-2); }
+.crew-turn.from-person { background: var(--accent-soft); }
+.crew-turn p { margin: 4px 0 0; }
+.crew-say { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.crew-say textarea { width: 100%; }
+.crew-episodes li { margin-bottom: 8px; }
+.small { font-size: 0.875rem; }

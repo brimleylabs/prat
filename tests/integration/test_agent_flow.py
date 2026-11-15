@@ -426,6 +426,8 @@ async def test_claude_runtime_through_the_engine(
     assert [p["allowed"] for p in policy] == [True, False, False]
     results = [e.data for e in entries if e.kind == "runtime.tool_result"]
     assert [r["denied"] for r in results] == [False, True, True]
-    options = factory.clients[0].options
-    assert options.model == SONNET and options.cwd == run.worktree_path
+    # The crew introduce themselves first (prat.identity); the builder's session is the one in
+    # the card's worktree.
+    options = next(c.options for c in factory.clients if c.options.cwd == run.worktree_path)
+    assert options.model == SONNET
     assert "Never push" in str(options.system_prompt)

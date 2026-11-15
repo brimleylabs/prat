@@ -38,6 +38,8 @@ class Role(StrEnum):
     SETUP = "setup"
     # Writes the lesson on a card that reaches review; no tools.
     TEACHER = "teacher"
+    # An agent speaking for itself: introducing itself, talking with its person, stand-ups.
+    CREW = "crew"
 
 
 OPUS = "claude-opus-5-5"
@@ -60,6 +62,7 @@ DEFAULT_MODELS: Mapping[Role, str] = {
     Role.SETUP: OPUS,
     # A lesson that teaches something wrong is worse than none.
     Role.TEACHER: SONNET,
+    Role.CREW: SONNET,
 }
 
 ROLE_NAMES = frozenset(str(role) for role in Role)

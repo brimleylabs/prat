@@ -68,7 +68,7 @@ def mood_word(mood: float) -> tuple[str, str]:
 # Crew -------------------------------------------------------------------------------------
 
 
-def crew_screen(snap: Snapshot) -> RenderableType:
+def crew_screen(snap: Snapshot, selected: int = 0) -> RenderableType:
     if not snap.crew:
         return Text(
             "No agent has a memory yet. Each lead, helper and reviewer starts remembering its "
@@ -84,9 +84,11 @@ def crew_screen(snap: Snapshot) -> RenderableType:
         for h in ("agent", "role", "now", "landed", "sent back", "mood")
     ]
     table.add_row(*head, Text("remembers", style=f"bold {MUTED}"))
-    for member in snap.crew:
-        name = Text("● ", style=member.color or MUTED)
-        name.append(member.agent, style=f"bold {TEXT}")
+    for index, member in enumerate(snap.crew):
+        chosen = index == selected
+        name = Text("▌" if chosen else " ", style=ACCENT)
+        name.append("● ", style=member.color or MUTED)
+        name.append(member.name or member.agent, style=f"bold {ACCENT if chosen else TEXT}")
         now = Text(
             " ".join(f"#{c}" for c in member.working_on) or "·",
             style=ACCENT if member.working_on else FAINT,
@@ -106,13 +108,29 @@ def crew_screen(snap: Snapshot) -> RenderableType:
             memory,
         )
     parts: list[RenderableType] = [table, Text("")]
+    if snap.crew:
+        member = snap.crew[min(selected, len(snap.crew) - 1)]
+        card = Text()
+        card.append(f"{member.name or member.agent}", style=f"bold {ACCENT}")
+        card.append(f"  {member.who}", style=MUTED)
+        if member.personality:
+            card.append(f"  ·  {member.personality}", style=FAINT)
+        parts.append(card)
+        parts.append(
+            Text(
+                member.bio or "Has not introduced itself yet (i asks it to).",
+                style=TEXT if member.bio else FAINT,
+            )
+        )
+        parts.append(Text(""))
     for flight in snap.flights:
         if flight.queued or not flight.live:
             continue
         parts.append(crew_at_work(flight))
     parts.append(
         Text(
-            "\nprat crew memory <agent> shows what an agent remembers: its beliefs and episodes.",
+            "j/k choose · t talk with them · u stand-up with the whole crew · i ask them to "
+            "introduce themselves",
             style=FAINT,
         )
     )

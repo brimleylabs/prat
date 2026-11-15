@@ -1376,6 +1376,23 @@ class Engine:
 
         return record
 
+    async def _introductions(self, ctx: _Ctx) -> None:
+        """The first time a lead or helper works, it chooses its name, bio and personality
+        (prat.identity). Scripted runtimes keep the default names."""
+        if getattr(self.runtime, "name", "") == "fake":
+            return
+        from prat import crew, identity
+
+        try:
+            lead = crew.lead_for(ctx.project_spec.crew.model_dump(), ctx.worktree_path)
+            keys = [lead.key, *(ctx.project_spec.crew.helpers or crew.HELPER_PROMPTS)]
+            missing = [k for k in keys if identity.load(self.settings.home, k) is None]
+            model = resolve_model(Role.CREW, settings_models=self.settings.models)
+            for key in missing:  # one at a time: each sees the names already taken
+                await identity.ensure(self.settings.home, self.runtime, key, model=model)
+        except Exception:
+            log.exception("introductions failed for run %s", ctx.run_id)
+
     def _crew(self, ctx: _Ctx, role: str) -> crewing.CrewSession | None:
         """The lead, helpers, skills, memory and PRAT tools for a builder or setup session.
         A problem here leaves the agent without its crew, never without a run."""
@@ -1761,6 +1778,7 @@ class Engine:
             )
         if sandbox is not None:
             system_prompt += SANDBOX_NOTE.format(network="has" if sandbox.network else "has no")
+        await self._introductions(ctx)
         crew_session = await asyncio.to_thread(self._crew, ctx, str(role))
         if crew_session is not None:
             tools |= crew_session.tools

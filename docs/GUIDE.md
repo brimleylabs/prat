@@ -311,8 +311,11 @@ variables:
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `database_url` | SQLite at `$PRAT_HOME/prat.db` (WAL) | Any SQLAlchemy URL; Postgres works. Set in `config.toml` only: `PRAT_DATABASE_URL` is a project's database, so PRAT never reads it as its own |
-| `max_concurrent_runs` | 3 | Runs at once across all projects |
-| `max_concurrent_per_project` | 1 | Runs at once in one project |
+| `max_concurrent_runs` | 6 | Runs at once across all projects (a ceiling; see The governor) |
+| `max_concurrent_per_project` | 5 | Runs at once in one project |
+| `max_review_queue`, `memory_reserve_mb`, `pressure_hold` | off, 1024, 0.95 | When the governor holds new work back |
+| `alert_webhook`, `alert_review_hours`, `alert_silent_minutes` | unset, 4, 15 | Alerts (see Mission control) |
+| `remotes` | none | Other installations mission control shows on its deck |
 | `max_autonomy` | `medium` | Ceiling that no project file or card can exceed |
 | `default_budget_usd` | 5.0 | Spend limit per run when the card sets none (an estimate; see below) |
 | `gate_timeout_seconds` | 900 | Upper bound for each verification command |
@@ -419,27 +422,183 @@ letting agents push) are held, not filed. `prat improve allow <id>` (or **Let it
 web UI's Improve page) puts one back in the queue for the text you read; reworded later, it is
 held again. Everything above is also on the Improve page.
 
+## The crew
+
+One agent leads each card from start to finish; the rest of the crew helps it. A pipeline of
+agents handing summaries to each other loses context and adds up their time, so there is none.
+
+**Leads.** A lead per stack: Python, React, Node, Laravel, PHP, Go and a generalist. A project's
+lead comes from `[crew] lead` in its project file, or from its build files. The lead's
+instructions carry its stack's taste in a few lines; what it knows is in its skills.
+
+**Helpers**, called by the lead with the Agent tool, several at once, each answering only its
+question: the **scout** (read-only questions about the code), the **tester** (why a check
+fails), the **pair** (a second opinion when stuck), the **data analyst** (read-only SQL on the
+card's database branch), the **web checker** (pages, assets and error pages of a running app)
+and the **reviewer** (the lead's own change against the criteria, before it finishes). At most
+three run at once, and they cannot call helpers of their own. Every tool call a helper makes goes
+through the policy like the lead's. `[crew] helpers` narrows the list.
+
+**Who they are.** The first time an agent is needed it chooses its own name, writes its bio,
+describes its personality and says what success means to it. That name is what PRAT shows
+everywhere. Every agent is professional and courteous, and writes in English.
+
+**They want it to land.** Each lead owns its card until it lands. It is told that success means
+the goal met for real, proven by the project's checks and landed on the first review, and that
+weakening a test, skipping a check or claiming what it did not prove is failure. It starts each
+card with its own record (cards landed, on the first review, sent back, its streak) and the
+resolutions it made after earlier work, and it reflects before it finishes.
+
+**Talking with them.** Talk with any agent at any time; it never interrupts its work. It answers
+as itself, from its memory and from what it is doing right now:
+
+```bash
+prat crew list                         # everyone: name, role, record, mood
+prat crew talk Mara "How was your day?"
+prat crew standup                      # done, doing, blockers and how each one feels
+prat crew memory Mara                  # what Mara believes and remembers
+prat crew introduce scout              # ask an agent to choose its name and bio again
+```
+
+The **Crew** page in the web UI shows every agent in their own words, with a conversation box
+each and a stand-up button. A thank-you is remembered, like everything else.
+
+**Their tools.** Besides the stack's own tools, the lead has its task list (shown live as
+`3/5`), its skills and PRAT's tools: `remember`, `recall` and `reflect` (its memory),
+`report_progress`, `note_risk`, `propose_skill`, `query_database` (read-only, on the card's
+branch), `start_job` and `job_status`. It thinks before it acts; `[crew] thinking = false` turns
+that off.
+
+## Memory
+
+Each agent has a memory of its own under `$PRAT_HOME/agents/<agent>/`, kept the way people keep
+theirs:
+
+- **Working memory**, per card: the notes, thoughts and feelings it keeps while it works, and
+  what it thought aloud. It lasts across the card's runs and reworks.
+- **Episodes**: one per piece of work. What it did, how it reasoned, how it felt, what it
+  learned, what it resolved to do better, and how the work turned out. Outcomes arrive later and
+  change the episode: landing on the first review is remembered with pride, a card sent back with
+  the feedback and the disappointment, and more strongly.
+- **Beliefs**: lessons distilled from many episodes during a dream (the `consolidate` phase).
+  Confirmed beliefs grow stronger; ones an outcome contradicted are revised or dropped.
+
+At the start of a session an agent is given its record, its beliefs, the episodes most relevant
+to the card and its working memory of the card. Recall weighs relevance, importance, how
+strongly a memory was felt and how recent it is. The planner and the reviewer remember too: the
+reviewer remembers every verdict, and learns when a card it passed was sent back.
+
+## Skills
+
+A skill is a `SKILL.md` an agent loads when it needs it: its name and description cost almost
+nothing until then. Each project has a loadout, built as a plugin folder at the start of each
+run: PRAT's core skills, the stack skills its lead carries (or `[crew] skills`), and the
+project's own skills. A session sees exactly its loadout, never the skills on the machine.
+
+Each skill says when it usually matters (`plan`, `build`, `verify` or `any`). The setup agent
+proposes a first project skill (the project's vocabulary, layout, commands and traps), approved
+with the setup card; agents propose more during cards with `propose_skill`. Candidates wait for
+you:
+
+```bash
+prat skill list shop          # what shop's lead carries, each skill's loads and first-review rate
+prat skill promote shop shop-vocabulary
+prat skill reject shop one-off-trick
+```
+
+Every run records the skills it loaded. The scorecard compares the cards that used a skill with
+the cards that did not: a skill whose cards land on their first review clearly more often is
+marked as helping, and a project skill nobody loaded in a month, or whose cards do worse, is
+flagged for retirement.
+
+## Jobs
+
+A job is long-running work outside any agent: a crawl, a backfill, a batch of model calls.
+Declare it in the project file:
+
+```toml
+[[job]]
+name = "enrich"
+label = "Enrich records with summaries"
+command = ["python", "scripts/enrich.py"]
+database = "branch"        # its own database branch (default); "default" or "none"
+stall_minutes = 10         # no progress for this long and it is reported stalled
+```
+
+PRAT runs it in your checkout (an agent's `start_job` runs it in the card's worktree, on the
+card's branch), with `PRAT_PROGRESS` naming a file it appends one JSON line per update to, in any
+language: `{"phase": "summarise", "done": 4212, "total": 78274, "errors": 3, "unit": "rows"}`.
+From Python, `from prat.progress import Progress` does it for you. PRAT shows each phase with its
+bar, its rate over the last minutes (so a slowdown moves the ETA at once), an ETA range, the
+error rate and the job's own model usage, and reports it stalled when progress stops. A job on its
+own branch is landed or discarded when it ends:
+
+```bash
+prat job start shop enrich
+prat job show 7               # phases, rate, ETA, errors, the end of its log
+prat job land 7               # or: prat job discard 7
+```
+
+## Epics
+
+A feature too big for one card is an epic: `prat card add shop "Trip sharing" --epic`. Its run
+asks the planner to read the code and split the feature into two to eight parts, each with its
+goal, criteria, complexity and the parts it needs first. The epic then waits for you to approve
+the split. Approving it makes the parts ready; each runs, is reviewed and lands like any card.
+Parts that do not depend on each other run at the same time; a part waits until the parts it
+needs have landed. When the last part lands, the epic gets a summary of the whole feature.
+`prat epic list` shows every epic and its parts.
+
+## The governor
+
+Up to `max_concurrent_runs` cards run at once (6 by default), up to `max_concurrent_per_project`
+of one project (5). Under those ceilings the governor holds a ready card back while starting it
+would hurt, and says why on the card:
+
+| Holds a card when | Setting |
+| --- | --- |
+| a card it depends on has not landed | |
+| the service refused for its rate limit, or warned past a share of it | `pressure_hold` (0.95) |
+| this many cards already wait for your review | `max_review_queue` (off) |
+| less memory is free than the reserve | `memory_reserve_mb` (1024) |
+| another running card is changing the same files, or both change the project file | |
+
+A project with a heavy test suite sets `gate_slots = 1` at the top of its project file.
+
 ## Mission control
 
-`prat mission` is the terminal's view of everything PRAT is doing, beside the web UI. One screen,
-redrawn every two seconds from PRAT's own records:
+`prat mission` is the terminal's view of everything PRAT is doing, beside the web UI, redrawn
+every two seconds from PRAT's own records. Seven screens, one key each:
 
-- **In flight**: each card an agent is working on, drawn on its route (prepare, plan, build,
-  verify, review, summary, finish) with the leg it is on, how long it has run, how many of its
-  actions the policy refused, and the last things its agent did. Cards waiting for a slot
-  follow, then the cards that landed most recently, with their commit and whether data came too.
-- **Needs you**: an agent's question first, then cards to approve with the reviewer's verdict,
-  the gates, the tables changed and whether the lesson is written, then failures.
-- **Fleet**: every project with its client, its databases and each environment's state and port.
-- **Guardrails**: everything the policy refused in the last day, newest first.
-- **Pulse**: how many agent minutes each of the last 24 hours held, runs, cards landed, lessons
-  written and the dream window. Spend stays on the web UI's Usage page; no card shows a price.
+| Key | Screen | What it shows |
+| --- | --- | --- |
+| `1` | Deck | cards in flight on their route with their lead, model, task list, context fill and helpers; what needs you; the fleet; what the policy refused; what landed |
+| `2` | Crew | every agent by the name it chose, its record and mood, its bio, what it is doing now |
+| `3` | Jobs | each job's phases, bars, rate, ETA, errors and log |
+| `4` | Epics | each epic's parts: landed, running, held, and what each waits on |
+| `5` | Machine | CPU and memory, PRAT's processes grouped by card, agents and jobs, the governor's verdict |
+| `6` | Skills | candidates to promote or reject, and each skill's scorecard |
+| `7` | Usage | models, tokens and prompt cache by model and kind of work: the one place for usage |
 
-`j`/`k` move between cards, `enter` follows one (its route with the time on each leg and its
-whole recent session), `esc` comes back, `a` approves a card in review after a confirmation (the
-same merge as `prat card approve`), `o` opens the card in the web UI, `c` switches client, and
-`q` quits. `--client <slug>` opens on one client; otherwise it opens on `default_client`. It
-reads the same database as the server, so it runs alongside it, over SSH too.
+On the deck, `j`/`k` choose a card, `enter` follows it, `a` approves, `r` sends it back with
+your words (or answers a blocked card's question), `e` restarts an environment, `o` opens it in
+the web UI and `c` switches client. On the crew screen `t` talks with the chosen agent, `u` runs
+a stand-up and `i` asks an agent to introduce itself. On the jobs screen `s` starts a job, `x`
+stops one, `l` lands its data and `d` discards it; on the skills screen `p` promotes and `r`
+rejects. Actions that run agents go through the server (`prat serve` must be running), using
+its access token. `q` quits.
+
+Alerts sit at the top: a question waiting for you, a stalled or failed job, an environment that
+stopped answering, a card waiting long for review (`alert_review_hours`), an agent gone quiet
+(`alert_silent_minutes`), a rate limit refusal. With `alert_webhook` set (an ntfy topic reaches a
+phone), the server sends each new alert there once.
+
+Other installations show on the same deck: list them in `config.toml`, each with the access token
+from its own access-token file:
+
+```toml
+remotes = [{ name = "mac", url = "https://mac.example", token = "..." }]
+```
 
 ## Environments
 

@@ -128,4 +128,25 @@ async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
             manager.start_with_needs, slug, env, envs, checkout, extra_env=variables
         )
         return f"{slug} {name} restarted"
+    if action in ("talk", "standup", "introduce"):
+        from prat import converse, identity
+        from prat.model_registry import Role, resolve_model
+
+        model = resolve_model(Role.CREW, settings_models=settings.models)
+        if action == "talk":
+            message = str(body.get("message") or "").strip()
+            if not message:
+                raise ValueError("say something")
+            return await converse.talk(
+                settings.home, db, engine.runtime, str(body["agent"]), message, model=model
+            )
+        if action == "introduce":
+            who = await identity.introduce(
+                settings.home, engine.runtime, str(body["agent"]), model=model
+            )
+            return f"{who.name}: {who.bio}"
+        reports = await converse.standup(settings.home, db, engine.runtime, model=model)
+        if not reports:
+            return "Nobody has worked in the last day."
+        return "\n\n".join(f"{r.name}\n{r.text}" for r in reports)
     raise ValueError(f"unknown action {action!r}")

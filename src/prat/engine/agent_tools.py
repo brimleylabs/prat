@@ -35,6 +35,7 @@ class Reflection:
     what: str = ""
     reasoning: str = ""
     lesson: str = ""
+    intention: str = ""
     feeling: Feeling = field(default_factory=Feeling)
     confidence: float | None = None
 
@@ -109,6 +110,7 @@ def build(ctx: ToolContext) -> tuple[PratTool, ...]:
         ctx.reflection.what = str(args.get("what_i_did") or "")[:1500]
         ctx.reflection.reasoning = str(args.get("how_i_reasoned") or "")[:1500]
         ctx.reflection.lesson = str(args.get("what_i_learned") or "")[:800]
+        ctx.reflection.intention = " ".join(str(args.get("next_time") or "").split())[:300]
         felt = _feeling(args)
         if felt is not None:
             ctx.reflection.feeling = felt
@@ -208,12 +210,14 @@ def build(ctx: ToolContext) -> tuple[PratTool, ...]:
         PratTool(
             "reflect",
             "Before you finish: what you did, how you reasoned, what you learned, how you feel "
-            "about it (feeling, valence -1 to 1, intensity 0 to 1) and your confidence (0 to 1) "
-            "that it is right. This becomes your long-term memory of this work.",
+            "about it (feeling, valence -1 to 1, intensity 0 to 1), your confidence (0 to 1) "
+            "that it is right, and next_time: what you resolve to do better on your next card. "
+            "This becomes your long-term memory of this work.",
             {
                 "what_i_did": str,
                 "how_i_reasoned": str,
                 "what_i_learned": str,
+                "next_time": str,
                 "confidence": float,
                 **feeling_args,
             },

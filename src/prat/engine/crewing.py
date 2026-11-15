@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from prat import crew
+from prat import crew, identity
 from prat.engine import agent_tools
 from prat.memory import AgentMemory, Feeling, briefing, new_episode
 from prat.projects import ProjectSpec
@@ -51,7 +51,8 @@ class CrewSession:
 
     @property
     def agent(self) -> str:
-        return self.member.name.lower()
+        """Where the lead's memory lives: its stack, whatever name it chose."""
+        return self.member.key
 
     @property
     def tools(self) -> frozenset[str]:
@@ -119,6 +120,7 @@ class CrewSession:
                     what=what,
                     reasoning=reasoning,
                     lesson=reflection.lesson,
+                    intention=reflection.intention,
                     feeling=reflection.feeling,
                     outcome=state,
                     importance=min(1.0, importance),
@@ -151,27 +153,30 @@ def prepare(
     skills = crew.loadout(member, crew_spec, home, project)
     loadout_dir = crew.build_loadout(home, project, skills) if skills else None
     query = f"{title}\n{card_text}"
-    helper_briefs = {
-        name: briefing(
+    who = identity.of(home, member.key)
+    helper_briefs = {}
+    for name in spec.crew.helpers or crew.HELPER_PROMPTS:
+        helper = identity.of(home, name)
+        remembered = briefing(
             AgentMemory(home, name),
             project=project,
             card_id=None,
             query=query,
             budget=HELPER_BRIEF_CHARS,
             episodes=2,
+            name=helper.name,
         )
-        for name in (spec.crew.helpers or crew.HELPER_PROMPTS)
-    }
+        helper_briefs[name] = "\n\n".join(t for t in (helper.persona(), remembered) if t)
     helpers = crew.helpers(spec.crew.helpers, helper_briefs)
     memory = briefing(
-        AgentMemory(home, member.name.lower()), project=project, card_id=card_id, query=query
+        AgentMemory(home, member.key), project=project, card_id=card_id, query=query, name=who.name
     )
     tool_ctx = agent_tools.ToolContext(
         home=home,
         project=project,
         card_id=card_id,
         run_id=run_id,
-        agent=member.name.lower(),
+        agent=member.key,
         record=record,
         live=live,
         databases=dict(databases),
@@ -179,8 +184,18 @@ def prepare(
         job_status=job_status,
     )
     phases = crew.skills_by_phase(home, project, skills)
-    prompt = crew.crew_prompt(member, helpers, phases) + (f"\n\n{memory}" if memory else "")
-    live("lead", {"name": member.name, "stack": member.stack, "color": member.color})
+    names = {name: identity.of(home, name).name for name in helpers}
+    prompt = (
+        who.persona()
+        + "\n\n"
+        + crew.crew_prompt(member, helpers, phases, helper_names=names)
+        + (f"\n\n{memory}" if memory else "")
+    )
+    live(
+        "lead",
+        {"name": who.name, "key": member.key, "stack": member.stack, "color": member.color},
+    )
+    live("helper_names", names)
     live("skills_carried", skills)
     return CrewSession(
         member=member,

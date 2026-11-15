@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ who.name }}{% endblock %}
+{% block content %}
+<div class="container">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crew</a><span aria-hidden="true">/</span><span aria-current="page">{{ who.name }}</span></nav>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">{{ who.name }}</h1>
+      <p class="page-sub">{{ who.role }}{% if who.personality and who.chosen %} · {{ who.personality }}{% endif %}</p>
+    </div>
+    {% if not who.chosen %}
+    <form method="post" action="/crew/{{ key }}/introduce" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">Ask them to introduce themselves</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="talk-h">
+      <header class="panel-head"><h2 id="talk-h">{{ icon('message') }}Conversation</h2></header>
+      <div class="panel-body crew-chat">
+        {% for t in turns %}
+        <div class="crew-turn {{ 'from-person' if t.who == 'person' else 'from-agent' }}" {% if loop.last %}id="latest"{% endif %}>
+          <div class="muted small">{{ 'You' if t.who == 'person' else who.name }} · {{ clock(t.at) }}</div>
+          <p class="pre">{{ t.text }}</p>
+        </div>
+        {% else %}
+        <p class="muted">Say hello. Ask how their day went, for a report on what they are doing, or just thank them.</p>
+        {% endfor %}
+        <form method="post" action="/crew/{{ key }}/talk" class="crew-say">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label class="sr-only" for="message">Message to {{ who.name }}</label>
+          <textarea id="message" name="message" rows="2" required placeholder="Message {{ who.name }}"></textarea>
+          <button type="submit" class="btn btn-primary">{{ icon('send') }}Send</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="who-h">
+      <header class="panel-head"><h2 id="who-h">{{ icon('info') }}In their own words</h2></header>
+      <div class="panel-body">
+        <p>{{ who.bio }}</p>
+        {% if who.drive %}<p><em>{{ who.drive }}</em></p>{% endif %}
+        {% if record %}<p class="pre small">{{ record }}</p>{% endif %}
+        {% if work %}
+        <h3 class="small">Working on now</h3>
+        <ul>{% for w in work %}<li><a href="/cards/{{ w.card }}">#{{ w.card }} {{ w.title }}</a> ({{ w.step or 'starting' }})</li>{% endfor %}</ul>
+        {% endif %}
+        {% if beliefs %}
+        <h3 class="small">What they believe from experience</h3>
+        <ul>{% for b in beliefs %}<li>{{ b.text }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if episodes %}
+        <h3 class="small">Recent memories</h3>
+        <ul class="crew-episodes">
+          {% for e in episodes %}
+          <li><span class="muted small">{{ clock(e.at) }} · {{ e.outcome }} · felt {{ e.feeling.words }}</span><br>{{ e.title }}{% if e.lesson %}: <em>{{ e.lesson }}</em>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

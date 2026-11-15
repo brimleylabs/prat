@@ -322,6 +322,7 @@ def create_app(
     app.state.prat = context
 
     from prat.web.routes_actions import router as actions_router
+    from prat.web.routes_crew import router as crew_router
     from prat.web.routes_env import router as env_router
     from prat.web.routes_improve import router as improve_router
     from prat.web.routes_knowledge import router as knowledge_router
@@ -340,6 +341,7 @@ def create_app(
     app.include_router(knowledge_router)
     app.include_router(rhythm_router)
     app.include_router(mission_router)
+    app.include_router(crew_router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.exception_handler(StarletteHTTPException)

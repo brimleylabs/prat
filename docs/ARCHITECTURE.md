@@ -38,6 +38,21 @@ src/prat/
   rhythm.py          when the person works, so background work runs when they do not
   dream.py           what PRAT does in quiet hours: knowledge upkeep within the dream window
   overlay.py         an installation's own rules and guidance, in $PRAT_HOME/overlay
+  crew.py            leads per stack, helpers (subagents), skill loadouts built as plugins
+  identity.py        the name, bio, personality and drive each agent chose; the shared voice
+  memory.py          each agent's working memory, episodes, beliefs; recall; outcomes settle
+  consolidate.py     the dream phase that turns episodes into beliefs
+  converse.py        talking with an agent at any time, and stand-ups
+  skills.py          skill candidates, promotion, scorecards from real outcomes
+  usage.py           usage per model: tokens, prompt cache, the estimate
+  governor.py        whether a ready card may start now (and why not); the machine's state
+  jobs.py            [[job]]: long-running work, its progress file, rate, ETA, stalls, its data
+  jobrunner.py       the wrapper a job runs under, so its exit is known across restarts
+  progress.py        what a Python job imports to report its progress
+  epics.py           a feature split into parts with dependencies
+  alerts.py          what is worth interrupting the person for; the webhook
+  mission.py         mission control's snapshot (and between machines)
+  mission_app.py     prat mission: the Textual app; mission_screens.py draws its screens
   db/
     models.py        SQLAlchemy 2 typed models with transition validators
     database.py      engine, SQLite pragmas (WAL, foreign keys), sessions
@@ -97,6 +112,9 @@ src/prat/
     instructions.py  reads AGENTS.md and CLAUDE.md from the worktree root, bounded and link-safe
     prompts.py       every prompt: builder, planner, critic (pure functions)
     summary.py       run summary rendered from DiffStats
+    crewing.py       one run's crew session: lead, loadout, memory briefing, PRAT's tools
+    agent_tools.py   PRAT's in-process tools for agents (remember, recall, reflect, progress, ...)
+    telemetry.py     a run's usage per role and model, and its live state for mission control
   web/
     app.py           FastAPI factory, template environment, lifespan (recover, cancel on stop)
     security.py      middleware: Host, session, Origin, content type, CSRF; security headers
@@ -107,6 +125,9 @@ src/prat/
     routes_pages.py  GET pages and fragments
     routes_actions.py POST actions: create, run, cancel, rework, approve, comment, projects
     routes_stream.py server-sent events: board changes, live session entries
+    routes_crew.py   the crew page: each agent in its own words, conversations, stand-ups
+    routes_mission.py /api/mission (another PRAT's deck) and /api/act (mission control's actions),
+                     both on the access token as a bearer token
     server.py        deferred Claude runtime, uvicorn runner
     icons.py         inline SVG icons (the only markup built outside templates)
     templates/       Jinja2, autoescaped
