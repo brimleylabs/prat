@@ -149,4 +149,18 @@ async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
         if not reports:
             return "Nobody has worked in the last day."
         return "\n\n".join(f"{r.name}\n{r.text}" for r in reports)
+    if action == "inherit":
+        from prat import inherit
+        from prat.consolidate import consolidate
+        from prat.model_registry import Role, resolve_model
+
+        slug = str(body.get("project") or "") or None
+        found = await asyncio.to_thread(inherit.inherit, db, settings.home, project=slug)
+        beliefs = await consolidate(
+            settings.home,
+            engine.runtime,
+            model=resolve_model(Role.LIBRARIAN, settings_models=settings.models),
+        )
+        formed = sum(int(a.get("beliefs") or 0) for a in beliefs.agents.values())
+        return inherit.describe(settings.home, found) + f"\n{formed} beliefs formed."
     raise ValueError(f"unknown action {action!r}")

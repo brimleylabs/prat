@@ -118,6 +118,9 @@ class Episode:
     importance: float = 0.5
     tags: list[str] = field(default_factory=list)
     recalled: int = 0
+    # Taken from PRAT's record of work done before the agent kept memories (prat.inherit):
+    # what happened is true, but the agent did not live it and its feeling is the outcome's.
+    inherited: bool = False
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Episode:
@@ -377,6 +380,8 @@ def briefing(
             line = (
                 f"- {when}, {episode.project} #{episode.card_id}: {episode.title}. {episode.what}"
             )
+            if episode.inherited:
+                line = line.replace("- ", "- (from the record, before you kept memories) ", 1)
             if episode.outcome != "pending":
                 line += f" Outcome: {episode.outcome}"
                 if episode.feedback:
@@ -384,7 +389,7 @@ def briefing(
                 line += "."
             if episode.lesson:
                 line += f" You learned: {episode.lesson}"
-            if episode.feeling.words != "neutral":
+            if episode.feeling.words != "neutral" and not episode.inherited:
                 line += f" You felt {episode.feeling.words}."
             parts.append(" ".join(line.split()))
         memory.mark_recalled(recalled)
@@ -444,22 +449,27 @@ def settle(
                 continue
             if episode.outcome == outcome and episode.feedback == feedback:
                 continue
-            episode.outcome = outcome
-            if feedback:
-                episode.feedback = " ".join(feedback.split())[:400]
-            # The outcome's feeling blends with the agent's own; mistakes are remembered more.
-            episode.feeling = Feeling(
-                felt.words
-                if episode.feeling.words == "neutral"
-                else f"{episode.feeling.words}, then {felt.words}",
-                round((episode.feeling.valence + felt.valence) / 2, 2),
-                round(max(episode.feeling.intensity, felt.intensity), 2),
-            )
-            if outcome in ("reworked", "failed"):
-                episode.importance = min(1.0, episode.importance + 0.2)
+            apply_outcome(episode, outcome, felt, feedback)
             memory.save(episode)
             changed += 1
     return changed
+
+
+def apply_outcome(episode: Episode, outcome: str, felt: Feeling, feedback: str = "") -> None:
+    """Record how the work turned out. The outcome's feeling blends with the agent's own, and
+    mistakes are remembered more."""
+    episode.outcome = outcome
+    if feedback:
+        episode.feedback = " ".join(feedback.split())[:400]
+    episode.feeling = Feeling(
+        felt.words
+        if episode.feeling.words == "neutral"
+        else f"{episode.feeling.words}, then {felt.words}",
+        round((episode.feeling.valence + felt.valence) / 2, 2),
+        round(max(episode.feeling.intensity, felt.intensity), 2),
+    )
+    if outcome in ("reworked", "failed"):
+        episode.importance = min(1.0, episode.importance + 0.2)
 
 
 def new_episode(

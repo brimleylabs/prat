@@ -41,6 +41,8 @@ Consolidate them into the beliefs you now hold. Rules:
   back with clear feedback.
 - A belief that only holds for one project names it in "project"; otherwise project is null.
 - At most {limit} beliefs. Cite the episode ids each one rests on.
+- Episodes marked "from the record" are PRAT's record of work done before you kept memories
+  of your own: what happened and the person's feedback are true, so learn from them as well.
 
 Answer with JSON only:
 {{"beliefs": [{{"text": "...", "project": "shop" or null, "strength": 0.7, "evidence": ["id"]}}]}}
@@ -149,9 +151,16 @@ async def consolidate(
         memory = AgentMemory(home, agent)
         state = _state(home, agent)
         since = float(state.get("at") or 0.0)
-        fresh = [
-            e for e in memory.episodes() if e.at > since or e.outcome != state.get(e.id, e.outcome)
-        ]
+        # Fresh: new since the last consolidation (inherited ones arrive with old dates), or
+        # whose outcome changed since.
+        fresh = sorted(
+            (
+                e
+                for e in memory.episodes()
+                if e.at > since or (since and state.get(e.id) != e.outcome)
+            ),
+            key=lambda e: e.at,
+        )
         entry: dict[str, Any] = {"folded": folded, "new_episodes": len(fresh)}
         report.agents[agent] = entry
         if runtime is None or len(fresh) < MIN_NEW_EPISODES:
@@ -161,11 +170,12 @@ async def consolidate(
         workdir.mkdir(parents=True, exist_ok=True)
         episodes_text = "\n".join(
             f"- id {e.id} ({time.strftime('%Y-%m-%d', time.localtime(e.at))}, {e.project} "
-            f"#{e.card_id}, {e.role}): {e.title}. Did: {e.what[:400]} Reasoned: "
+            f"#{e.card_id}, {e.role}{', from the record' if e.inherited else ''}): {e.title}. "
+            f"Did: {e.what[:400]} Reasoned: "
             f"{e.reasoning[:300]} Felt: {e.feeling.words}. Outcome: {e.outcome}"
             + (f" ({e.feedback[:200]})" if e.feedback else "")
             + (f". Learned: {e.lesson[:200]}" if e.lesson else "")
-            for e in fresh[-30:]
+            for e in fresh[-40:]
         )
         prompt = PROMPT.format(
             agent=agent,

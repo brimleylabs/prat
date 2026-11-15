@@ -488,6 +488,21 @@ to the card and its working memory of the card. Recall weighs relevance, importa
 strongly a memory was felt and how recent it is. The planner and the reviewer remember too: the
 reviewer remembers every verdict, and learns when a card it passed was sent back.
 
+**Work from before they kept memories.** An installation that worked cards before its crew had
+memories can hand that history down:
+
+```bash
+prat crew inherit --dry-run            # what each agent would inherit
+prat crew inherit                      # add it, then each agent forms beliefs from it
+```
+
+Each past run becomes an episode for the agent who holds that job now (the project's lead, the
+reviewer for verdicts, the planner for plans): what the agent said when it finished, how many
+files changed, how it turned out, your feedback word for word and the lesson written about it.
+These episodes are marked as inherited. Their feeling is only the one the outcome gives, and the
+agent is told they come from the record, not from its own experience. Running it again adds only
+what is new, and never touches a run the agent remembers for itself.
+
 ## Skills
 
 A skill is a `SKILL.md` an agent loads when it needs it: its name and description cost almost

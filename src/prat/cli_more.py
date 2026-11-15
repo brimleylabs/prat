@@ -378,3 +378,34 @@ def crew_standup(ctx: typer.Context) -> None:
 def crew_introduce(ctx: typer.Context, agent: str) -> None:
     """Ask an agent to choose its name, bio and personality (again)."""
     _converse(ctx, "introduce", {"agent": _agent_key(ctx, agent)})
+
+
+@crew_app.command("inherit")
+def crew_inherit(
+    ctx: typer.Context,
+    project: Annotated[str | None, typer.Option(help="Only this project.")] = None,
+    dry_run: Annotated[bool, typer.Option(help="Show what would be added; add nothing.")] = False,
+) -> None:
+    """Give the crew PRAT's record of the work done before they kept memories: each run,
+    how it turned out and your feedback, marked as inherited. Then each agent forms beliefs
+    from it. Running it again adds only what is new."""
+    from prat import inherit
+
+    if not dry_run:
+        sent = _through_server(_settings(ctx), "inherit", {"project": project or ""})
+        if sent is not None:
+            ok, text = sent
+            if not ok:
+                raise _fail(text)
+            console.print(escape(text))
+            return
+    with _database(ctx) as (settings, db):
+        try:
+            found = inherit.inherit(db, settings.home, project=project, dry_run=dry_run)
+        except LookupError as exc:
+            raise _fail(str(exc)) from exc
+    console.print(escape(inherit.describe(settings.home, found)))
+    if dry_run:
+        console.print("Nothing was added (dry run).")
+    else:
+        console.print("PRAT is not running here: beliefs form at its next dream.")
