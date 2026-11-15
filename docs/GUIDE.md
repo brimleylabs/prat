@@ -38,7 +38,9 @@ PRAT is powered by Claude through the Claude Agent SDK. It is not made or endors
    with a reason. The summary on the card is computed from the actual diff, not from what the
    agent says it did.
 5. `prat card approve` merges the branch into the default branch of the agent clone with
-   `--no-ff`. You pull it into your checkout when you choose.
+   `--no-ff`. A checkout PRAT cloned itself (a project added from a link) is brought up to date
+   and set up at once (see [Setting up your checkout](#environments)); your own clone you pull
+   into when you choose.
 
 ## Requirements
 
@@ -118,10 +120,16 @@ If the repository has no `.prat/project.toml`, PRAT adds a **setup card** (turn 
 `--no-setup` or the checkbox). Its agent is the only one allowed to write `.prat/`: it works out
 the stack from the repository and proposes a project file (commands, gates, environments,
 notes) and an idempotent `.prat/setup.sh` that installs what the project needs into the
-worktree. PRAT does not take its word for it: verify loads the proposed file, runs its gates in
-the card's worktree, and starts every proposed environment on a free port until its health URL
-answers. You review the proposal like any card; approving it merges the project file and starts
-a deep scan, so the first real card is already briefed.
+worktree. PRAT does not take its word for it: verify removes everything git ignores (`.venv`,
+`node_modules`, `vendor`) so the setup proves itself from a clean state, loads the proposed file,
+runs its gates in the card's worktree, and starts every proposed environment on a free port until
+its health URL answers. "Answers" means more than a status code: a page that shows an uncaught
+error (a PHP fatal error, a Python traceback) does not count, and neither does a page whose own
+stylesheets, scripts or images fail to load. The gates and environments use the card's own
+branch of the project database, never the data your checkout uses, and a setup whose checks
+leave files tracked in the repository modified fails, since it would leave your checkout dirty.
+You review the proposal like any card; approving it merges the project file and starts a deep
+scan, so the first real card is already briefed. Infra cards (below) are proven the same way.
 
 With `project_database_url` set to a Doltgres server, PRAT also creates a database for the
 project, records its address as `PRAT_DATABASE_URL` in the machine-only
@@ -438,7 +446,9 @@ The project page lists each environment with its state (running, starting, unhea
 exited), Start, Stop and Restart, its links while it runs, and the end of its log. Stop takes
 down the process and everything it started, on every system; an optional `stop` command runs
 first. Environments keep running when PRAT restarts, and PRAT only stops a remembered process
-after checking it is still the same one.
+after checking it is still the same one. When you open PRAT from another device (through a
+tunnel or proxy), links to `127.0.0.1` or `localhost` are left out, since they would open that
+device; links that reach this computer, such as a tunnel's, stay.
 
 **Environments that use each other.** A dev server that proxies an API needs the API's port,
 and in a preview that port is a free one PRAT picks. Write `{port:api}` for "the port the `api`

@@ -36,7 +36,13 @@ PRAT specifically (see "Not covered yet").
   push destination is rewritten to it, and a pre-push hook refuses as a last layer. Tested with
   real `git push` variants, including `--no-verify` and explicit paths.
 - **Approval merges locally.** `prat card approve` makes a `--no-ff` merge in the agent clone.
-  Pulling it into your checkout, and pushing, are your actions.
+  Pulling it into your own checkout, and pushing, are your actions. Only a checkout PRAT cloned
+  itself (a project added from a link) is fast-forwarded, and only when it has no local changes.
+- **No assistant attribution in commits.** A `commit-msg` hook in the agent clone removes
+  `Co-Authored-By`, `Claude-Session` and "Generated with Claude Code" lines from every commit.
+- **PRAT's own database is never taken from the environment.** `database_url` is read from
+  `config.toml` only, so a project's `PRAT_DATABASE_URL` exported in a shell cannot point PRAT
+  at that project's database.
 - **Restricted tool set.** The Claude runtime sets the SDK's `tools` to exactly the tools a role
   needs and lists every other built-in tool as disallowed. The reviewer and planner get Read,
   Glob and Grep only; their sessions report this tool list, and the journal records it.

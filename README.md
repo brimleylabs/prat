@@ -162,11 +162,13 @@ machine, your own Claude Code login (`auth_mode = "claude_login"`). See
       <b>The setup agent</b><br>
       Point PRAT at any repository and the setup agent makes it runnable: dependencies,
       database, migrations, ways to run it. PRAT starts every environment it proposes on a free
-      port and checks it answers before you see the card.
+      port and checks it answers, with a real page whose own styles and scripts load, before
+      you see the card. An environment check later files an infra card when one breaks.
     </td>
     <td valign="top">
       <b>Data branches</b><br>
-      With Doltgres or Dolt, every card gets its own branch of your database: the review shows
+      With Doltgres (PostgreSQL apps) or Dolt (MySQL apps), every card gets its own branch of
+      your database: the review shows
       what it changed, approve merges it, undo reverses it. If your app needs SQL Doltgres
       lacks, PRAT falls back to PostgreSQL by itself, with a copy per card.
     </td>
@@ -212,7 +214,8 @@ machine, your own Claude Code login (`auth_mode = "claude_login"`). See
 
 The effective level is the lowest of the installation's ceiling, the project's file and the card.
 The agent clone has no push destination, a pre-push hook refuses everything, and the policy
-denies every form of push on top. Gates and environments run with PRAT's own keys removed from
+denies every form of push on top. A commit-msg hook keeps assistant attribution out of every
+commit the agents make. Gates and environments run with PRAT's own keys removed from
 their environment. The web UI listens on loopback, signs in with one-time links, and checks the
 origin and a CSRF token on every change. Details: [docs/SECURITY.md](docs/SECURITY.md).
 
@@ -240,8 +243,10 @@ cannot run, the card fails rather than running the commands on your machine.
 With Doltgres or Dolt, a card's agent works on its own branch of your database while `main`
 stays untouched. Review shows the schema and row changes next to the code diff. Approval
 merges the data first, then the code, both or neither, and every landed card can be undone.
-When an application needs SQL that Doltgres does not support yet, PRAT moves the project to
-PostgreSQL by itself and gives each card a copy instead of a branch.
+Only approved cards change `main`: environment checks and the setup of your checkout run on a
+throwaway branch. PostgreSQL apps get Doltgres and MySQL apps get Dolt. When an application
+needs SQL that Doltgres does not support yet, PRAT moves the project to PostgreSQL by itself
+and gives each card a copy instead of a branch.
 
 ## A lesson on every card
 
@@ -351,8 +356,9 @@ Doltgres for data. More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ## Status
 
 Pre-release, in daily use on real projects. The engine, policy, gates, reviewers, approvals,
-checkpoints, setup agent, data branches with the PostgreSQL fallback, knowledge and dreams, and
-the web UI are built and tested, and so are an optional container sandbox for macOS and Linux
+checkpoints, setup agent, environment checks with the infra agent, data branches on Doltgres and
+Dolt with the PostgreSQL fallback, clients, knowledge and dreams, and the web UI are built and
+tested, and so are an optional container sandbox for macOS and Linux
 and an evaluation harness. Next: per-card database users. Interfaces may still change.
 
 ## Documentation
@@ -362,7 +368,7 @@ and an evaluation harness. Next: per-card database users. Interfaces may still c
 | [Guide](docs/GUIDE.md) | Every setting, the project file, environments, knowledge, dreams, the overlay |
 | [Architecture](docs/ARCHITECTURE.md) | Modules, state machines, the data model and the reasons behind them |
 | [Security](docs/SECURITY.md) | The threat model, what the policy covers and what it does not yet |
-| [Databases](docs/DOLTGRES.md) | Data branches, the pinned Doltgres build, the PostgreSQL fallback |
+| [Databases](docs/DOLTGRES.md) | Data branches on Doltgres and Dolt, the pinned Doltgres build, the PostgreSQL fallback |
 | [Web UI](docs/UI.md) | Pages, keyboard shortcuts and screenshots |
 | [Contributing](CONTRIBUTING.md) | Development setup and the test suite |
 

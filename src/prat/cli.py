@@ -908,10 +908,23 @@ def card_approve(ctx: typer.Context, card_id: int) -> None:
         except (ApproveError, store.NotFound, GitError) as exc:
             raise _fail(str(exc)) from exc
         with db.session() as session:
-            project = store.get_card(session, card_id).project
-            agent_path, default = project.agent_path, project.default_branch
+            card = store.get_card(session, card_id)
+            agent_path, default = card.project.agent_path, card.project.default_branch
+            events = store.events_for_card(session, card)
+            followed = next(
+                (e.data.get("checkout") for e in reversed(events) if e.kind == "card.merged"), None
+            )
+            setup = next(
+                (e.data.get("problem") for e in reversed(events) if e.kind == "checkout.setup"),
+                None,
+            )
         console.print(f"merged {merged.branch} into {default} as {merged.commit[:10]}")
-        console.print(f"to bring it into your checkout: git pull {agent_path} {default}")
+        if followed == "updated":
+            console.print(
+                "your checkout has it" + (f"; its setup failed: {setup}" if setup else "")
+            )
+        else:
+            console.print(f"to bring it into your checkout: git pull {agent_path} {default}")
 
 
 @card_app.command("cancel")

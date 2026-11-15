@@ -1,4 +1,4 @@
-# Databases: Doltgres branches, the pinned build, and the PostgreSQL fallback
+# Databases: Doltgres and Dolt branches, the pinned Doltgres build, and the PostgreSQL fallback
 
 PRAT gives every card its own copy of a project's data, so an agent can migrate, seed and break
 things without touching anyone else's work. How it does that depends on the database.
@@ -28,6 +28,20 @@ app_url_env = "DATABASE_URL"    # the variable the application reads
 
 For each card, PRAT points `DATABASE_URL` at the card's branch (or copy) for the agent, the
 gates and the card's preview. Environments run from your checkout get the default branch.
+
+Only approved cards change the default branch. Everything else that runs the project's setup
+command works on a throwaway branch, removed afterwards: the environment check (`prat env
+check`), and the setup of your checkout after approval or with `prat env setup`. A seeder that
+is not safe to run twice would otherwise write rows on the default branch that conflict with
+the next card's merge.
+
+### MySQL applications: Dolt
+
+An application that runs on MySQL in production gets a Dolt database instead, the same branch
+per card over the MySQL protocol. Set `project_mysql_url` to a Dolt sql-server (for example
+`mysql+pymysql://root:...@127.0.0.1:3340/`); PRAT creates the project's database there too,
+records it as `PRAT_MYSQL_URL`, and the setup agent declares it with `kind = "dolt"` and
+`url_env = "PRAT_MYSQL_URL"`. Laravel reads it through `DB_URL`.
 
 ## The automatic fallback
 

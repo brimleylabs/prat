@@ -62,7 +62,7 @@ status allows:
 | Run / Run again | ready (not queued), rework, blocked, failed | Queues a run |
 | Resume run | running, but the run was interrupted by a restart | Continues at the first unfinished step |
 | Request rework | review, blocked, failed | Sends the card back with your feedback, optionally starting the run |
-| Approve and merge | review | Local `--no-ff` merge into the agent clone, after a confirmation |
+| Approve and merge | review | Local `--no-ff` merge into the agent clone, after a confirmation. A checkout PRAT cloned itself is brought up to date and set up in the background |
 | Cancel | anything not done or cancelled | Stops a running agent, after a confirmation |
 | Reopen as draft | cancelled | Back to draft |
 | Undo this card | done, landed and not undone | Reverses the card's code and data together and keeps everything that landed since, after a confirmation. If either side would conflict, nothing changes |
@@ -118,11 +118,24 @@ full screen on the card's own live stream, with a link through to the card.
 
 ![Projects](images/projects-1440-dark.png)
 
-The list shows each project's checkout, agent clone, default branch and its cards by status.
-**Add project** takes the path of your own checkout and, optionally, the agent clone path and a
-short name. It checks that the path is absolute, exists and is a git checkout, that the
-committed `.prat/project.toml` is valid, that the agent clone is outside the checkout and outside
-every other project, and that the short name is free; each problem is reported next to its field.
+The list shows each project's checkout, agent clone, default branch and its cards by status,
+and each of its environments with its state, Start or Restart, and every link it declares. Opened
+from another device (through a tunnel or proxy), links to `127.0.0.1` or `localhost` are left out,
+since they would open that device.
+
+**Add project** takes a repository link (PRAT lists its branches as you type and clones the one
+you pick into `projects_dir`) or the path of your own checkout, and optionally the agent clone
+path, a short name and a client. It checks that the path is absolute, exists and is a git
+checkout, that the committed `.prat/project.toml` is valid, that the agent clone is outside the
+checkout and outside every other project, and that the short name is free; each problem is
+reported next to its field. Without a project file, PRAT adds a setup card.
+
+**Clients.** A switcher at the top of the board, projects and new card pages narrows them to one
+client's projects; "All clients" shows everything, and `default_client` sets where the pages
+open. A project's page sets its client.
+
+**Check environments** on a project's page runs the environment check (see the
+[Guide](GUIDE.md#environments)) and files an infra card when something fails.
 
 A project's page shows its settings read-only, from the project file committed on the default
 branch of the agent clone (or the snapshot taken at registration before the first run). The

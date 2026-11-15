@@ -255,9 +255,15 @@ async def card_approve(request: Request, card_id: int) -> Response:
     except (ApproveError, MergeError, GitError) as exc:
         _flash(request, f"Not merged: {exc}", "bad")
         return _go(request, f"/cards/{card_id}")
-    message = (
-        f"Merged into {default} as {merged.commit[:10]} in the agent clone. "
-        f"To bring it into your checkout: git pull {agent_path} {default}"
+    with ctx.db.session() as session:
+        events = store.events_for_card(session, store.get_card(session, card_id))
+        followed = next(
+            (e.data.get("checkout") for e in reversed(events) if e.kind == "card.merged"), None
+        )
+    message = f"Merged into {default} as {merged.commit[:10]} in the agent clone. " + (
+        "PRAT brought it into your checkout and is running its setup there"
+        if followed == "updated"
+        else f"To bring it into your checkout: git pull {agent_path} {default}"
     )
     if kind is CardKind.SETUP:
         # The project file has landed: learn the project now, so the first real card is

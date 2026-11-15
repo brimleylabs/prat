@@ -22,17 +22,31 @@ last run stopped.
 
 ```
 src/prat/
-  config.py          installation settings (env, TOML, defaults); derived paths
+  config.py          installation settings (env, TOML, defaults); derived paths. database_url
+                     is never read from the environment (PRAT_DATABASE_URL is a project's)
   domain.py          enums and the card, run and step state machines
   paths.py           symlink- and case-aware path comparison, glob matching
   proc.py            child processes that can be killed as a whole tree (gates, git, probes)
   projects.py        .prat/project.toml schema (pydantic), slugs, path separation rules
   store.py           data-access helpers; every status change also writes an audit event
+  onboard.py         adding a project from a link: list its branches, clone the one picked
+  project_detect.py  a starter project file guessed from a checkout's well-known files
+  setup_agent.py     the setup card: prompt, project databases (Doltgres, Dolt), environment checks
+  environments.py    [[environment]]: start, stop and watch in the checkout or as a card preview
+  infra.py           the environment check, the infra card, and setting up the person's checkout
+  lessons.py         the lesson written for the engineer on each card that reaches review
+  rhythm.py          when the person works, so background work runs when they do not
+  dream.py           what PRAT does in quiet hours: knowledge upkeep within the dream window
+  overlay.py         an installation's own rules and guidance, in $PRAT_HOME/overlay
   db/
     models.py        SQLAlchemy 2 typed models with transition validators
     database.py      engine, SQLite pragmas (WAL, foreign keys), sessions
     migrate.py       programmatic Alembic upgrade and revision checks
     alembic/         migration environment and versions (shipped inside the package)
+  dolt/              Dolt as PRAT's own store: the managed server, choosing the store, versioning
+  workspace/         a card's data: Dolt and Doltgres branches, PostgreSQL copies, checkpoints
+  knowledge/         project knowledge: scout, deep scan, librarian, curator, selection, upkeep
+  sandbox/           a card's commands, gates and environments in a container
   git/
     runner.py        git wrapper: argument lists only, no prompts, ambient GIT_* stripped
     worktree.py      agent clone, push blocking, worktrees, safety commit, diff stats, merge
@@ -164,7 +178,11 @@ A test compares the Alembic head against the models (`compare_metadata`) so the 
 
 - `checkout_path` is the person's own clone. PRAT clones from it and fetches from it; no agent
   ever runs there and nothing writes to it. Approval merges into the agent clone; the person
-  pulls from there.
+  pulls from there. The exception is a checkout PRAT cloned itself (a project added from a
+  link, under `projects_dir`): after approval PRAT fast-forwards it when it is clean and on the
+  default branch, then runs the project's setup command there in the background with each
+  project database on a throwaway branch (`infra.set_up_person_checkout`), since the default
+  branch already holds the approved card's data.
 - `agent_path` is PRAT's clone. Its default branch stays checked out in its main directory; card
   worktrees live elsewhere, under `$PRAT_HOME/worktrees`.
 - Project registration refuses overlapping paths (agent clone inside the checkout, or one
@@ -182,6 +200,11 @@ The agent clone is configured so that no push can leave it, whatever the command
 2. `url."prat-push-disabled://".pushInsteadOf` is set to the empty string, which rewrites
    every push destination (named remote, plain path, `file://` URL) to that scheme.
 3. A `pre-push` hook in the shared hooks directory refuses, as a last layer.
+
+The same hooks directory holds a `commit-msg` hook that drops assistant attribution lines
+(`Co-Authored-By` naming Claude or Anthropic, `Claude-Session:`, "Generated with Claude Code")
+from every commit made in the clone, however the commit was made; agent sessions also run with
+Claude Code's own attribution turned off.
 
 Worktrees share the clone's configuration, so this applies in every card worktree. An
 integration test runs eight real `git push` variants from a worktree, including `--no-verify`
@@ -678,8 +701,8 @@ the commands and the case format; this is how it works.
 - No MCP servers are configured for agents yet (the policy already judges registered MCP tools).
 - Project knowledge, the scout and deep scan, and dreams exist (see the README and
   `docs/design/knowledge.md`); skills and the card drafter do not yet.
-- Per-card data branches work for Dolt and Doltgres databases; plain Postgres or MySQL cannot
-  branch.
+- Per-card data branches work for Dolt (MySQL protocol) and Doltgres databases; plain Postgres
+  gets a copy per card instead, and plain MySQL neither.
 - Web sessions are in the database and survive a restart, but the server is still one process:
   the engine, the sign-in throttle and flash messages live in it.
 
