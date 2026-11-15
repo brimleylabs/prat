@@ -19,11 +19,14 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from prat.config import Settings
 from prat.db import Database
@@ -42,6 +45,7 @@ from prat.environments import (
 )
 from prat.projects import Environment
 from prat.setup_agent import PROJECT_FILE_FORMAT, EnvironmentCheck, check_environments
+from prat.workspace.dolt_branch import DoltBranchProvider, WorkspaceError, providers_for
 
 # Environments started by a check are kept apart from the person's (``None``) and from every
 # card's preview (cards start at 1).
@@ -327,12 +331,20 @@ def _check(
         report.problem = "PRAT's clone of the project does not exist yet; run a card first"
         return report
     variables = checkout_environment_variables(db, settings.home, slug)
+    try:
+        databases = check_databases(spec, variables)
+    except (WorkspaceError, SQLAlchemyError) as exc:
+        report.problem = f"PRAT could not give the check its own copy of the database: {exc}"
+        return report
     folder = check_folder(settings.home, slug)
     try:
         prepare_preview(agent, branch, folder)
     except EnvironmentError as exc:
+        _discard(databases)
         report.problem = str(exc)
         return report
+    for database in databases:
+        variables.update(database.agent_env(CHECK_INSTANCE))
     try:
         sandbox = (
             manager.sandboxes(slug, CHECK_INSTANCE, folder, variables)
@@ -354,7 +366,25 @@ def _check(
     finally:
         with contextlib.suppress(OSError):
             remove_preview(agent, folder)
+        _discard(databases)
     return report
+
+
+def check_databases(spec: Any, variables: dict[str, str]) -> list[DoltBranchProvider]:
+    """A fresh branch of each project database for a check: the setup command's migrations
+    and seeders, and the app itself, write there and never to the default branch, which only
+    approved cards change (a seeder run twice there conflicts with the next card's merge)."""
+    databases = providers_for(list(spec.workspace.database), environ={**os.environ, **variables})
+    for database in databases:
+        database.discard(CHECK_INSTANCE)  # left by a check that was killed
+        database.create(CHECK_INSTANCE)
+    return databases
+
+
+def _discard(databases: list[DoltBranchProvider]) -> None:
+    for database in databases:
+        with contextlib.suppress(WorkspaceError, SQLAlchemyError):
+            database.discard(CHECK_INSTANCE)
 
 
 def file_card(db: Database, slug: str, report: InfraReport) -> int:

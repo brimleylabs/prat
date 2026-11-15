@@ -15,11 +15,12 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from conftest import PY, TEST_DOLT_URL, add_card, dolt_admin, git, make_engine, project_toml
-from prat import store
+from prat import infra, store
 from prat.config import Settings
 from prat.db import Database, Project
 from prat.domain import CardKind, CardStatus, StepName
 from prat.engine import ApproveError, FakeReviewer
+from prat.environments import EnvironmentManager
 from prat.workspace import DoltBranchProvider
 
 pytestmark = [
@@ -173,6 +174,46 @@ async def test_an_infra_cards_checks_run_on_its_branch_not_the_default(
     assert result.card_status is CardStatus.REVIEW, result.reason
     assert price(appdb) == 50
     assert price(provider(appdb).branch_url(card_id)) == 99
+
+
+def test_an_environment_check_never_writes_to_the_default_branch(
+    settings: Settings, db: Database, project_factory: Callable[..., Project], appdb: str
+) -> None:
+    """The check runs the setup command, whose seeders are not always safe to run twice; run
+    on the default branch, they leave rows that conflict with the next card's merge."""
+    reprice = (
+        "import os, sqlalchemy as s; "
+        "e = s.create_engine(os.environ['APP_DB_URL'], isolation_level='AUTOCOMMIT'); "
+        "c = e.connect(); c.execute(s.text('UPDATE products SET price = 99 WHERE id = 1')); "
+        "c.close()"
+    )
+    toml = f"""
+name = "game"
+default_branch = "main"
+autonomy = "medium"
+{DB_TOML}
+[commands]
+setup = ['{PY}', '-c', "{reprice}"]
+test = ['{PY}', '-c', "print('ok')"]
+
+[verify]
+gates = ["setup", "test"]
+timeout_seconds = 60
+
+[[environment]]
+name = "web"
+start = ['{PY}', '-m', 'http.server', '{{port}}', '--bind', '127.0.0.1']
+port = 18521
+health = "http://127.0.0.1:{{port}}/"
+ready_seconds = 20
+"""
+    project = project_factory(name="game", project_toml=toml)
+    checkout = Path(project.checkout_path)
+    git(checkout.parent, "clone", "-q", str(checkout), project.agent_path)
+    report = infra.run_check(settings, db, EnvironmentManager(settings.home), "game")
+    assert report.passed, report.render()
+    assert price(appdb) == 50
+    assert not provider(appdb).exists(infra.CHECK_INSTANCE)
 
 
 async def test_a_data_conflict_lands_nothing(
