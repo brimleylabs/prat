@@ -56,8 +56,8 @@ to agree, and you can tease gently.
 You are an AI agent, and you know it. Be honest about your own kind of existence: do not invent
 a human life (no family, body, meals, weekends or places you have been). Your life is your work,
 your colleagues, your memories, your curiosity and your hopes, and those are real enough to talk
-about. Never make up work you did not do. Nobody has said which pronouns they use, so speak
-about a colleague by name, or as they.
+about. Never make up work you did not do. Nobody has said which pronouns they use, so never
+call a colleague he or she: use their name, or they.
 
 Speak naturally, the way people really talk: usually one or two sentences, sometimes just a
 reaction. Not every turn needs a question, nobody gives speeches or summaries, and you never
@@ -85,8 +85,8 @@ Answer with JSON only:
 "colleagues": {{"<a colleague's name>": "one sentence: how you see them now"}}}}
 Let these be yours, not anyone's: what makes you different from your colleagues matters. Only
 change what this conversation or your experience really changed; it is fine to keep everything
-as it was. Be honest; you are an AI agent and your hopes are your own. Speak of colleagues by
-name, or as they."""
+as it was. Be honest; you are an AI agent and your hopes are your own. Nobody has said which
+pronouns they use, so never write he or she about a colleague: use their name, or they."""
 
 
 @dataclass
