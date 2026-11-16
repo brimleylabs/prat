@@ -151,6 +151,7 @@ async def seed_project(
         slug = project.slug
         checkout, agent = Path(project.checkout_path), Path(project.agent_path)
         branch = project.default_branch
+        author = project.client.commit_author if project.client else None
         others = [
             Path(p)
             for other in store.list_projects(session)
@@ -167,7 +168,7 @@ async def seed_project(
         author_email=settings.git_author_email,
     )
     try:
-        clone = worktrees.prepare_agent_clone(checkout, agent, branch)
+        clone = worktrees.prepare_agent_clone(checkout, agent, branch, author=author)
     except Exception as exc:
         result.error = f"could not prepare PRAT's clone: {exc}"
         return result

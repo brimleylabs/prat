@@ -90,6 +90,26 @@ def remove_client(session: Session, ref: str | int) -> tuple[str, int]:
     return client.slug, released
 
 
+def set_client_author(session: Session, client: Client, author: tuple[str, str] | None) -> None:
+    """Commit agents' work on the client's projects as (name, email); None for the
+    installation's author. Takes effect at each project's next run."""
+    if author is not None:
+        name, email = (part.strip() for part in author)
+        if not name or not email:
+            raise ValueError("a commit author needs both a name and an email")
+        if len(name) > 200 or len(email) > 200:
+            raise ValueError("the commit author's name and email must be 200 characters or fewer")
+        if "@" not in email or any(c in name + email for c in "<>\n"):
+            raise ValueError("give a plain name and an email address")
+        author = (name, email)
+    client.git_author_name, client.git_author_email = author or (None, None)
+    record_event(
+        session,
+        "client.author",
+        data={"slug": client.slug, "author": f"{author[0]} <{author[1]}>" if author else None},
+    )
+
+
 def set_project_client(session: Session, project: Project, client: Client | None) -> None:
     project.client = client
     record_event(

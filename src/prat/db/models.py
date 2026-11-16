@@ -95,8 +95,19 @@ class Client(Base):
     slug: Mapped[str] = mapped_column(String(63), unique=True)
     name: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # Who the agents' commits on this client's projects are by, when the client
+    # wants its own identity in its history; unset means the installation's.
+    git_author_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    git_author_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     projects: Mapped[list[Project]] = relationship(back_populates="client")
+
+    @property
+    def commit_author(self) -> tuple[str, str] | None:
+        """(name, email) for agents' commits on this client's projects, or None."""
+        if self.git_author_name and self.git_author_email:
+            return (self.git_author_name, self.git_author_email)
+        return None
 
 
 class Project(Base):

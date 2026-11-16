@@ -183,6 +183,40 @@ def test_client_cli(tmp_path: Path, repo_factory: Callable[..., Path]) -> None:
     assert "0 projects now have no client" in cli("client", "remove", "personal", "--yes")
 
 
+def test_client_commit_author(db: Database) -> None:
+    with db.session() as session:
+        acme = store.add_client(session, "Acme Corp")
+        assert acme.commit_author is None
+        store.set_client_author(session, acme, (" acme-bot ", "bot@acme.example"))
+        assert acme.commit_author == ("acme-bot", "bot@acme.example")
+        for bad in (("", "bot@acme.example"), ("acme-bot", "not-an-email"), ("a<b", "b@c.d")):
+            with pytest.raises(ValueError, match=r"name and an email|plain name"):
+                store.set_client_author(session, acme, bad)
+        assert acme.commit_author == ("acme-bot", "bot@acme.example")
+        store.set_client_author(session, acme, None)
+        assert acme.commit_author is None
+
+
+def test_client_author_cli(tmp_path: Path) -> None:
+    runner = CliRunner()
+    home = tmp_path / "home"
+
+    def cli(*args: str, code: int = 0) -> str:
+        result = runner.invoke(app, ["--home", str(home), *args])
+        assert result.exit_code == code, result.output
+        return result.output
+
+    cli("init")
+    cli("client", "add", "Acme Corp")
+    assert "acme-bot <bot@acme.example>" in cli(
+        "client", "author", "acme-corp", "--name", "acme-bot", "--email", "bot@acme.example"
+    )
+    assert "acme-bot <bot@acme.example>" in cli("client", "list")
+    cli("client", "author", "acme-corp", "--name", "acme-bot", code=1)
+    cli("client", "author", "acme-corp", code=1)
+    assert "the installation's author" in cli("client", "author", "acme-corp", "--default")
+
+
 def test_add_a_path_on_another_branch(tmp_path: Path, repo_factory: Callable[..., Path]) -> None:
     runner = CliRunner()
     home = tmp_path / "home"

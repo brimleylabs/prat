@@ -1261,6 +1261,7 @@ class Engine:
             project = store.get_project(session, ctx.project_id)
             fallback_spec = _spec_of(project)
             is_self = project.is_self
+            author = project.client.commit_author if project.client else None
             card = store.get_card(session, ctx.card_id)
             branch = card.branch or card_branch(card.id, card.title)
         async with self._project_lock(ctx.project_id):
@@ -1278,6 +1279,7 @@ class Engine:
                     ctx.checkout_path,
                     ctx.agent_path,
                     ctx.default_branch,
+                    author=author,
                 )
             spec = _spec_from_branch(ctx.agent_path, ctx.default_branch) or fallback_spec
             # The installation's overlay only adds to the project's rules; the run

@@ -172,9 +172,18 @@ class WorktreeManager:
     # Agent clone ---------------------------------------------------------
 
     def prepare_agent_clone(
-        self, checkout_path: Path, agent_path: Path, default_branch: str
+        self,
+        checkout_path: Path,
+        agent_path: Path,
+        default_branch: str,
+        *,
+        author: tuple[str, str] | None = None,
     ) -> CloneInfo:
-        """Create or refresh the agent clone. Never writes to the checkout."""
+        """Create or refresh the agent clone. Never writes to the checkout.
+
+        ``author`` (name, email) replaces this manager's author for this clone:
+        the project's client may have work committed under its own identity.
+        """
         checkout = paths.resolve(checkout_path)
         agent = paths.resolve(agent_path)
         check_project_paths(checkout, agent)
@@ -197,11 +206,16 @@ class WorktreeManager:
             )
             created = True
 
-        info = self.refresh_agent_clone(agent, default_branch)
+        info = self.refresh_agent_clone(agent, default_branch, author=author)
         return CloneInfo(agent, created, info.default_head, [*warnings, *info.warnings])
 
     def refresh_agent_clone(
-        self, agent_path: Path, default_branch: str, *, source: str = "the checkout"
+        self,
+        agent_path: Path,
+        default_branch: str,
+        *,
+        source: str = "the checkout",
+        author: tuple[str, str] | None = None,
     ) -> CloneInfo:
         """Harden an existing agent clone, fetch its origin and fast-forward.
 
@@ -213,7 +227,7 @@ class WorktreeManager:
         if not git.is_repo():
             raise CloneError(f"{agent} is not a git repository")
         warnings: list[str] = []
-        self.harden(agent)
+        self.harden(agent, author=author)
 
         fetched = git.run("fetch", "--quiet", "--prune", "origin", check=False)
         if not fetched.ok:
@@ -233,11 +247,12 @@ class WorktreeManager:
                 )
         return CloneInfo(agent, False, git.head(), warnings)
 
-    def harden(self, agent_path: Path) -> None:
+    def harden(self, agent_path: Path, *, author: tuple[str, str] | None = None) -> None:
         """Apply identity, push blocking and ignore rules. Idempotent."""
         git = Git(agent_path)
-        git.config_set("user.name", self.author_name)
-        git.config_set("user.email", self.author_email)
+        name, email = author or (self.author_name, self.author_email)
+        git.config_set("user.name", name)
+        git.config_set("user.email", email)
         git.config_set("remote.origin.pushurl", PUSH_SENTINEL)
         git.config_set(f"url.{PUSH_SENTINEL}.pushInsteadOf", "")
         git.config_set("push.default", "nothing")

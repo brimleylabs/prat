@@ -179,6 +179,24 @@ def test_agent_commits_carry_no_assistant_attribution(
     )
 
 
+def test_a_clone_can_commit_under_its_clients_author(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    manager.prepare_agent_clone(checkout, agent, "main", author=("acme-bot", "bot@acme.example"))
+    path = manager.worktree_path("acme-api", 6)
+    manager.create_worktree(agent, path, "card/6-x", "main")
+    (path / "x.txt").write_text("x")
+    git(path, "add", "-A")
+    git(path, "commit", "-q", "-m", "Add x")
+    assert git(path, "log", "-1", "--format=%an <%ae>|%cn <%ce>").strip() == (
+        "acme-bot <bot@acme.example>|acme-bot <bot@acme.example>"
+    )
+    # Without one the clone goes back to the installation's author on the next run.
+    manager.prepare_agent_clone(checkout, agent, "main")
+    assert git(agent, "config", "user.name").strip() == "PRAT agent"
+
+
 def push_attempts(worktree: Path, checkout: Path, branch: str) -> list[list[str]]:
     target = checkout.as_posix()
     return [

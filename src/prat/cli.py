@@ -631,15 +631,46 @@ def client_add(
 def client_list(ctx: typer.Context) -> None:
     """List this installation's clients and their projects."""
     with _database(ctx) as (_, db), db.session() as session:
-        table = _table("id", "slug", "name", "projects")
+        table = _table("id", "slug", "name", "commits by", "projects")
         for client in store.list_clients(session):
+            author = client.commit_author
             table.add_row(
                 str(client.id),
                 client.slug,
                 escape(client.name),
+                escape(f"{author[0]} <{author[1]}>") if author else "-",
                 ", ".join(p.slug for p in sorted(client.projects, key=lambda p: p.slug)) or "-",
             )
         console.print(table)
+
+
+@client_app.command("author")
+def client_author(
+    ctx: typer.Context,
+    slug: Annotated[str, typer.Argument(help="Client slug or id.")],
+    name: Annotated[str | None, typer.Option(help="Author name for agents' commits.")] = None,
+    email: Annotated[str | None, typer.Option(help="Author email for agents' commits.")] = None,
+    default: Annotated[
+        bool, typer.Option("--default", help="Use the installation's author again.")
+    ] = False,
+) -> None:
+    """Commit agents' work on a client's projects under the client's own identity.
+    Applies from each project's next run; commits already made keep their author."""
+    if default == bool(name or email):
+        raise _fail("give --name and --email, or --default")
+    if not default and not (name and email):
+        raise _fail("give both --name and --email")
+    with _database(ctx) as (_, db), db.session() as session:
+        try:
+            client = store.get_client(session, slug)
+            store.set_client_author(session, client, None if default else (name or "", email or ""))
+        except store.NotFound as exc:
+            raise _fail(str(exc)) from exc
+        except ValueError as exc:
+            raise _fail(str(exc)) from exc
+        author = client.commit_author
+        shown = f"{author[0]} <{author[1]}>" if author else "the installation's author"
+        console.print(f"{escape(client.name)}: agents' commits by {escape(shown)}")
 
 
 @client_app.command("remove")
