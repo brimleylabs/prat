@@ -127,6 +127,15 @@ def crew_screen(snap: Snapshot, selected: int = 0) -> RenderableType:
         if flight.queued or not flight.live:
             continue
         parts.append(crew_at_work(flight))
+    if snap.ideas_waiting:
+        count = len(snap.ideas_waiting)
+        ideas = Text(
+            f"{count} idea{'s' if count != 1 else ''} waiting for you", style=f"bold {ACCENT}"
+        )
+        for title in snap.ideas_waiting[:5]:
+            ideas.append(f"\n  · {title}", style=TEXT)
+        ideas.append("\n  decide on the web (Crew, Ideas) or: prat idea list", style=FAINT)
+        parts.extend([ideas, Text("")])
     parts.append(
         Text(
             "j/k choose · t talk with them · u stand-up with the whole crew · i ask them to "

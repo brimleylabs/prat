@@ -808,7 +808,17 @@ class Engine:
         self._settle(project.slug, card_id, "landed", first_review=runs == 1)
         await asyncio.to_thread(self._epic_progress, card_id)
         await asyncio.to_thread(self._promote_setup_skills, project.slug, card_id)
+        await asyncio.to_thread(self._idea_landed, card_id)
         return MergeResult(card_id, branch, commit)
+
+    def _idea_landed(self, card_id: int) -> None:
+        """A card that put an accepted idea in place landed (prat.ideas)."""
+        from prat import ideas
+
+        try:
+            ideas.card_landed(self.settings.home, card_id)
+        except Exception:
+            log.exception("could not mark the idea of card %s in place", card_id)
 
     def _promote_setup_skills(self, slug: str, card_id: int) -> None:
         """Approving a setup card approves the skills its agent proposed (the project's

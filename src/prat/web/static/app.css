@@ -1072,6 +1072,14 @@ a.fact:hover { color: var(--text); }
 .crew-about ul { margin: 4px 0 12px; padding-left: 20px; }
 .crew-about li { margin-bottom: 4px; }
 .crew-about h3 { margin: 16px 0 4px; }
+.crew-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.idea { margin-top: 16px; }
+.idea h3 { margin: 12px 0 4px; }
+.idea p { margin: 0 0 8px; }
+.idea-decide { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.idea-decide textarea { width: 100%; }
+.idea-build { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.idea-buttons { display: flex; gap: 8px; }
 .crew-name { font-weight: 600; }
 .crew-standup { display: grid; gap: 12px; }
 .crew-report p { margin: 4px 0 0; }

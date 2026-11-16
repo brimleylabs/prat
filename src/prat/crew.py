@@ -376,6 +376,11 @@ def crew_prompt(
         "did, how you reasoned, how you feel about it, what you learned, and what you resolve "
         "to do better next time."
     )
+    lines.append(
+        "If this work shows you a way the team could work better (a process step, a tool, a "
+        "skill, a prompt, PRAT itself, this project), you may propose it with "
+        "suggest_improvement. You do not have to; finish the card as it is either way."
+    )
     return "\n".join(lines)
 
 

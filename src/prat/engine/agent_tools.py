@@ -8,6 +8,7 @@ They act only through PRAT's own code, so the policy allows them whatever the au
 * ``report_progress``: a phase with done and total, shown live in mission control.
 * ``note_risk``: something the reviewer and the person should look at.
 * ``propose_skill``: a reusable skill, kept as a candidate until a person promotes it.
+* ``suggest_improvement``: an idea for working better (prat.ideas); the person decides.
 * ``query_database``: read-only SQL on the card's own branch of a project database.
 * ``start_job`` / ``job_status``: the project's long-running jobs (prat.jobs).
 """
@@ -165,6 +166,33 @@ def build(ctx: ToolContext) -> tuple[PratTool, ...]:
         ctx.record("skill.proposed", {"name": name, "description": description})
         return f"Skill {name!r} proposed; a person promotes or rejects it."
 
+    async def suggest_improvement(args: Mapping[str, Any]) -> str:
+        from prat import ideas
+
+        kind = str(args.get("kind") or "process").lower()
+        try:
+            idea = await asyncio.to_thread(
+                ideas.propose,
+                ctx.home,
+                ctx.agent,
+                title=str(args.get("title") or ""),
+                problem=str(args.get("problem") or ""),
+                proposal=str(args.get("proposal") or ""),
+                benefit=str(args.get("benefit") or ""),
+                kind=kind,
+                project=ctx.project if kind == "project" else None,
+                evidence=[f"card {ctx.card_id}"],
+                source="work",
+                card_id=ctx.card_id,
+            )
+        except ideas.IdeaError as exc:
+            return str(exc)
+        ctx.record("idea.proposed", {"id": idea.id, "title": idea.title, "kind": idea.kind})
+        return (
+            f"Idea {idea.id} is with the person, who will accept or decline it with a note. "
+            "Carry on with the card as it is; nothing changes until then."
+        )
+
     async def query_database(args: Mapping[str, Any]) -> str:
         sql = str(args.get("sql") or "").strip().rstrip(";")
         if not ctx.databases:
@@ -242,6 +270,16 @@ def build(ctx: ToolContext) -> tuple[PratTool, ...]:
             "verify, any) and the body (concrete guidance). A person promotes it.",
             {"name": str, "description": str, "phase": str, "body": str},
             propose_skill,
+        ),
+        PratTool(
+            "suggest_improvement",
+            "Propose a way the team could work better, when this work showed you one: kind "
+            "(process, tooling, skill, prompt, platform, or project for something about this "
+            "project only), a short title, the problem you saw and what showed it, the "
+            "proposal, and its benefit. Optional; the person accepts or declines it, and "
+            "nothing changes until they do.",
+            {"title": str, "kind": str, "problem": str, "proposal": str, "benefit": str},
+            suggest_improvement,
         ),
         PratTool(
             "query_database",

@@ -103,3 +103,27 @@ async def test_every_screen_draws_from_a_real_installation(
             await pilot.pause(0.2)
             assert app.view == view
         assert app.snapshot.usage == [] or app.snapshot.usage[0].model
+
+
+async def test_ideas_waiting_show_on_the_crew_screen_and_as_an_alert(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    from rich.console import Console
+
+    from prat import ideas
+    from prat.mission_screens import crew_screen
+
+    await in_review(settings, db, project)
+    ideas.propose(
+        settings.home,
+        "python",
+        title="Run the gates from a clean checkout",
+        problem="Setup cards passed only in a warm session and came back.",
+        proposal="Add a skill that cleans the checkout before the gates run.",
+    )
+    snap = MissionData(settings, db).snapshot()
+    assert snap.ideas_waiting == ["Run the gates from a clean checkout"]
+    assert any("1 idea from the crew" in a for a in snap.alerts)
+    console = Console(width=170, record=True)
+    console.print(crew_screen(snap))
+    assert "1 idea waiting for you" in console.export_text()

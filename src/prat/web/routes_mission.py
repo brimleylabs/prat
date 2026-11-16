@@ -78,6 +78,26 @@ async def act(request: Request, action: str) -> Response:
     return JSONResponse({"ok": True, "message": message})
 
 
+def _decide_idea(ctx: Any, action: str, body: dict[str, Any]) -> tuple[str, int | None]:
+    """Accept or decline an idea (prat.ideas); an accepted one with ``build`` gets a card that
+    puts it in place (returned, to be submitted on the event loop)."""
+    from prat import ideas
+
+    accept = action == "idea-accept"
+    try:
+        idea = ideas.decide(
+            ctx.settings.home, str(body["idea"]), accept=accept, note=str(body.get("note") or "")
+        )
+        if not (accept and body.get("build")):
+            return f"{idea.title}: {idea.status}", None
+        card_id = ideas.put_in_place(
+            ctx.db, ctx.settings.home, idea.id, project=str(body.get("project") or "") or None
+        )
+    except ideas.IdeaError as exc:
+        raise ValueError(str(exc)) from exc
+    return f"{idea.title}: accepted; card {card_id} puts it in place and is running", card_id
+
+
 async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
     settings, db, engine = ctx.settings, ctx.db, ctx.engine
     if action == "approve":
@@ -149,13 +169,33 @@ async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
         if not reports:
             return "Nobody has worked in the last day."
         return "\n\n".join(f"{r.name}\n{r.text}" for r in reports)
+    if action == "ideate":
+        from prat import ideas
+        from prat.model_registry import Role, resolve_model
+
+        report = await ideas.ideate(
+            settings.home,
+            engine.runtime,
+            model=resolve_model(Role.CREW, settings_models=settings.models),
+        )
+        count = sum(report.agents.values())
+        asked = len(report.agents)
+        return (
+            f"Asked {asked} agent{'s' if asked != 1 else ''} with new work; "
+            f"{count} idea{'s' if count != 1 else ''} proposed."
+        )
+    if action in ("idea-accept", "idea-decline"):
+        text, work_card = await asyncio.to_thread(_decide_idea, ctx, action, body)
+        if work_card is not None:
+            ctx.engine.submit(work_card)
+        return text
     if action == "inherit":
         from prat import inherit
         from prat.consolidate import consolidate
         from prat.model_registry import Role, resolve_model
 
-        slug = str(body.get("project") or "") or None
-        found = await asyncio.to_thread(inherit.inherit, db, settings.home, project=slug)
+        only = str(body.get("project") or "") or None
+        found = await asyncio.to_thread(inherit.inherit, db, settings.home, project=only)
         beliefs = await consolidate(
             settings.home,
             engine.runtime,

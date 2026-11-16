@@ -18,10 +18,12 @@ job_app = typer.Typer(no_args_is_help=True, help="Long-running jobs: start, watc
 skill_app = typer.Typer(no_args_is_help=True, help="Skills: loadouts, candidates, scorecards.")
 crew_app = typer.Typer(no_args_is_help=True, help="The crew and each agent's memory.")
 epic_app = typer.Typer(no_args_is_help=True, help="Epics and their parts.")
+idea_app = typer.Typer(no_args_is_help=True, help="The crew's ideas for working better.")
 app.add_typer(job_app, name="job")
 app.add_typer(skill_app, name="skill")
 app.add_typer(crew_app, name="crew")
 app.add_typer(epic_app, name="epic")
+app.add_typer(idea_app, name="idea")
 
 
 # Jobs -----------------------------------------------------------------------------------
@@ -409,3 +411,139 @@ def crew_inherit(
         console.print("Nothing was added (dry run).")
     else:
         console.print("PRAT is not running here: beliefs form at its next dream.")
+
+
+# Ideas ---------------------------------------------------------------------------------------
+
+
+@idea_app.command("list")
+def idea_list(
+    ctx: typer.Context,
+    status: Annotated[
+        str | None, typer.Option(help="proposed, accepted, declined, in_place or withdrawn.")
+    ] = None,
+) -> None:
+    """The crew's ideas, newest first: waiting ones first unless you pick a status."""
+    from prat import ideas, identity
+
+    home = _settings(ctx).home
+    found = ideas.all_ideas(home)
+    if status:
+        found = [i for i in found if i.status == status]
+    else:
+        found = sorted(found, key=lambda i: i.status != "proposed")
+    if not found:
+        console.print("No ideas yet. Agents propose them while they work and while PRAT dreams.")
+        return
+    table = _table("id", "status", "from", "kind", "project", "title")
+    for idea in found:
+        table.add_row(
+            idea.id,
+            idea.status.replace("_", " "),
+            identity.of(home, idea.agent).name,
+            idea.kind,
+            idea.project or "",
+            escape(idea.title),
+        )
+    console.print(table)
+
+
+@idea_app.command("show")
+def idea_show(ctx: typer.Context, idea_id: str) -> None:
+    """One idea in full: the problem, the proposal, its evidence and the decision."""
+    from prat import ideas, identity
+
+    home = _settings(ctx).home
+    try:
+        idea = ideas.get(home, idea_id)
+    except ideas.IdeaError as exc:
+        raise _fail(str(exc)) from exc
+    when = time.strftime("%Y-%m-%d %H:%M", time.localtime(idea.at))
+    origin = f"card {idea.card_id}" if idea.card_id else "a dream"
+    console.print(
+        f"[bold]{escape(idea.title)}[/bold]  ({idea.id}, {idea.status.replace('_', ' ')})"
+    )
+    console.print(
+        escape(f"{identity.of(home, idea.agent).name}, {when}, from {origin}; kind {idea.kind}")
+        + (escape(f", project {idea.project}") if idea.project else "")
+    )
+    for label, text in (
+        ("Problem", idea.problem),
+        ("Proposal", idea.proposal),
+        ("Benefit", idea.benefit),
+        ("Evidence", ", ".join(idea.evidence)),
+        ("Decision note", idea.note),
+    ):
+        if text:
+            console.print(f"[bold]{label}[/bold]\n{escape(text)}")
+    if idea.work_card:
+        console.print(f"Being put in place by card {idea.work_card}.")
+
+
+def _idea_act(ctx: typer.Context, action: str, body: dict[str, Any]) -> None:
+    from prat import ideas
+
+    sent = _through_server(_settings(ctx), action, body)
+    if sent is not None:
+        ok, text = sent
+        if not ok:
+            raise _fail(text)
+        console.print(escape(text))
+        return
+    with _database(ctx) as (settings, db):
+        try:
+            idea = ideas.decide(
+                settings.home,
+                body["idea"],
+                accept=action == "idea-accept",
+                note=body.get("note") or "",
+            )
+            text = f"{idea.title}: {idea.status}"
+            if action == "idea-accept" and body.get("build"):
+                card = ideas.put_in_place(
+                    db, settings.home, idea.id, project=body.get("project") or None
+                )
+                text += f"; card {card} puts it in place (run it with prat card run {card})"
+        except (ideas.IdeaError, LookupError) as exc:
+            raise _fail(str(exc)) from exc
+    console.print(escape(text))
+
+
+@idea_app.command("accept")
+def idea_accept(
+    ctx: typer.Context,
+    idea_id: str,
+    note: Annotated[str, typer.Option(help="What you think; its author remembers it.")] = "",
+    build: Annotated[
+        bool, typer.Option(help="Make a card that puts it in place, and run it.")
+    ] = False,
+    project: Annotated[
+        str | None, typer.Option(help="The project that puts it in place, if not its own.")
+    ] = None,
+) -> None:
+    """Accept an idea. With --build a card on its project puts it in place."""
+    body = {"idea": idea_id, "note": note, "build": build, "project": project or ""}
+    _idea_act(ctx, "idea-accept", body)
+
+
+@idea_app.command("decline")
+def idea_decline(
+    ctx: typer.Context,
+    idea_id: str,
+    note: Annotated[str, typer.Option(help="Why; its author learns from it.")],
+) -> None:
+    """Decline an idea, saying why."""
+    _idea_act(ctx, "idea-decline", {"idea": idea_id, "note": note})
+
+
+@idea_app.command("gather")
+def idea_gather(ctx: typer.Context) -> None:
+    """Ask every agent with new work since it last looked back for ideas now, as a dream
+    would. Runs in the server, whose runtime is signed in."""
+    sent = _through_server(_settings(ctx), "ideate", {})
+    if sent is None:
+        raise _fail("PRAT's server is not running here; ideas are gathered in its dreams.")
+    ok, text = sent
+    if not ok:
+        raise _fail(text)
+    console.print(escape(text))

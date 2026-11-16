@@ -59,6 +59,12 @@ def from_snapshot(snap: Snapshot, settings: Settings) -> list[str]:
         ):
             if hours >= limit:
                 found.append(f"#{item.card_id} has waited {hours:.0f}h for your review")
+    if snap.ideas_waiting:
+        count = len(snap.ideas_waiting)
+        found.append(
+            f"{count} idea{'s' if count != 1 else ''} from the crew waiting for you "
+            "(prat idea list)"
+        )
     silent = settings.alert_silent_minutes
     now = snap.taken_at
     for flight in snap.flights:

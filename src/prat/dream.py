@@ -10,6 +10,9 @@ Phases, in order:
 ``tidy``      housekeeping that needs no model: card previews of finished cards are removed,
               agent clones are pruned of stale worktree records.
 ``remember``  project knowledge is brought up to date (:mod:`prat.knowledge.maintain`).
+``consolidate``  each agent turns its recent episodes into beliefs (:mod:`prat.consolidate`).
+``ideate``    each agent with new experience may propose ideas for working better
+              (:mod:`prat.ideas`); the person decides on them.
 ``reflect``   PRAT's own diagnostics: how its runs went, and its health.
 
 Self-improvement keeps its own schedule (``prat improve``); the dream does not run it.
@@ -41,8 +44,7 @@ from prat.runtime import AgentRuntime
 
 log = logging.getLogger(__name__)
 
-# consolidate: each agent turns its recent episodes into beliefs (prat.consolidate).
-PHASES = ("tidy", "remember", "consolidate", "reflect")
+PHASES = ("tidy", "remember", "consolidate", "ideate", "reflect")
 TICK_SECONDS = 120.0
 
 
@@ -181,6 +183,17 @@ async def run_dream(
                 )
                 cost += consolidated.cost_usd
                 results[phase] = consolidated.to_dict()
+            elif phase == "ideate":
+                from prat.ideas import ideate
+
+                ideated = await ideate(
+                    settings.home,
+                    runtime,
+                    model=resolve_model(Role.CREW, settings_models=settings.models),
+                    should_stop=stop,
+                )
+                cost += ideated.cost_usd
+                results[phase] = ideated.to_dict()
             else:
                 results[phase] = await asyncio.to_thread(reflect, db, settings, runtime_name)
             _finish(db, dream_id, results=dict(results), cost_usd=cost)

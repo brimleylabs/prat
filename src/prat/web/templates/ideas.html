@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Ideas{% endblock %}
+{% block content %}
+<div class="container">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crew</a><span aria-hidden="true">/</span><span aria-current="page">Ideas</span></nav>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Ideas</h1>
+      <p class="page-sub">The crew's proposals for working better, from their work and their dreams. Nothing changes until you accept one. Your note is remembered by its author either way, so say what you think.</p>
+    </div>
+    <span class="badge">{{ waiting }} waiting</span>
+  </div>
+
+  {% for i in ideas %}
+  <section class="panel idea" id="idea-{{ i.id }}" aria-labelledby="idea-h-{{ i.id }}">
+    <header class="panel-head">
+      <h2 id="idea-h-{{ i.id }}">{{ i.title }}</h2>
+      <span class="badge {{ 'tone-accent' if i.status == 'proposed' else ('tone-ok' if i.status in ('accepted', 'in_place') else '') }}">{{ i.status.replace('_', ' ') }}</span>
+    </header>
+    <div class="panel-body">
+      <p class="muted small">
+        <a href="/crew/{{ i.agent }}">{{ names[i.agent] }}</a> · {{ clock(i.at) }} · {{ i.kind }}{% if i.project %} · {{ i.project }}{% endif %} · {% if i.card_id %}while working on <a href="/cards/{{ i.card_id }}">#{{ i.card_id }}</a>{% else %}while dreaming{% endif %}
+      </p>
+      <h3 class="small">The problem</h3>
+      <p>{{ i.problem }}</p>
+      <h3 class="small">The proposal</h3>
+      <p>{{ i.proposal }}</p>
+      {% if i.benefit %}<h3 class="small">Why it helps</h3><p>{{ i.benefit }}</p>{% endif %}
+      {% if i.note %}<h3 class="small">Your note</h3><p><em>{{ i.note }}</em></p>{% endif %}
+      {% if i.work_card %}<p>Being put in place by <a href="/cards/{{ i.work_card }}">card #{{ i.work_card }}</a>.</p>{% endif %}
+
+      {% if i.status == 'proposed' %}
+      <form method="post" action="/ideas/{{ i.id }}/decide" class="idea-decide">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="note-{{ i.id }}">Your note to {{ names[i.agent] }}</label>
+        <textarea id="note-{{ i.id }}" name="note" rows="2" placeholder="What you think. Required when you decline."></textarea>
+        <div class="idea-build">
+          <label><input type="checkbox" name="build" value="1"> Put it in place now, with a card on</label>
+          <label class="sr-only" for="project-{{ i.id }}">Project</label>
+          <select id="project-{{ i.id }}" name="project">
+            {% for p in projects %}<option value="{{ p }}" {% if p == i.project %}selected{% endif %}>{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="idea-buttons">
+          <button type="submit" name="decision" value="accept" class="btn btn-primary">{{ icon('check') }}Accept</button>
+          <button type="submit" name="decision" value="decline" class="btn">{{ icon('x') }}Decline</button>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+  {% else %}
+  <section class="panel"><div class="panel-body"><p class="muted">No ideas yet. The crew proposes them while they work and while PRAT dreams.</p></div></section>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -7,10 +7,13 @@
       <h1 class="page-title">Crew</h1>
       <p class="page-sub">The agents who work here, in their own words. Each chose its name, bio and personality, remembers its work, and wants it to land. Talk with any of them at any time; it never interrupts their work.</p>
     </div>
-    <form method="post" action="/crew/standup" class="inline-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="btn btn-primary">{{ icon('message') }}Stand-up</button>
-    </form>
+    <div class="crew-actions">
+      <a class="btn" href="/ideas">{{ icon('info') }}Ideas{% if ideas_waiting %} ({{ ideas_waiting }} waiting){% endif %}</a>
+      <form method="post" action="/crew/standup" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary">{{ icon('message') }}Stand-up</button>
+      </form>
+    </div>
   </div>
 
   {% if standup %}

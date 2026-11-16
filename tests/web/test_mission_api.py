@@ -86,3 +86,58 @@ def test_the_crew_pages_show_who_they_are_and_take_a_message(
         assert sent.status_code == 303
         again = web.client.get("/crew/python")
         assert "How was your day?" in again.text
+
+
+def test_an_idea_is_decided_on_the_ideas_page_and_put_in_place_end_to_end(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    from prat import ideas
+
+    with make_web(settings, db, project) as web:
+        home = web.settings.home
+        token = ensure_access_token(web.settings)
+        headers = {"Authorization": f"Bearer {token}"}
+        idea = ideas.propose(
+            home,
+            "python",
+            title="Greet people by name",
+            problem="Every greeting card asked for the same name handling.",
+            proposal="Add a greet helper that takes a name and use it everywhere.",
+            kind="project",
+            project=project.slug,
+        )
+        other = ideas.propose(
+            home,
+            "critic",
+            title="Skip review on tiny cards",
+            problem="Tiny cards wait for a review that never finds anything.",
+            proposal="Let one-line cards land without the reviewer.",
+        )
+        page = web.client.get("/ideas")
+        assert page.status_code == 200 and "Greet people by name" in page.text
+        assert "2 waiting" in page.text
+        assert "(2 waiting)" in web.client.get("/crew").text
+        # Declining needs a reason, so its author can learn from it.
+        no_reason = web.client.post(
+            "/api/act/idea-decline", json={"idea": other.id}, headers=headers
+        )
+        assert no_reason.status_code == 409
+        declined = web.client.post(
+            "/api/act/idea-decline",
+            json={"idea": other.id, "note": "Every card gets a review."},
+            headers=headers,
+        )
+        assert declined.status_code == 200, declined.text
+        accepted = web.post(
+            f"/ideas/{idea.id}/decide",
+            data={"decision": "accept", "note": "Yes.", "build": "1", "project": project.slug},
+        )
+        assert accepted.status_code == 303
+        card_id = ideas.get(home, idea.id).work_card
+        assert card_id is not None
+        assert wait_status(db, card_id, {CardStatus.REVIEW}) is CardStatus.REVIEW
+        approved = web.client.post("/api/act/approve", json={"card_id": card_id}, headers=headers)
+        assert approved.status_code == 200, approved.text
+        assert wait_status(db, card_id, {CardStatus.DONE}) is CardStatus.DONE
+        assert ideas.get(home, idea.id).status == "in_place"
+        assert ideas.get(home, other.id).status == "declined"

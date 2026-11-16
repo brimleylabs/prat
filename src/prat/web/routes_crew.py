@@ -3,6 +3,7 @@
 ``/crew`` lists every agent by the name it chose, with its bio, personality, drive and record;
 ``/crew/<agent>`` is a conversation with one of them; a stand-up asks every agent that worked in
 the last day for its report. Conversations never interrupt an agent's work (prat.converse).
+``/ideas`` is the crew's ideas for working better, to accept or decline (prat.ideas).
 """
 
 from __future__ import annotations
@@ -16,8 +17,10 @@ from typing import Any
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
+from sqlalchemy import select
 
 from prat import converse, crew, identity, memory
+from prat.db import Project
 from prat.model_registry import Role, resolve_model
 from prat.web.app import current_session, render, web_context
 
@@ -85,7 +88,15 @@ async def crew_page(request: Request) -> Response:
         standup = json.loads(
             (ctx.settings.home / memory.AGENTS_DIR / STANDUP_FILE).read_text("utf-8")
         )
-    return render(request, "crew.html", {"cards": cards, "standup": standup}, nav="crew")
+    from prat import ideas
+
+    waiting = len(ideas.waiting(ctx.settings.home))
+    return render(
+        request,
+        "crew.html",
+        {"cards": cards, "standup": standup, "ideas_waiting": waiting},
+        nav="crew",
+    )
 
 
 @router.get("/crew/{key}")
@@ -145,6 +156,61 @@ async def introduce(request: Request, key: str) -> Response:
     who = await identity.introduce(ctx.settings.home, ctx.engine.runtime, key, model=model)
     _flash(request, f"Meet {who.name}.", "ok")
     return RedirectResponse(f"/crew/{key}", status_code=303)
+
+
+@router.get("/ideas")
+async def ideas_page(request: Request) -> Response:
+    from prat import ideas
+
+    ctx = web_context(request)
+    home = ctx.settings.home
+    found = ideas.all_ideas(home)
+    found.sort(key=lambda i: i.status != "proposed")
+    names = {i.agent: identity.of(home, i.agent).name for i in found}
+    with ctx.db.session() as session:
+        projects = sorted(session.scalars(select(Project.slug)).all())
+    return render(
+        request,
+        "ideas.html",
+        {
+            "ideas": found,
+            "names": names,
+            "projects": projects,
+            "waiting": sum(1 for i in found if i.status == "proposed"),
+            "clock": lambda t: time.strftime("%b %d %H:%M", time.localtime(t)),
+        },
+        nav="crew",
+    )
+
+
+@router.post("/ideas/{idea_id}/decide")
+async def decide_idea(
+    request: Request,
+    idea_id: str,
+    decision: str = Form(""),
+    note: str = Form(""),
+    build: str = Form(""),
+    project: str = Form(""),
+) -> Response:
+    from prat import ideas
+
+    ctx = web_context(request)
+    accept = decision == "accept"
+    try:
+        idea = await asyncio.to_thread(
+            ideas.decide, ctx.settings.home, idea_id, accept=accept, note=note
+        )
+        if accept and build:
+            card_id = await asyncio.to_thread(
+                ideas.put_in_place, ctx.db, ctx.settings.home, idea.id, project=project or None
+            )
+            ctx.engine.submit(card_id)
+            _flash(request, f"Accepted. Card #{card_id} puts it in place.", "ok")
+        else:
+            _flash(request, f"{'Accepted' if accept else 'Declined'}: {idea.title}", "ok")
+    except (ideas.IdeaError, LookupError) as exc:
+        _flash(request, str(exc), "warn")
+    return RedirectResponse(f"/ideas#idea-{idea_id}", status_code=303)
 
 
 @router.post("/crew/standup")

@@ -254,6 +254,7 @@ class Snapshot:
     usage_by_role: dict[str, float] = field(default_factory=dict)
     alerts: list[str] = field(default_factory=list)
     review_waits: list[float] = field(default_factory=list)  # hours each review card has waited
+    ideas_waiting: list[str] = field(default_factory=list)  # titles of the crew's open ideas
 
     @property
     def running(self) -> int:
@@ -370,7 +371,9 @@ class MissionData:
         from prat import epics
 
         snap.epics = epics.views(self.db, project_ids if chosen else None)
-        from prat import alerts
+        from prat import alerts, ideas
+
+        snap.ideas_waiting = [i.title for i in ideas.waiting(self.settings.home)]
 
         snap.alerts = alerts.from_snapshot(snap, self.settings)
         return snap

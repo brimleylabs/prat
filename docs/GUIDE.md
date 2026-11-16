@@ -503,6 +503,36 @@ These episodes are marked as inherited. Their feeling is only the one the outcom
 agent is told they come from the record, not from its own experience. Running it again adds only
 what is new, and never touches a run the agent remembers for itself.
 
+## Ideas
+
+The crew is asked to notice what slows the team down or goes wrong, and to say how it could work
+better: a process step, a tool, a skill, a prompt, PRAT itself, or something about one project.
+They never have to. An idea comes with the problem the agent saw, the work that showed it, the
+proposal and what it would change.
+
+Ideas come from two places. During a card, the lead can raise one with its `suggest_improvement`
+tool and carry on. While PRAT dreams (the `ideate` phase, after `consolidate`), each agent with
+new work since it last looked back reads its recent episodes, its beliefs and the ideas already
+raised, with your notes on them, and may propose one or two. An agent with five ideas waiting is
+heard before it proposes more.
+
+Nothing changes until you decide. Accept or decline each idea with a note; its author remembers
+the decision and your words, so it learns what you value. An accepted idea about a project can
+be put in place at once: PRAT makes a card on that project, which runs and is reviewed like any
+other, and when it lands the idea is marked in place and its author remembers that too.
+
+```bash
+prat idea list                          # waiting ideas first
+prat idea show <id>                     # the problem, the proposal and its evidence
+prat idea accept <id> --note "..." --build [--project <slug>]
+prat idea decline <id> --note "why"     # a reason is required, so its author can learn
+prat idea gather                        # ask agents with new work for ideas now, as a dream would
+```
+
+The **Ideas** page (from the Crew page) shows every idea with its forms, mission control's crew
+screen and alerts count the waiting ones, and the server takes `idea-accept` and `idea-decline`
+at `/api/act/` so a session working for you can decide on them too.
+
 ## Skills
 
 A skill is a `SKILL.md` an agent loads when it needs it: its name and description cost almost
@@ -780,6 +810,8 @@ card of yours starts:
   what is out of date is rewritten; an entry you wrote is never changed, and a doubt about it
   goes to `LINT.md`. Entries are checked again when their files change or after two weeks.
   Look-alike entries are put to the librarian and folded into the fuller one.
+- **Consolidate**: each agent turns its recent work into beliefs (see Memory).
+- **Ideate**: each agent with new work may propose ideas for working better (see Ideas).
 - **Reflect**: PRAT's own diagnostics.
 
 ```
