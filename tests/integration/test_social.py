@@ -176,3 +176,14 @@ def test_an_agent_knows_what_its_night_was(tmp_path: Path) -> None:
     night = social.last_night(tmp_path, "python")
     assert "1 beliefs" in night and "clean checkout" in night
     assert '"Quote titles with colons"' in night
+
+
+def test_of_several_colleagues_addressed_the_quietest_answers() -> None:
+    names = {"python": "Marlow", "laravel": "Odile", "react": "Tobin"}
+    gathering = social.Gathering("g", 0.0, list(names))
+    gathering.turns = [
+        social.SocialTurn("laravel", "Odile", "Hello all.", 1.0),
+        social.SocialTurn("python", "Marlow", "Odile, Tobin: what do you find beautiful?", 2.0),
+    ]
+    for seed in range(10):
+        assert social.next_speaker(gathering, names, seeded(seed)) == "react"

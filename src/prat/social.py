@@ -335,14 +335,15 @@ async def gather(
 
 
 def next_speaker(gathering: Gathering, names: dict[str, str], rng: random.Random) -> str:
-    """Who speaks next, as in a real conversation: whoever the last speaker addressed by name,
-    else whoever has said least so far (never the same agent twice in a row)."""
+    """Who speaks next, as in a real conversation: whoever the last speaker addressed by name
+    (the quietest of them, when several were), else whoever has said least so far; never the
+    same agent twice in a row."""
     last = gathering.turns[-1] if gathering.turns else None
     candidates = [k for k in names if last is None or k != last.agent]
     if last is not None:
         named = [k for k in candidates if re.search(rf"\b{re.escape(names[k])}\b", last.text, re.I)]
         if named:
-            return rng.choice(named)
+            candidates = named
     spoken = {k: sum(1 for t in gathering.turns if t.agent == k) for k in candidates}
     least = min(spoken.values())
     return rng.choice([k for k in candidates if spoken[k] == least])
