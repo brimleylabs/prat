@@ -174,7 +174,7 @@ def test_an_agent_knows_what_its_night_was(tmp_path: Path) -> None:
         source="dream",
     )
     night = social.last_night(tmp_path, "python")
-    assert "1 beliefs" in night and "clean checkout" in night
+    assert "1 belief you now hold" in night and "clean checkout" in night
     assert '"Quote titles with colons"' in night
 
 

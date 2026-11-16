@@ -236,10 +236,11 @@ def last_night(home: Path, key: str, hours: float = 18.0) -> str:
     try:
         state = json.loads((memory.root / "consolidated.json").read_text(encoding="utf-8"))
         if float(state.get("at") or 0) >= since:
-            beliefs = memory.beliefs()
+            beliefs = sorted(memory.beliefs(), key=lambda b: b.strength, reverse=True)
+            count = f"{len(beliefs)} belief{'s' if len(beliefs) != 1 else ''}"
             parts.append(
-                f"you looked back over your recent work and it settled into {len(beliefs)} "
-                "beliefs you now hold" + (f", the strongest: {beliefs[0].text}" if beliefs else "")
+                f"you looked back over your recent work and it settled into {count} you now "
+                "hold" + (f", the strongest: {beliefs[0].text}" if beliefs else "")
             )
     except (OSError, ValueError, TypeError, AttributeError):
         pass
