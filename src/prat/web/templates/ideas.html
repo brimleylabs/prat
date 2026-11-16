@@ -38,6 +38,7 @@
           <label><input type="checkbox" name="build" value="1"> Put it in place now, with a card on</label>
           <label class="sr-only" for="project-{{ i.id }}">Project</label>
           <select id="project-{{ i.id }}" name="project">
+            {% if not i.project %}<option value="" selected>choose a project</option>{% endif %}
             {% for p in projects %}<option value="{{ p }}" {% if p == i.project %}selected{% endif %}>{{ p }}</option>{% endfor %}
           </select>
         </div>
