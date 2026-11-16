@@ -152,3 +152,27 @@ def test_someone_else_saying_hello_is_remembered_under_their_own_name(tmp_path: 
     assert met.turns[0].name == "Claude"
     remembered = [e for e in AgentMemory(tmp_path, "laravel").episodes() if e.role == "social"]
     assert remembered[0].title.startswith("Claude said") and "Matt said" not in remembered[0].what
+
+
+def test_an_agent_knows_what_its_night_was(tmp_path: Path) -> None:
+    import time as clock
+
+    from prat import ideas
+    from prat.memory import Belief
+
+    introduce_crew(tmp_path)
+    assert "nothing new to look back on" in social.last_night(tmp_path, "python")
+    memory = AgentMemory(tmp_path, "python")
+    memory.save_beliefs([Belief("b1", "Run the gates from a clean checkout.")])
+    (memory.root / "consolidated.json").write_text(json.dumps({"at": clock.time()}))
+    ideas.propose(
+        tmp_path,
+        "python",
+        title="Quote titles with colons",
+        problem="Seven notes had invalid YAML titles and needed a fix round.",
+        proposal="Quote any title containing a colon, and parse frontmatter before review.",
+        source="dream",
+    )
+    night = social.last_night(tmp_path, "python")
+    assert "1 beliefs" in night and "clean checkout" in night
+    assert '"Quote titles with colons"' in night

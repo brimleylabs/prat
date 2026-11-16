@@ -224,6 +224,40 @@ def _recent(home: Path, key: str, limit: int = 4) -> str:
     )
 
 
+def last_night(home: Path, key: str, hours: float = 18.0) -> str:
+    """What really happened to the agent overnight, so it can answer "how was your night"
+    honestly: PRAT dreams in the quiet hours, and in the dream each agent looks back on its
+    work, turns it into beliefs and may propose ideas."""
+    from prat import ideas
+
+    since = time.time() - hours * 3600
+    memory = AgentMemory(home, key)
+    parts = []
+    try:
+        state = json.loads((memory.root / "consolidated.json").read_text(encoding="utf-8"))
+        if float(state.get("at") or 0) >= since:
+            beliefs = memory.beliefs()
+            parts.append(
+                f"you looked back over your recent work and it settled into {len(beliefs)} "
+                "beliefs you now hold" + (f", the strongest: {beliefs[0].text}" if beliefs else "")
+            )
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    mine = [i for i in ideas.all_ideas(home) if i.agent == key and i.at >= since]
+    if mine:
+        parts.append(
+            "you proposed "
+            + "; ".join(f'"{i.title}"' for i in mine[:3])
+            + " as ideas for working better"
+        )
+    if not parts:
+        return (
+            "Your night: PRAT dreams in its quiet hours, but you had nothing new to look back "
+            "on, so the night passed without you."
+        )
+    return "Your night, while PRAT dreamed in its quiet hours: " + "; and ".join(parts) + "."
+
+
 def _task(home: Path, key: str, prompt: str, system: str, model: str | None) -> Any:
     from prat.policy import Decision
     from prat.runtime.base import AgentTask, Budget
@@ -335,6 +369,7 @@ async def _speak(
             SOCIAL_SYSTEM.format(voice=identity.VOICE),
             inner_text(home, key),
             "Lately, in your work:\n" + _recent(home, key),
+            last_night(home, key),
             f"Here this morning: {others}. {person_name(home)} may stop by to say hello; they "
             "are the person the crew works for.",
         )
