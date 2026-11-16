@@ -174,6 +174,9 @@ class Settings(BaseSettings):
     # Each agent's work opens with its own story and the world it works in (prat.continuity):
     # "all", "off", or "half" (a fixed half of the agents, to measure whether it helps).
     continuity: Literal["all", "half", "off"] = "all"
+    # With "half": the agents (keys: python, laravel, critic, ...) that get it; unset, a fixed
+    # half by name.
+    continuity_with: list[str] = Field(default_factory=list)
     # Web UI ---------------------------------------------------------------------
     # Loopback only by default. A non-loopback address also needs web_allow_remote.
     web_host: str = "127.0.0.1"

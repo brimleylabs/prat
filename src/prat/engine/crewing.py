@@ -11,7 +11,7 @@ reflection (or, without one, the run's own record) into the episode it will reme
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -149,6 +149,7 @@ def prepare(
     start_job: Callable[[str], Awaitable[str]] | None = None,
     job_status: Callable[[int | None], Awaitable[str]] | None = None,
     continuity: str = "off",
+    continuity_with: Sequence[str] = (),
 ) -> CrewSession:
     crew_spec = spec.crew.model_dump()
     member = crew.lead_for(crew_spec, worktree)
@@ -188,7 +189,7 @@ def prepare(
     phases = crew.skills_by_phase(home, project, skills)
     names = {name: identity.of(home, name).name for name in helpers}
     own = ""
-    if continuity_of.gets_it(continuity, member.key):
+    if continuity_of.gets_it(continuity, member.key, continuity_with):
         continuity_of.started(home)
         own = continuity_of.opening(home, member.key) + "\n\n"
     prompt = (

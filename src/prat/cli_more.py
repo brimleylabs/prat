@@ -659,7 +659,7 @@ def crew_continuity(ctx: typer.Context) -> None:
     from prat import continuity, identity
 
     settings = _settings(ctx)
-    since, groups = continuity.compare(settings.home, settings.continuity)
+    since, groups = continuity.compare(settings.home, settings.continuity, settings.continuity_with)
     if not since:
         console.print(f"continuity = {settings.continuity!r}; no work has opened with it yet.")
         return

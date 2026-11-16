@@ -126,3 +126,9 @@ def test_the_ask_for_tool_files_a_request(tmp_path: Path) -> None:
     assert "answers every one" in answer
     request = ideas.waiting(tmp_path)[0]
     assert (request.kind, request.card_id, request.project) == ("request", 4, "shop")
+
+
+def test_the_half_can_be_chosen_to_split_the_busiest_agents() -> None:
+    assert continuity.gets_it("half", "python", ["python", "critic"])
+    assert not continuity.gets_it("half", "laravel", ["python", "critic"])
+    assert continuity.gets_it("all", "laravel", ["python"])

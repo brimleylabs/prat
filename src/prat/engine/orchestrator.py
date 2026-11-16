@@ -1442,6 +1442,7 @@ class Engine:
                 start_job=start_job,
                 job_status=job_status,
                 continuity=self.settings.continuity,
+                continuity_with=self.settings.continuity_with,
             )
         except Exception:
             log.exception("could not assemble the crew for run %s", ctx.run_id)
@@ -1512,7 +1513,7 @@ class Engine:
                 budget=1500,
                 episodes=3,
             )
-            if continuity.gets_it(self.settings.continuity, agent):
+            if continuity.gets_it(self.settings.continuity, agent, self.settings.continuity_with):
                 continuity.started(self.settings.home)
                 own = continuity.opening(self.settings.home, agent)
                 return "\n\n".join(t for t in (own, recalled) if t)

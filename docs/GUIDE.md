@@ -318,7 +318,7 @@ variables:
 | `remotes` | none | Other installations mission control shows on its deck |
 | `social_size`, `social_rounds` | 5, 3 | The crew's social hour after a dream (0 turns it off; see Social hour) |
 | `person_name` | unset | What the crew calls you |
-| `continuity` | all | Work opens with each agent's own story: `all`, `off`, or `half` to measure it (see Continuity) |
+| `continuity`, `continuity_with` | all, unset | Work opens with each agent's own story: `all`, `off`, or `half` to measure it, the half being `continuity_with` (agent keys) or a fixed half by name (see Continuity) |
 | `max_autonomy` | `medium` | Ceiling that no project file or card can exceed |
 | `default_budget_usd` | 5.0 | Spend limit per run when the card sets none (an estimate; see below) |
 | `gate_timeout_seconds` | 900 | Upper bound for each verification command |

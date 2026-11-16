@@ -31,7 +31,7 @@ import hashlib
 import json
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -192,12 +192,16 @@ def started(home: Path) -> float:
     return float(state["since"])
 
 
-def gets_it(mode: str, key: str) -> bool:
-    """Whether an agent's work sessions open with its continuity: all, none, or a fixed half
-    (by a hash of its key, so the same agents are always in the same group)."""
+def gets_it(mode: str, key: str, chosen: Sequence[str] = ()) -> bool:
+    """Whether an agent's work sessions open with its continuity: all, none, or half. The
+    half is ``chosen`` (agent keys, ``continuity_with`` in the config) when given, so that the
+    agents doing the most work can be split evenly; otherwise a fixed half by a hash of the
+    key, so the same agents are always in the same group."""
     if mode == "all":
         return True
     if mode == "half":
+        if chosen:
+            return key in chosen
         return hashlib.sha256(key.encode()).digest()[0] % 2 == 0
     return False
 
@@ -363,13 +367,13 @@ class Group:
         return self.first / self.landed if self.landed else None
 
 
-def compare(home: Path, mode: str) -> tuple[float, list[Group]]:
+def compare(home: Path, mode: str, chosen: Sequence[str] = ()) -> tuple[float, list[Group]]:
     """First-review landings of work done since continuity started, for the agents that get
     it and the ones that do not."""
     since = _state(home).get("since") or 0.0
     groups = {True: Group("with continuity"), False: Group("without")}
     for key in all_agents(home):
-        group = groups[gets_it(mode, key)]
+        group = groups[gets_it(mode, key, chosen)]
         group.agents.append(key)
         for e in AgentMemory(home, key).episodes():
             if e.at < since or e.role not in WORK_ROLES or e.inherited:
