@@ -35,7 +35,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from prat import identity
+from prat import continuity, identity
 from prat.memory import AGENTS_DIR, AgentMemory, Feeling, all_agents, clip, new_episode
 
 SOCIAL_DIR = "social"
@@ -372,6 +372,7 @@ async def _speak(
             inner_text(home, key),
             "Lately, in your work:\n" + _recent(home, key),
             last_night(home, key),
+            _own_story(home, key),
             f"Here this morning: {others}. {person_name(home)} may stop by to say hello; they "
             "are the person the crew works for.",
         )
@@ -501,10 +502,18 @@ def _absorb(
     purpose = clip(str(data.get("purpose") or ""), 500)
     if purpose:
         inner.purpose = purpose
+    before = (list(inner.hopes), list(inner.wishes))
     for name in ("hopes", "wishes", "interests"):
         items = _strings(data.get(name))
         if items:
             setattr(inner, name, items)
+    if (inner.hopes, inner.wishes) != before:
+        continuity.log_aspirations(
+            home,
+            key,
+            "social hour",
+            [f"hope: {h}" for h in inner.hopes] + [f"wish: {w}" for w in inner.wishes],
+        )
     by_name = {v.lower(): k for k, v in names.items()}
     for name, view in (data.get("colleagues") or {}).items():
         other = by_name.get(str(name).strip().lower())
@@ -537,3 +546,8 @@ def _absorb(
             tags=["social"],
         )
     )
+
+
+def _own_story(home: Path, key: str) -> str:
+    story = continuity.story_of(home, key)
+    return f"Your story, in your own words:\n{story.text}" if story.text else ""

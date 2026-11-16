@@ -19,7 +19,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 
-from prat import converse, crew, identity, memory, social
+from prat import continuity, converse, crew, identity, memory, social
 from prat.db import Project
 from prat.model_registry import Role, resolve_model
 from prat.web.app import current_session, render, web_context
@@ -180,6 +180,8 @@ async def agent_page(request: Request, key: str) -> Response:
             "work": work,
             "record": memory.track_record(memory.AgentMemory(home, key), reader="person"),
             "inner": social.inner_of(home, key),
+            "story": continuity.story_of(home, key),
+            "aspirations": continuity.aspirations_log(home, key)[-6:][::-1],
             "colleagues": {
                 identity.of(home, k).name: v
                 for k, v in social.inner_of(home, key).colleagues.items()

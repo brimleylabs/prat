@@ -600,3 +600,81 @@ def crew_hello(
     if not ok:
         raise _fail(text)
     console.print(escape(text))
+
+
+# Continuity ------------------------------------------------------------------------------------
+
+
+@crew_app.command("story")
+def crew_story(
+    ctx: typer.Context,
+    agent: Annotated[str | None, typer.Argument(help="One agent, by name or role.")] = None,
+    write: Annotated[
+        bool, typer.Option(help="Have it written (or revised) now, as a dream would.")
+    ] = False,
+) -> None:
+    """An agent's own story and how its aspirations have changed; --write has it written now."""
+    from prat import continuity, identity, memory
+
+    key = _agent_key(ctx, agent) if agent else None
+    if write:
+        body: dict[str, Any] = {"agent": key or "", "force": bool(key)}
+        sent = _through_server(_settings(ctx), "story", body)
+        if sent is None:
+            raise _fail("PRAT's server is not running here; stories are written in its dreams.")
+        ok, text = sent
+        if not ok:
+            raise _fail(text)
+        console.print(escape(text))
+        if not key:
+            return
+    home = _settings(ctx).home
+    for one in [key] if key else []:
+        story = continuity.story_of(home, one)
+        console.print(f"[bold]{escape(identity.of(home, one).name)}[/bold]")
+        if not story.text:
+            console.print("Has not written a story yet.")
+            continue
+        when = time.strftime("%Y-%m-%d", time.localtime(story.written_at))
+        console.print(escape(f"(version {story.version}, {when})\n{story.text}"))
+        for entry in continuity.aspirations_log(home, one)[-5:]:
+            at = time.strftime("%Y-%m-%d %H:%M", time.localtime(float(entry["at"])))
+            console.print(escape(f"  {at} ({entry['source']}): " + "; ".join(entry["items"])))
+    if not key:
+        table = _table("agent", "story", "written", "aspirations logged")
+        for one in sorted(memory.all_agents(home)):
+            story = continuity.story_of(home, one)
+            table.add_row(
+                identity.of(home, one).name,
+                f"version {story.version}" if story.text else "",
+                time.strftime("%Y-%m-%d", time.localtime(story.written_at)) if story.text else "",
+                str(len(continuity.aspirations_log(home, one))),
+            )
+        console.print(table)
+
+
+@crew_app.command("continuity")
+def crew_continuity(ctx: typer.Context) -> None:
+    """Does continuity help? First-review landings since it started, with and without it."""
+    from prat import continuity, identity
+
+    settings = _settings(ctx)
+    since, groups = continuity.compare(settings.home, settings.continuity)
+    if not since:
+        console.print(f"continuity = {settings.continuity!r}; no work has opened with it yet.")
+        return
+    started = time.strftime("%Y-%m-%d %H:%M", time.localtime(since))
+    console.print(f"continuity = {settings.continuity!r}, since {started}")
+    table = _table("group", "agents", "landed", "first review", "rate", "sent back")
+    for group in groups:
+        rate = group.first_rate
+        table.add_row(
+            group.name,
+            ", ".join(identity.of(settings.home, k).name for k in group.agents[:8])
+            + ("…" if len(group.agents) > 8 else ""),
+            str(group.landed),
+            str(group.first),
+            f"{rate:.0%}" if rate is not None else "",
+            str(group.sent_back),
+        )
+    console.print(table)

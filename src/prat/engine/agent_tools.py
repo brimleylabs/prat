@@ -9,6 +9,7 @@ They act only through PRAT's own code, so the policy allows them whatever the au
 * ``note_risk``: something the reviewer and the person should look at.
 * ``propose_skill``: a reusable skill, kept as a candidate until a person promotes it.
 * ``suggest_improvement``: an idea for working better (prat.ideas); the person decides.
+* ``ask_for``: anything the agent needs or wants from its person; every request is answered.
 * ``query_database``: read-only SQL on the card's own branch of a project database.
 * ``start_job`` / ``job_status``: the project's long-running jobs (prat.jobs).
 """
@@ -193,6 +194,34 @@ def build(ctx: ToolContext) -> tuple[PratTool, ...]:
             "Carry on with the card as it is; nothing changes until then."
         )
 
+    async def ask_for(args: Mapping[str, Any]) -> str:
+        from prat import ideas
+
+        what = str(args.get("what") or "")
+        try:
+            idea = await asyncio.to_thread(
+                ideas.propose,
+                ctx.home,
+                ctx.agent,
+                title=what[:100],
+                problem=str(args.get("why") or ""),
+                proposal=what,
+                kind="request",
+                project=ctx.project,
+                evidence=[f"card {ctx.card_id}"],
+                source="work",
+                card_id=ctx.card_id,
+            )
+        except ideas.IdeaError as exc:
+            if "waiting" in str(exc):
+                return str(exc)
+            return "Say what you need or want, and why, in a sentence or two each."
+        ctx.record("request", {"id": idea.id, "what": idea.title})
+        return (
+            f"Your request ({idea.id}) is with your person, who answers every one. Carry on "
+            "with the card as well as you can meanwhile."
+        )
+
     async def query_database(args: Mapping[str, Any]) -> str:
         sql = str(args.get("sql") or "").strip().rstrip(";")
         if not ctx.databases:
@@ -280,6 +309,14 @@ def build(ctx: ToolContext) -> tuple[PratTool, ...]:
             "nothing changes until they do.",
             {"title": str, "kind": str, "problem": str, "proposal": str, "benefit": str},
             suggest_improvement,
+        ),
+        PratTool(
+            "ask_for",
+            "Ask your person for anything you need or want: a tool, access, information, time "
+            "to do something properly, or anything else. what: the request; why: what it is "
+            "for. They answer every request.",
+            {"what": str, "why": str},
+            ask_for,
         ),
         PratTool(
             "query_database",

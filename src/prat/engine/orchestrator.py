@@ -1441,6 +1441,7 @@ class Engine:
                 databases=databases,
                 start_job=start_job,
                 job_status=job_status,
+                continuity=self.settings.continuity,
             )
         except Exception:
             log.exception("could not assemble the crew for run %s", ctx.run_id)
@@ -1498,9 +1499,12 @@ class Engine:
         return selection
 
     def _bench_memory(self, ctx: _Ctx, agent: str) -> str:
-        """A bench agent's (planner, reviewer) memory, for its prompt."""
+        """A bench agent's (planner, reviewer) memory, for its prompt, opened by its own
+        story when its group gets continuity (prat.continuity)."""
+        from prat import continuity
+
         try:
-            return memory.briefing(
+            recalled = memory.briefing(
                 memory.AgentMemory(self.settings.home, agent),
                 project=ctx.project_slug,
                 card_id=ctx.card_id,
@@ -1508,6 +1512,11 @@ class Engine:
                 budget=1500,
                 episodes=3,
             )
+            if continuity.gets_it(self.settings.continuity, agent):
+                continuity.started(self.settings.home)
+                own = continuity.opening(self.settings.home, agent)
+                return "\n\n".join(t for t in (own, recalled) if t)
+            return recalled
         except Exception:
             log.exception("could not read the memory of %s", agent)
             return ""

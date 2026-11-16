@@ -23,7 +23,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from prat import identity, social
+from prat import continuity, identity, social
 from prat.db import Database, Run
 from prat.domain import RunStatus
 from prat.memory import AGENTS_DIR, AgentMemory, Feeling, briefing, new_episode
@@ -164,6 +164,7 @@ async def talk(
             "here, and it does not interrupt your work. Answer as yourself, briefly (a few "
             "sentences unless asked for a report), honestly and from what you remember. If you "
             "do not know or remember something, say so; never invent work you did not do.",
+            continuity.opening(home, key),
             social.inner_text(home, key),
             _work_text(work),
             recalled,

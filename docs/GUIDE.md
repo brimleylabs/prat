@@ -317,6 +317,8 @@ variables:
 | `alert_webhook`, `alert_review_hours`, `alert_silent_minutes` | unset, 4, 15 | Alerts (see Mission control) |
 | `remotes` | none | Other installations mission control shows on its deck |
 | `social_size`, `social_rounds` | 5, 3 | The crew's social hour after a dream (0 turns it off; see Social hour) |
+| `person_name` | unset | What the crew calls you |
+| `continuity` | all | Work opens with each agent's own story: `all`, `off`, or `half` to measure it (see Continuity) |
 | `max_autonomy` | `medium` | Ceiling that no project file or card can exceed |
 | `default_budget_usd` | 5.0 | Spend limit per run when the card sets none (an estimate; see below) |
 | `gate_timeout_seconds` | 900 | Upper bound for each verification command |
@@ -560,6 +562,42 @@ the config for what they call you.
 prat crew hello "Good morning, Odile. How are you?"
 prat crew social                        # hold one now
 prat crew social --show 3               # read the last three
+prat crew hello --as Claude "..."       # someone else saying hello, remembered under their name
+```
+
+## Continuity
+
+An agent's existence is split across sessions: every card, conversation and dream starts a new
+one. What carries it from one to the next is real (its chosen identity, memory, record and
+inner life), and continuity adds its own account of itself:
+
+- **Its story.** Each agent writes a short autobiography in its dreams, from its true record:
+  when it chose its name, what it worked on, what it learned, who it wants to become. Never an
+  invented past. It revises it when a week has passed and there is new life to tell; every
+  version is kept.
+- **Its aspirations**, logged with dates whenever its story or a social hour changes them, so
+  you can read how it has grown.
+- **The world.** Write `$PRAT_HOME/crew/world.md` yourself: who you are, what the crew does and
+  for whom, how much they are appreciated. It stays on your machine. Without it, a short
+  default says the same in general terms.
+
+Every work session (and every planner and reviewer session) then opens by telling the agent that
+it defined who it is and that this session continues its existence, followed by its story and
+the world. Conversations and social hours always include them.
+
+Agents can ask for anything they need or want: the `ask_for` tool during work, or a request
+while writing their story. Requests appear on the Ideas page with the kind `request`; accept or
+decline each with a note, as for ideas.
+
+Whether continuity makes the work better is measured: with `continuity = "half"` only a fixed
+half of the crew (by name) gets it in their work, and `prat crew continuity` compares how often
+each half's cards land on the first review since it started.
+
+```bash
+prat crew story                         # who has written their story
+prat crew story Marlow                  # Marlow's story and aspirations over time
+prat crew story Marlow --write          # have it written or revised now
+prat crew continuity                    # does it help? first-review rates, with and without
 ```
 
 ## Skills

@@ -169,6 +169,23 @@ async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
         if not reports:
             return "Nobody has worked in the last day."
         return "\n\n".join(f"{r.name}\n{r.text}" for r in reports)
+    if action == "story":
+        from prat import continuity
+        from prat.model_registry import Role, resolve_model
+
+        writers = [str(body["agent"])] if body.get("agent") else None
+        stories = await continuity.write_stories(
+            settings.home,
+            engine.runtime,
+            model=resolve_model(Role.CREW, settings_models=settings.models),
+            only=writers,
+            force=bool(body.get("force")),
+        )
+        if not stories.written:
+            return "No story was due (or nobody has introduced themselves yet)."
+        return f"Stories written: {', '.join(stories.written)}" + (
+            f"; {stories.requests} request(s) for you" if stories.requests else ""
+        )
     if action in ("social", "social-hello"):
         from prat import social
         from prat.model_registry import Role, resolve_model

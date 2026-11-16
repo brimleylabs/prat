@@ -171,6 +171,9 @@ class Settings(BaseSettings):
     social_rounds: int = Field(default=3, ge=1, le=8)
     # What the crew calls the person they work for (when they say hello at the social hour).
     person_name: str | None = None
+    # Each agent's work opens with its own story and the world it works in (prat.continuity):
+    # "all", "off", or "half" (a fixed half of the agents, to measure whether it helps).
+    continuity: Literal["all", "half", "off"] = "all"
     # Web UI ---------------------------------------------------------------------
     # Loopback only by default. A non-loopback address also needs web_allow_remote.
     web_host: str = "127.0.0.1"

@@ -43,6 +43,18 @@
         <p>{{ who.bio }}</p>
         {% if who.drive %}<p><em>{{ who.drive }}</em></p>{% endif %}
         {% if record %}<p class="pre small">{{ record }}</p>{% endif %}
+        {% if story.text %}
+        <h3 class="small">Their story <span class="muted">(version {{ story.version }}, {{ clock(story.written_at) }})</span></h3>
+        <p class="pre">{{ story.text }}</p>
+        {% if story.aspirations %}<p class="small muted">Working toward</p>
+        <ul>{% for a in story.aspirations %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+        {% endif %}
+        {% if aspirations %}
+        <details>
+          <summary class="small">How their aspirations have changed</summary>
+          <ul>{% for entry in aspirations %}<li><span class="muted small">{{ clock(entry.at) }}, {{ entry.source }}</span><br>{{ entry['items'] | join('; ') }}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
         {% if not inner.empty %}
         <h3 class="small">Beyond the work</h3>
         {% if inner.purpose %}<p><em>{{ inner.purpose }}</em></p>{% endif %}

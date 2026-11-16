@@ -11,6 +11,7 @@ Phases, in order:
               agent clones are pruned of stale worktree records.
 ``remember``  project knowledge is brought up to date (:mod:`prat.knowledge.maintain`).
 ``consolidate``  each agent turns its recent episodes into beliefs (:mod:`prat.consolidate`).
+``story``     each agent writes or revises its own story when one is due (:mod:`prat.continuity`).
 ``ideate``    each agent with new experience may propose ideas for working better
               (:mod:`prat.ideas`); the person decides on them.
 ``reflect``   PRAT's own diagnostics: how its runs went, and its health.
@@ -45,7 +46,7 @@ from prat.runtime import AgentRuntime
 
 log = logging.getLogger(__name__)
 
-PHASES = ("tidy", "remember", "consolidate", "ideate", "reflect", "social")
+PHASES = ("tidy", "remember", "consolidate", "story", "ideate", "reflect", "social")
 TICK_SECONDS = 120.0
 
 
@@ -184,6 +185,17 @@ async def run_dream(
                 )
                 cost += consolidated.cost_usd
                 results[phase] = consolidated.to_dict()
+            elif phase == "story":
+                from prat.continuity import write_stories
+
+                stories = await write_stories(
+                    settings.home,
+                    runtime,
+                    model=resolve_model(Role.CREW, settings_models=settings.models),
+                    should_stop=stop,
+                )
+                cost += stories.cost_usd
+                results[phase] = stories.to_dict()
             elif phase == "ideate":
                 from prat.ideas import ideate
 

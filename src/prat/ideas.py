@@ -35,7 +35,8 @@ from prat.memory import AgentMemory, Feeling, clip, new_episode
 
 IDEAS_DIR = "ideas"
 IDEAS_FILE = "ideas.jsonl"
-KINDS = ("process", "tooling", "skill", "prompt", "platform", "project")
+# "request": something the agent needs or wants from the person (prat.continuity: just ask).
+KINDS = ("process", "tooling", "skill", "prompt", "platform", "project", "request")
 STATUSES = ("proposed", "accepted", "declined", "in_place", "withdrawn")
 OPEN = ("proposed",)
 # An agent with this many ideas waiting is heard first before it proposes more.

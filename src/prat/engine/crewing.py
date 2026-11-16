@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from prat import continuity as continuity_of
 from prat import crew, identity
 from prat.engine import agent_tools
 from prat.memory import AgentMemory, Feeling, briefing, new_episode
@@ -147,6 +148,7 @@ def prepare(
     databases: Mapping[str, str],
     start_job: Callable[[str], Awaitable[str]] | None = None,
     job_status: Callable[[int | None], Awaitable[str]] | None = None,
+    continuity: str = "off",
 ) -> CrewSession:
     crew_spec = spec.crew.model_dump()
     member = crew.lead_for(crew_spec, worktree)
@@ -185,8 +187,13 @@ def prepare(
     )
     phases = crew.skills_by_phase(home, project, skills)
     names = {name: identity.of(home, name).name for name in helpers}
+    own = ""
+    if continuity_of.gets_it(continuity, member.key):
+        continuity_of.started(home)
+        own = continuity_of.opening(home, member.key) + "\n\n"
     prompt = (
-        who.persona()
+        own
+        + who.persona()
         + "\n\n"
         + crew.crew_prompt(member, helpers, phases, helper_names=names)
         + (f"\n\n{memory}" if memory else "")
