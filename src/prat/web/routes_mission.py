@@ -176,7 +176,11 @@ async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
         model = resolve_model(Role.CREW, settings_models=settings.models)
         if action == "social-hello":
             greeted = await social.say_hello(
-                settings.home, engine.runtime, str(body.get("message") or ""), model=model
+                settings.home,
+                engine.runtime,
+                str(body.get("message") or ""),
+                model=model,
+                speaker=str(body.get("speaker") or "") or None,
             )
             said = [t for t in greeted.turns if t.agent != social.PERSON][-social.GREETED :]
             return "\n\n".join(f"{t.name}: {t.text}" for t in said)

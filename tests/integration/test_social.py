@@ -139,3 +139,16 @@ def test_the_person_says_good_morning_and_those_named_answer(tmp_path: Path) -> 
 def test_turns_lose_a_name_prefix_and_stay_short() -> None:
     assert social._clean_turn("**Marlow:** Morning all", "Marlow") == "Morning all"
     assert len(social._clean_turn("word " * 400, "Marlow")) <= social.TURN_CHARS
+
+
+def test_someone_else_saying_hello_is_remembered_under_their_own_name(tmp_path: Path) -> None:
+    introduce_crew(tmp_path)
+    runtime = scripted({"laravel": ["Nice to meet you."]}, REFLECTION)
+    met = asyncio.run(
+        social.say_hello(
+            tmp_path, runtime, "Hello Odile, I'm Matt's assistant.", model=None, speaker="Claude"
+        )
+    )
+    assert met.turns[0].name == "Claude"
+    remembered = [e for e in AgentMemory(tmp_path, "laravel").episodes() if e.role == "social"]
+    assert remembered[0].title.startswith("Claude said") and "Matt said" not in remembered[0].what

@@ -583,9 +583,17 @@ def crew_social(
 
 
 @crew_app.command("hello")
-def crew_hello(ctx: typer.Context, message: str) -> None:
+def crew_hello(
+    ctx: typer.Context,
+    message: str,
+    speaker: Annotated[
+        str | None,
+        typer.Option("--as", help="Who is speaking, when it is not you (an assistant)."),
+    ] = None,
+) -> None:
     """Say good morning at the social hour; colleagues you name (or a few there) answer."""
-    sent = _through_server(_settings(ctx), "social-hello", {"message": message})
+    body = {"message": message, "speaker": speaker or ""}
+    sent = _through_server(_settings(ctx), "social-hello", body)
     if sent is None:
         raise _fail("PRAT's server is not running here.")
     ok, text = sent

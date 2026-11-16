@@ -410,11 +410,14 @@ async def say_hello(
     message: str,
     *,
     model: str | None,
+    speaker: str | None = None,
     rng: random.Random | None = None,
 ) -> Gathering:
     """The person joins this morning's social hour (or starts a small one): what they say is
     added to the conversation, and the colleagues they named, or a few of those there, answer.
-    Each one remembers it."""
+    Each one remembers it, under the name of whoever spoke: ``speaker`` when someone other
+    than the person says hello (an assistant working for them), so nobody is remembered as
+    saying what they did not."""
     rng = rng or _rng()
     text = clip(message, TURN_CHARS)
     if not text:
@@ -426,7 +429,7 @@ async def say_hello(
             raise ValueError("Nobody on the crew has introduced themselves yet.")
         gathering = Gathering(time.strftime("%Y-%m-%d-%H%M%S"), time.time(), keys)
     names = {k: identity.of(home, k).name for k in gathering.participants}
-    who = person_name(home)
+    who = clip(speaker, 80) if speaker and speaker.strip() else person_name(home)
     gathering.turns.append(SocialTurn(PERSON, who, text, time.time()))
     named = [k for k in names if re.search(rf"\b{re.escape(names[k])}\b", text, re.I)]
     rest = [k for k in names if k not in named]
