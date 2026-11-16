@@ -31,7 +31,7 @@
   <section class="panel social" {% if loop.first %}id="latest"{% endif %} aria-labelledby="g-{{ g.id }}">
     <header class="panel-head">
       <h2 id="g-{{ g.id }}">{{ icon('message') }}{{ clock(g.started_at) }}</h2>
-      <span class="muted small">{{ g.participants | map('extract', names) | join(', ') }}</span>
+      <span class="muted small">{% for k in g.participants %}{{ names[k] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
     </header>
     <div class="panel-body social-log">
       {% for t in g.turns %}

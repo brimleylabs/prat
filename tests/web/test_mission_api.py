@@ -141,3 +141,30 @@ def test_an_idea_is_decided_on_the_ideas_page_and_put_in_place_end_to_end(
         assert wait_status(db, card_id, {CardStatus.DONE}) is CardStatus.DONE
         assert ideas.get(home, idea.id).status == "in_place"
         assert ideas.get(home, other.id).status == "declined"
+
+
+def test_the_social_hour_page_shows_every_conversation_and_takes_a_good_morning(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    from prat import identity, social
+
+    with make_web(settings, db, project) as web:
+        home = web.settings.home
+        for key, name in (("python", "Marlow"), ("laravel", "Odile")):
+            identity.save(home, identity.Identity(key, name, "I build.", "warm", "eng", 1.0, ""))
+        assert "No social hour yet" in web.client.get("/crew/social").text
+        gathering = social.Gathering("2026-11-15-070000", 1.0, ["python", "laravel"])
+        gathering.turns = [
+            social.SocialTurn("python", "Marlow", "Morning, Odile. Read anything odd lately?", 1.0),
+            social.SocialTurn("laravel", "Odile", "A comment that said temporary, from 2014.", 2.0),
+        ]
+        gathering.memories = {"python": "I liked Odile's story."}
+        social._save_gathering(home, gathering)
+        social.save_inner(home, "python", social.InnerLife(purpose="I want people to trust it."))
+        page = web.client.get("/crew/social")
+        assert page.status_code == 200, page.text
+        assert "Marlow, Odile" in page.text and "from 2014" in page.text
+        assert "I liked Odile&#39;s story." in page.text or "I liked Odile's story." in page.text
+        agent = web.client.get("/crew/python")
+        assert "Beyond the work" in agent.text and "I want people to trust it." in agent.text
+        assert web.post("/crew/social/hello", data={"message": ""}).status_code == 303
