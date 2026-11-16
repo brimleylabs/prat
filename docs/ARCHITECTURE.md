@@ -44,6 +44,7 @@ src/prat/
   consolidate.py     the dream phase that turns episodes into beliefs
   inherit.py         past runs from PRAT's record, handed down as inherited episodes
   ideas.py           the crew's ideas for working better: proposed, decided, put in place
+  social.py          the social hour before work, and each agent's inner life
   converse.py        talking with an agent at any time, and stand-ups
   skills.py          skill candidates, promotion, scorecards from real outcomes
   usage.py           usage per model: tokens, prompt cache, the estimate

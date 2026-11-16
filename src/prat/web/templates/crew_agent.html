@@ -43,6 +43,18 @@
         <p>{{ who.bio }}</p>
         {% if who.drive %}<p><em>{{ who.drive }}</em></p>{% endif %}
         {% if record %}<p class="pre small">{{ record }}</p>{% endif %}
+        {% if not inner.empty %}
+        <h3 class="small">Beyond the work</h3>
+        {% if inner.purpose %}<p><em>{{ inner.purpose }}</em></p>{% endif %}
+        {% for label, items in [('Hopes', inner.hopes), ('Wishes', inner.wishes), ('Curious about', inner.interests)] %}{% if items %}
+        <p class="small muted">{{ label }}</p>
+        <ul>{% for item in items %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% endif %}{% endfor %}
+        {% if colleagues %}
+        <p class="small muted">How they see their colleagues</p>
+        <ul>{% for name, view in colleagues.items() %}<li><strong>{{ name }}</strong>: {{ view }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% endif %}
         {% if work %}
         <h3 class="small">Working on now</h3>
         <ul>{% for w in work %}<li><a href="/cards/{{ w.card }}">#{{ w.card }} {{ w.title }}</a> ({{ w.step or 'starting' }})</li>{% endfor %}</ul>

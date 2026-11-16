@@ -165,6 +165,12 @@ class Settings(BaseSettings):
     # Other PRAT installations mission control shows on its deck, each
     # {name = "mac", url = "https://...", token = "..."} (the token from their access-token file).
     remotes: list[dict[str, str]] = Field(default_factory=list)
+    # The crew's social hour (prat.social), after the night's dream: how many agents meet and
+    # how many times each speaks. social_size = 0 turns it off.
+    social_size: int = Field(default=5, ge=0, le=12)
+    social_rounds: int = Field(default=3, ge=1, le=8)
+    # What the crew calls the person they work for (when they say hello at the social hour).
+    person_name: str | None = None
     # Web UI ---------------------------------------------------------------------
     # Loopback only by default. A non-loopback address also needs web_allow_remote.
     web_host: str = "127.0.0.1"

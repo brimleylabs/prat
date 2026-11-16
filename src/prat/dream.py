@@ -14,6 +14,7 @@ Phases, in order:
 ``ideate``    each agent with new experience may propose ideas for working better
               (:mod:`prat.ideas`); the person decides on them.
 ``reflect``   PRAT's own diagnostics: how its runs went, and its health.
+``social``    last, before the work day: a few agents meet as colleagues (:mod:`prat.social`).
 
 Self-improvement keeps its own schedule (``prat improve``); the dream does not run it.
 """
@@ -44,7 +45,7 @@ from prat.runtime import AgentRuntime
 
 log = logging.getLogger(__name__)
 
-PHASES = ("tidy", "remember", "consolidate", "ideate", "reflect")
+PHASES = ("tidy", "remember", "consolidate", "ideate", "reflect", "social")
 TICK_SECONDS = 120.0
 
 
@@ -194,6 +195,26 @@ async def run_dream(
                 )
                 cost += ideated.cost_usd
                 results[phase] = ideated.to_dict()
+            elif phase == "social":
+                from prat import social
+
+                met = None
+                if settings.social_size:
+                    met = await social.gather(
+                        settings.home,
+                        runtime,
+                        model=resolve_model(Role.CREW, settings_models=settings.models),
+                        size=settings.social_size,
+                        rounds=settings.social_rounds,
+                        should_stop=stop,
+                    )
+                if met is not None:
+                    cost += met.cost_usd
+                results[phase] = (
+                    {"id": met.id, "participants": met.participants, "turns": len(met.turns)}
+                    if met is not None
+                    else {"met": False}
+                )
             else:
                 results[phase] = await asyncio.to_thread(reflect, db, settings, runtime_name)
             _finish(db, dream_id, results=dict(results), cost_usd=cost)

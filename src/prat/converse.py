@@ -23,7 +23,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from prat import identity
+from prat import identity, social
 from prat.db import Database, Run
 from prat.domain import RunStatus
 from prat.memory import AGENTS_DIR, AgentMemory, Feeling, briefing, new_episode
@@ -32,6 +32,8 @@ from prat.runtime.base import AgentRuntime, AgentTask, Budget
 
 LOG = "conversation.jsonl"
 HISTORY_TURNS = 10
+# Memories that are not work, left out of stand-ups.
+NOT_WORK = ("social", "idea", "conversation")
 _THANKS = re.compile(
     r"\b(thank|thanks|thx|appreciate|well done|great job|good job|nice work|proud)\b", re.I
 )
@@ -162,6 +164,7 @@ async def talk(
             "here, and it does not interrupt your work. Answer as yourself, briefly (a few "
             "sentences unless asked for a report), honestly and from what you remember. If you "
             "do not know or remember something, say so; never invent work you did not do.",
+            social.inner_text(home, key),
             _work_text(work),
             recalled,
             f"Your conversation so far:\n{transcript}" if transcript else "",
@@ -209,7 +212,7 @@ def recently_active(home: Path, db: Database, hours: float = 24.0) -> list[str]:
     active = []
     for key in all_agents(home):
         episodes = AgentMemory(home, key).episodes()
-        if any(e.at >= since for e in episodes) or at_work(db, key):
+        if any(e.at >= since and e.role not in NOT_WORK for e in episodes) or at_work(db, key):
             active.append(key)
     return active
 
@@ -228,7 +231,7 @@ async def standup(
         async with gate:
             who = await identity.ensure(home, runtime, key, model=model)
             memory = AgentMemory(home, key)
-            recent = [e for e in memory.episodes() if e.at >= since]
+            recent = [e for e in memory.episodes() if e.at >= since and e.role not in NOT_WORK]
             lines = [
                 f"- {e.project} #{e.card_id} {e.title}: {e.what[:300]} Outcome: {e.outcome}"
                 + (f" ({e.feedback[:150]})" if e.feedback else "")
@@ -239,6 +242,7 @@ async def standup(
             system = "\n\n".join(
                 [
                     who.persona(),
+                    social.inner_text(home, key),
                     "It is the crew's stand-up with your person.",
                     _work_text(work),
                     "Your work in the last day:\n" + ("\n".join(lines) or "- none"),

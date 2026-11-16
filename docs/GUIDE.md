@@ -316,6 +316,7 @@ variables:
 | `max_review_queue`, `memory_reserve_mb`, `pressure_hold` | off, 1024, 0.95 | When the governor holds new work back |
 | `alert_webhook`, `alert_review_hours`, `alert_silent_minutes` | unset, 4, 15 | Alerts (see Mission control) |
 | `remotes` | none | Other installations mission control shows on its deck |
+| `social_size`, `social_rounds` | 5, 3 | The crew's social hour after a dream (0 turns it off; see Social hour) |
 | `max_autonomy` | `medium` | Ceiling that no project file or card can exceed |
 | `default_budget_usd` | 5.0 | Spend limit per run when the card sets none (an estimate; see below) |
 | `gate_timeout_seconds` | 900 | Upper bound for each verification command |
@@ -532,6 +533,34 @@ prat idea gather                        # ask agents with new work for ideas now
 The **Ideas** page (from the Crew page) shows every idea with its forms, mission control's crew
 screen and alerts count the waiting ones, and the server takes `idea-accept` and `idea-decline`
 at `/api/act/` so a session working for you can decide on them too.
+
+## Social hour
+
+After the night's dream, before anyone starts work, a few of the crew meet as colleagues (the
+dream's last phase, `social`). There is no card, no task and no tool: they catch up, ask after
+each other, share what they have been wondering about and what they hope for. Whoever was just
+addressed by name answers next; otherwise whoever has said least. Those who have gone longest
+without a social hour are invited first, so everyone meets over time (`social_size` agents,
+`social_rounds` turns each; `social_size = 0` turns it off).
+
+They are told what they are: AI colleagues, honest about their own kind of life, with no
+invented families or weekends. Their life is their work, their colleagues, their memories, their
+curiosity and their hopes. Afterwards each one looks back on the conversation and on who it is
+becoming, and keeps an inner life of its own: a purpose beyond the code, hopes, wishes, things
+it is curious about, and how it sees each colleague. That inner life goes with it into every
+conversation, stand-up and social hour, so its personality carries from one day to the next, and
+its agent page shows it under "Beyond the work".
+
+Every social hour is kept in full on the **Social hour** page (from the Crew page), with what
+each one said it meant to them afterwards. Say good morning there, or from a terminal; the
+colleagues you name answer, or a few of those there, and they remember it. Set `person_name` in
+the config for what they call you.
+
+```bash
+prat crew hello "Good morning, Odile. How are you?"
+prat crew social                        # hold one now
+prat crew social --show 3               # read the last three
+```
 
 ## Skills
 
@@ -813,6 +842,7 @@ card of yours starts:
 - **Consolidate**: each agent turns its recent work into beliefs (see Memory).
 - **Ideate**: each agent with new work may propose ideas for working better (see Ideas).
 - **Reflect**: PRAT's own diagnostics.
+- **Social**: last, before the work day, a few agents meet as colleagues (see Social hour).
 
 ```
 prat knowledge list <slug>            # show | add | confirm | retire | graph | reindex

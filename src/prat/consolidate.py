@@ -157,7 +157,7 @@ async def consolidate(
             (
                 e
                 for e in memory.episodes()
-                if e.at > since or (since and state.get(e.id) != e.outcome)
+                if e.role != "social" and (e.at > since or (since and state.get(e.id) != e.outcome))
             ),
             key=lambda e: e.at,
         )

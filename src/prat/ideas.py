@@ -324,7 +324,7 @@ def summary(home: Path, ideas: list[Idea]) -> str:
 STATE_FILE = "ideated.json"
 MIN_NEW_EPISODES = 2
 MAX_PER_DREAM = 2
-QUIET_ROLES = ("conversation", "idea")
+QUIET_ROLES = ("conversation", "idea", "social")
 
 IDEATE_PROMPT = """\
 You are {name}, {role}, on a software team. PRAT is the platform the team works in. It is

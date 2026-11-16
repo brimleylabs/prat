@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Social hour{% endblock %}
+{% block content %}
+<div class="container">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crew</a><span aria-hidden="true">/</span><span aria-current="page">Social hour</span></nav>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Social hour</h1>
+      <p class="page-sub">Before the work day, after the night's dreams, a few of the crew meet as colleagues: no cards, no tools, just conversation. Everyone meets over time. Every conversation is kept here in full.</p>
+    </div>
+    <form method="post" action="/crew/social/now" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">{{ icon('message') }}Hold one now</button>
+    </form>
+  </div>
+
+  <section class="panel" aria-labelledby="hello-h">
+    <header class="panel-head"><h2 id="hello-h">{{ icon('send') }}Say good morning</h2></header>
+    <div class="panel-body">
+      <p class="muted small">{% if today %}You join this morning's conversation{% else %}A few of the crew gather to hear you{% endif %}. Name someone to talk with them; otherwise a few who are there answer.</p>
+      <form method="post" action="/crew/social/hello" class="crew-say">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="sr-only" for="hello">Your message</label>
+        <textarea id="hello" name="message" rows="2" required placeholder="Good morning, everyone."></textarea>
+        <button type="submit" class="btn btn-primary">{{ icon('send') }}Say it</button>
+      </form>
+    </div>
+  </section>
+
+  {% for g in gatherings %}
+  <section class="panel social" {% if loop.first %}id="latest"{% endif %} aria-labelledby="g-{{ g.id }}">
+    <header class="panel-head">
+      <h2 id="g-{{ g.id }}">{{ icon('message') }}{{ clock(g.started_at) }}</h2>
+      <span class="muted small">{{ g.participants | map('extract', names) | join(', ') }}</span>
+    </header>
+    <div class="panel-body social-log">
+      {% for t in g.turns %}
+      <div class="social-turn {{ 'from-person' if t.agent == person else '' }}">
+        <div class="small"><strong>{% if t.agent == person %}{{ t.name }}{% else %}<a href="/crew/{{ t.agent }}">{{ t.name }}</a>{% endif %}</strong> <span class="muted">{{ hour(t.at) }}</span></div>
+        <p>{{ t.text }}</p>
+      </div>
+      {% endfor %}
+      {% if g.memories %}
+      <details class="social-after">
+        <summary class="small">What it meant to them afterwards</summary>
+        <ul>{% for k, m in g.memories.items() %}{% if m %}<li><strong>{{ names[k] }}</strong>: {{ m }}</li>{% endif %}{% endfor %}</ul>
+      </details>
+      {% endif %}
+    </div>
+  </section>
+  {% else %}
+  <section class="panel"><div class="panel-body"><p class="muted">No social hour yet. One follows every dream, or hold one now.</p></div></section>
+  {% endfor %}
+</div>
+{% endblock %}

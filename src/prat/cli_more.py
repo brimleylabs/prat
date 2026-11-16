@@ -547,3 +547,48 @@ def idea_gather(ctx: typer.Context) -> None:
     if not ok:
         raise _fail(text)
     console.print(escape(text))
+
+
+# The social hour -------------------------------------------------------------------------------
+
+
+@crew_app.command("social")
+def crew_social(
+    ctx: typer.Context,
+    show: Annotated[
+        int, typer.Option(help="Show the last N social hours instead of holding one.")
+    ] = 0,
+) -> None:
+    """Hold a social hour now (it also follows every dream), or read past ones with --show."""
+    from prat import social
+
+    if show:
+        home = _settings(ctx).home
+        found = social.gatherings(home, limit=show)
+        if not found:
+            console.print("No social hour yet. One follows every dream.")
+        for gathering in reversed(found):
+            when = time.strftime("%A %Y-%m-%d %H:%M", time.localtime(gathering.started_at))
+            console.print(f"[bold]{when}[/bold]")
+            console.print(escape(gathering.transcript(home)))
+            console.print("")
+        return
+    sent = _through_server(_settings(ctx), "social", {})
+    if sent is None:
+        raise _fail("PRAT's server is not running here; the social hour follows its dreams.")
+    ok, text = sent
+    if not ok:
+        raise _fail(text)
+    console.print(escape(text))
+
+
+@crew_app.command("hello")
+def crew_hello(ctx: typer.Context, message: str) -> None:
+    """Say good morning at the social hour; colleagues you name (or a few there) answer."""
+    sent = _through_server(_settings(ctx), "social-hello", {"message": message})
+    if sent is None:
+        raise _fail("PRAT's server is not running here.")
+    ok, text = sent
+    if not ok:
+        raise _fail(text)
+    console.print(escape(text))

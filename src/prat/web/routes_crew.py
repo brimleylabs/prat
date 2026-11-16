@@ -19,7 +19,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
 
-from prat import converse, crew, identity, memory
+from prat import converse, crew, identity, memory, social
 from prat.db import Project
 from prat.model_registry import Role, resolve_model
 from prat.web.app import current_session, render, web_context
@@ -99,6 +99,57 @@ async def crew_page(request: Request) -> Response:
     )
 
 
+@router.get("/crew/social")
+async def social_page(request: Request) -> Response:
+    """Every social hour, newest first, in full: the crew's conversations and the person's
+    good mornings."""
+    ctx = web_context(request)
+    home = ctx.settings.home
+    found = await asyncio.to_thread(social.gatherings, home, 30)
+    return render(
+        request,
+        "crew_social.html",
+        {
+            "gatherings": found,
+            "names": {k: identity.of(home, k).name for g in found for k in g.participants},
+            "person": social.PERSON,
+            "today": social.today(home),
+            "clock": lambda t: time.strftime("%A %b %d, %H:%M", time.localtime(t)),
+            "hour": lambda t: time.strftime("%H:%M", time.localtime(t)),
+        },
+        nav="crew",
+    )
+
+
+@router.post("/crew/social/hello")
+async def social_hello(request: Request, message: str = Form("")) -> Response:
+    ctx = web_context(request)
+    model = resolve_model(Role.CREW, settings_models=ctx.settings.models)
+    try:
+        await social.say_hello(ctx.settings.home, ctx.engine.runtime, message, model=model)
+    except ValueError as exc:
+        _flash(request, str(exc), "warn")
+    except Exception as exc:
+        _flash(request, f"They could not answer: {exc}", "bad")
+    return RedirectResponse("/crew/social#latest", status_code=303)
+
+
+@router.post("/crew/social/now")
+async def social_now(request: Request) -> Response:
+    ctx = web_context(request)
+    model = resolve_model(Role.CREW, settings_models=ctx.settings.models)
+    met = await social.gather(
+        ctx.settings.home,
+        ctx.engine.runtime,
+        model=model,
+        size=ctx.settings.social_size or 5,
+        rounds=ctx.settings.social_rounds,
+    )
+    if met is None:
+        _flash(request, "Fewer than two agents have introduced themselves; nobody met.", "info")
+    return RedirectResponse("/crew/social#latest", status_code=303)
+
+
 @router.get("/crew/{key}")
 async def agent_page(request: Request, key: str) -> Response:
     ctx = web_context(request)
@@ -128,6 +179,11 @@ async def agent_page(request: Request, key: str) -> Response:
             "episodes": episodes,
             "work": work,
             "record": memory.track_record(memory.AgentMemory(home, key), reader="person"),
+            "inner": social.inner_of(home, key),
+            "colleagues": {
+                identity.of(home, k).name: v
+                for k, v in social.inner_of(home, key).colleagues.items()
+            },
             "clock": lambda t: time.strftime("%b %d %H:%M", time.localtime(t)),
         },
         nav="crew",

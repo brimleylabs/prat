@@ -169,6 +169,27 @@ async def _act(ctx: Any, action: str, body: dict[str, Any]) -> str:
         if not reports:
             return "Nobody has worked in the last day."
         return "\n\n".join(f"{r.name}\n{r.text}" for r in reports)
+    if action in ("social", "social-hello"):
+        from prat import social
+        from prat.model_registry import Role, resolve_model
+
+        model = resolve_model(Role.CREW, settings_models=settings.models)
+        if action == "social-hello":
+            greeted = await social.say_hello(
+                settings.home, engine.runtime, str(body.get("message") or ""), model=model
+            )
+            said = [t for t in greeted.turns if t.agent != social.PERSON][-social.GREETED :]
+            return "\n\n".join(f"{t.name}: {t.text}" for t in said)
+        met = await social.gather(
+            settings.home,
+            engine.runtime,
+            model=model,
+            size=settings.social_size or 5,
+            rounds=settings.social_rounds,
+        )
+        if met is None:
+            return "Fewer than two agents have introduced themselves; nobody met."
+        return met.transcript(settings.home)
     if action == "ideate":
         from prat import ideas
         from prat.model_registry import Role, resolve_model
