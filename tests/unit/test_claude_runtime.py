@@ -32,9 +32,12 @@ from prat.runtime import (
 )
 from prat.runtime.claude import (
     DENIAL_PREFIX,
+    MOVED_INSTRUCTIONS_NOTE,
+    WINDOWS_SYSTEM_PROMPT_LIMIT,
     ClaudeConfig,
     ClaudeRuntime,
     blocked_reason,
+    fit_instructions,
     judge,
     tool_calls_for,
 )
@@ -374,3 +377,16 @@ async def test_cancelling_the_consumer_task_disconnects(tmp_path: Path) -> None:
     with pytest.raises(asyncio.CancelledError):
         await task
     assert factory.clients[0].disconnected
+
+
+def test_long_instructions_move_to_the_opening_message_on_windows() -> None:
+    # A command line past Windows' limit cannot start Claude Code at all (seen as "Claude Code
+    # not found" on a reworked card whose instructions had grown).
+    long = "Follow the project's rules. " * (WINDOWS_SYSTEM_PROMPT_LIMIT // 20)
+    system, opening = fit_instructions(long, "Do the card.", windows=True)
+    assert system == MOVED_INSTRUCTIONS_NOTE
+    assert opening.startswith("<instructions>\n" + long)
+    assert opening.endswith("</instructions>\n\nDo the card.")
+    # Short instructions, and any length off Windows, stay where they were.
+    assert fit_instructions("Be brief.", "Do it.", windows=True) == ("Be brief.", "Do it.")
+    assert fit_instructions(long, "Do it.", windows=False) == (long, "Do it.")

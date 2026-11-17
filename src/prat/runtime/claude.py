@@ -172,6 +172,28 @@ RESUME_PROMPT = (
 DENIAL_PREFIX = "PRAT policy denied this call: "
 # Claude Code settings for every agent session: no attribution in commits or pull requests.
 AGENT_SETTINGS = json.dumps({"includeCoAuthoredBy": False, "attribution": {"commit": "", "pr": ""}})
+# The SDK passes the appended system prompt on Claude Code's command line, and Windows caps a
+# command line near 32,000 characters; past it the process cannot start at all (the SDK then
+# reports "Claude Code not found"). Long instructions go in the opening message instead, which
+# travels over the session's input with no such limit.
+WINDOWS_SYSTEM_PROMPT_LIMIT = 12_000
+MOVED_INSTRUCTIONS_NOTE = (
+    "Your full instructions for this task are at the top of the first message, between "
+    "<instructions> and </instructions>. Follow them as your system instructions."
+)
+
+
+def fit_instructions(
+    system_prompt: str, opening: str, *, windows: bool | None = None
+) -> tuple[str, str]:
+    """(system prompt, opening message) that Claude Code can be started with on this machine."""
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows or len(system_prompt) <= WINDOWS_SYSTEM_PROMPT_LIMIT:
+        return system_prompt, opening
+    return MOVED_INSTRUCTIONS_NOTE, f"<instructions>\n{system_prompt}\n</instructions>\n\n{opening}"
+
+
 BLOCKED_LINE = re.compile(r"^\s*[*_]*BLOCKED[*_]*\s*:\s*[*_]*\s*(?P<reason>.+?)\s*$", re.MULTILINE)
 _GLOB_CHARS = re.compile(r"[*?\[{]")
 
@@ -807,7 +829,7 @@ class ClaudeRuntime:
             system_prompt={
                 "type": "preset",
                 "preset": "claude_code",
-                "append": task.system_prompt,
+                "append": fit_instructions(task.system_prompt, "")[0],
             },
             permission_mode="default",
             hooks={
@@ -874,7 +896,8 @@ class ClaudeRuntime:
         try:
             try:
                 await client.connect()
-                await client.query(RESUME_PROMPT if resume else task.prompt)
+                opening = RESUME_PROMPT if resume else task.prompt
+                await client.query(fit_instructions(task.system_prompt, opening)[1])
             except Exception as exc:
                 yield DoneEvent(Outcome.ERROR, self._error("could not start Claude Code", exc))
                 return
