@@ -232,6 +232,12 @@ async def _watch_orphans(engine: Engine, stale_seconds: float) -> None:
                     log.warning("picked up again: cards %s", picked)
         except Exception:
             log.exception("could not recover abandoned runs")
+        try:
+            started = engine.pick_up_ready()
+            if started:
+                log.warning("ready cards made outside the server, now queued: %s", started)
+        except Exception:
+            log.exception("could not pick up ready cards")
 
 
 def create_app(

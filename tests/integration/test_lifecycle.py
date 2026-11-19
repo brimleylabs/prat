@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -858,3 +859,29 @@ async def test_a_restart_interrupts_running_and_queued_cards_and_picks_them_up(
         await task
     for card_id in (running, waiting):
         assert card_state(db, card_id)[0] is CardStatus.REVIEW
+
+
+async def test_a_ready_card_made_outside_the_server_is_picked_up(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    fresh = add_card(db, project, title="Just made")
+    settled = add_card(db, project, title="Made a while ago")
+    held = add_card(db, project, title="Held by another process")
+    draft = add_card(db, project, title="Still a draft", ready=False)
+    with db.session() as session:
+        old = datetime.now(UTC) - timedelta(minutes=5)
+        session.execute(
+            update(Card).where(Card.id.in_([settled, held, draft])).values(updated_at=old)
+        )
+        session.execute(update(Card).where(Card.id == held).values(hold_reason="waits on #1"))
+    engine, _ = make_engine(settings, db, [*WRITE_GREET])
+
+    picked = engine.pick_up_ready()
+
+    # Only the settled ready card: a fresh one may be about to run in another process, a
+    # held one is waited on elsewhere, and a draft is not ready.
+    assert picked == [settled]
+    assert engine.pick_up_ready() == []  # already queued, not queued twice
+    await engine._tasks[settled]
+    assert card_state(db, settled)[0] is CardStatus.REVIEW
+    assert card_state(db, fresh)[0] is CardStatus.READY

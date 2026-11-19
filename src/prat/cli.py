@@ -209,6 +209,32 @@ def db_upgrade(ctx: typer.Context) -> None:
     console.print("database is up to date")
 
 
+def _upgrade_before_serving(settings: Settings, db: Database) -> None:
+    """A server restarted onto newer code applies its migrations itself, after copying a
+    SQLite database aside, instead of refusing to start (a service manager would restart it
+    in a loop)."""
+    if not settings.database_url and not settings.home.is_dir():
+        raise _fail(NOT_INITIALISED)
+    try:
+        if is_current(db):
+            return
+    except SQLAlchemyError:
+        pass
+    backup = None
+    url = db.url
+    if url.startswith("sqlite:///"):
+        path = Path(url.removeprefix("sqlite:///"))
+        if path.is_file():
+            from datetime import datetime
+
+            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            backup = path.with_name(f"{path.name}.before-upgrade-{stamp}.bak")
+            with db.engine.connect() as connection:
+                connection.exec_driver_sql(f"VACUUM INTO '{backup.as_posix()}'")
+    upgrade(db)
+    err.print(f"database upgraded{f' (copy of the old one: {backup})' if backup else ''}")
+
+
 @store_app.command("status")
 def store_status(ctx: typer.Context) -> None:
     """Show which store this installation uses and, on Dolt, its latest commits."""
@@ -1554,7 +1580,8 @@ def serve(
     from prat.web.server import run_server
     from prat.web.tokens import ensure_access_token, login_url, origin_for
 
-    with _database(ctx) as (settings, db):
+    with _database(ctx, require_current=False) as (settings, db):
+        _upgrade_before_serving(settings, db)
         bind_host = host or settings.web_host
         bind_port = port or settings.web_port
         try:

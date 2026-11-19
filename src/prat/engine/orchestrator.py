@@ -504,6 +504,38 @@ class Engine:
                 picked.append(card_id)
         return picked
 
+    def pick_up_ready(self, min_age_seconds: float = 30.0) -> list[int]:
+        """Queue ready cards that nothing is running: made ready outside this server, such as
+        `prat card add --ready` in a terminal. A card younger than ``min_age_seconds`` or held
+        with a reason may belong to another process about to run it, so it is left alone."""
+        cutoff = datetime.now(UTC) - timedelta(seconds=min_age_seconds)
+        with self.db.session() as session:
+            ready = list(
+                session.scalars(
+                    select(Card).where(
+                        Card.status == CardStatus.READY,
+                        Card.hold_reason.is_(None),
+                        # An epic's parts are started by its swarm.
+                        Card.parent_id.is_(None),
+                    )
+                )
+            )
+            candidates = []
+            for card in ready:
+                if card.updated_at is not None and as_utc(card.updated_at) > cutoff:
+                    continue
+                running = session.scalar(
+                    select(Run.id).where(Run.card_id == card.id, Run.status == RunStatus.RUNNING)
+                )
+                if running is None:
+                    candidates.append(card.id)
+        picked = []
+        for card_id in candidates:
+            if not self.is_scheduled(card_id):
+                self.submit(card_id)
+                picked.append(card_id)
+        return picked
+
     def is_scheduled(self, card_id: int) -> bool:
         """True while a card is queued or running in this engine."""
         task = self._tasks.get(card_id)
@@ -1820,6 +1852,9 @@ class Engine:
             or ctx.is_setup
             or ctx.project_spec.workspace.database
             or not ctx.project_spec.verify.gates
+            # A fresh worktree per snapshot would reinstall every dependency: on a big
+            # project that is minutes of disk work each time, which costs more than it saves.
+            or "setup" in ctx.project_spec.verify.gates
         ):
             return
         previous = active.gates.get(slot)
