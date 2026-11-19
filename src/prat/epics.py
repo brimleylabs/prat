@@ -29,9 +29,15 @@ You split a feature into parts that separate agents build at the same time; each
 and merged into the feature as soon as it passes. Read the codebase first (read-only tools) so
 the parts follow how the code is really organised.
 
+First decide whether to split at all. Every part has a cost of its own (an agent starting, its
+checks, its review, merging), and parts that wait on each other run one after another. When one
+agent would build the whole feature in a few minutes (a few hundred lines in a few files), or the
+parts would mostly wait on each other, splitting is slower: answer {{"one_card": true}} and the
+feature is built as one card. Split when the feature is big and its parts can truly run at once.
+
 Rules for the parts:
-- Between {lo} and {hi} parts, and no more than the feature needs: every part has a cost of its
-  own (its own checks and review), so do not split work one agent does quickly anyway.
+- Between {lo} and {hi} parts, and no more than the feature needs: do not split work one agent
+  does quickly anyway.
 - Speed comes from parts running at once. Keep the dependency chain short: a part depends on
   another only when it cannot be written and tested without that part's code. Prefer one
   foundation part, then parts that need only the foundation.
@@ -39,7 +45,9 @@ Rules for the parts:
   interface into the goal of every part that uses it, so each agent builds against the same
   contract.
 - Each part must land on its own and leave the project working, and names the files it will
-  mostly touch, in its goal.
+  mostly touch, in its goal. Parts that run at the same time do not edit the same file: give
+  each its own module where the contract allows, since two parts changing one file collide when
+  they merge and one of them is built again.
 - Acceptance criteria are testable statements, one per line; each part tests its own work.
 
 Answer with JSON only, no prose before or after:
@@ -63,7 +71,8 @@ class EpicError(ValueError):
 
 
 def parse_parts(text: str) -> list[Part]:
-    """The parts in a planner's answer. Raises EpicError when there is no usable split."""
+    """The parts in a planner's answer: an empty list when the planner says the feature is
+    built faster as one card. Raises EpicError when there is no usable answer."""
     match = re.search(r"\{.*\}", text or "", re.S)
     if match is None:
         raise EpicError("the planner did not answer with JSON")
@@ -71,6 +80,8 @@ def parse_parts(text: str) -> list[Part]:
         data = json.loads(match.group(0))
     except ValueError as exc:
         raise EpicError(f"the planner's JSON did not parse: {exc}") from exc
+    if isinstance(data, dict) and data.get("one_card") is True:
+        return []
     raw = data.get("parts") if isinstance(data, dict) else None
     if not isinstance(raw, list):
         raise EpicError("no parts in the planner's answer")

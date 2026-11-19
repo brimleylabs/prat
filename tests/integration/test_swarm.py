@@ -203,3 +203,27 @@ def _comments(db: Database, card_id: int) -> list:
         found = list(store.get_card(session, card_id).comments)
         session.expunge_all()
     return found
+
+
+async def test_an_epic_the_planner_judges_small_is_built_as_one_card(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    def builder(task: AgentTask) -> list[dict]:
+        return [
+            {"op": "write", "path": "share.py", "content": "def share():\n    return 1\n"},
+            {"op": "finish", "message": "built"},
+        ]
+
+    engine, _ = make_engine(settings, db, runtime_for({"one_card": True}, builder))
+    epic_id = add_epic(db, project)
+    result = await engine.run_card(epic_id)
+    assert result.card_status is CardStatus.REVIEW, result.reason
+    assert parts_of(db, epic_id) == []
+    with db.session() as session:
+        card = store.get_card(session, epic_id)
+        assert card.kind is CardKind.CHANGE
+        branch = card.branch or ""
+    assert git(Path(project.agent_path), "cat-file", "-t", f"{branch}:share.py") == "blob"
+    merged = await engine.approve(epic_id)
+    assert status(db, epic_id) is CardStatus.DONE
+    assert "share.py" in git(Path(project.agent_path), "ls-tree", "--name-only", merged.commit)
