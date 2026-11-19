@@ -124,6 +124,9 @@ class Settings(BaseSettings):
     # With it, the reviewer starts when a builder runs the tests, on a snapshot of its work
     # (prat.engine.speculative); the verdict counts only for that same code.
     speculative_review: bool = True
+    # With it, PRAT's gates also start on that snapshot, in a worktree of their own; their
+    # result counts only if the work handed over is that same code and every gate passed.
+    speculative_gates: bool = True
     # Extended thinking for builders, where the project's crew allows it.
     builder_thinking: bool = True
     # The files a card names, read for its builder before it starts (prat.engine.context_pack),

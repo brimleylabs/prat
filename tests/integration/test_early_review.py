@@ -169,3 +169,42 @@ async def test_the_winning_rivals_own_speculative_review_is_kept(
     assert "critique.speculative_kept" in journal_kinds(db, card_id)
     kept = [r for r in reviewer.requests if "rival.py" in r.diff]
     assert kept and "lead.py" not in kept[0].diff
+
+
+async def test_the_gates_start_on_the_snapshot_and_their_result_is_kept(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    script = [
+        {"op": "write", "path": "hello.py", "content": "def greet():\n    return 'hi'\n"},
+        {"op": "bash", "command": "echo pytest"},
+        {"op": "wait", "seconds": 1},
+        {"op": "finish"},
+    ]
+    engine, _ = make_engine(settings, db, script, reviewer=SlowReviewer())
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    await engine.checkouts_set_up()
+    assert result.card_status is CardStatus.REVIEW
+    kinds = kinds_of(db, card_id)
+    assert "verify.speculative_started" in kinds and "verify.speculative_kept" in kinds
+    assert "verify.gate" in kinds
+
+
+async def test_gates_on_an_old_snapshot_are_not_kept(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    script = [
+        {"op": "write", "path": "hello.py", "content": "def greet():\n    return 'hi'\n"},
+        {"op": "bash", "command": "echo pytest"},
+        {"op": "wait", "seconds": 0.3},
+        {"op": "write", "path": "later.py", "content": "x = 1\n"},
+        {"op": "finish"},
+    ]
+    engine, _ = make_engine(settings, db, script, reviewer=SlowReviewer())
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    await engine.checkouts_set_up()
+    assert result.card_status is CardStatus.REVIEW
+    kinds = kinds_of(db, card_id)
+    assert "verify.speculative_started" in kinds
+    assert "verify.speculative_kept" not in kinds

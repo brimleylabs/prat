@@ -326,6 +326,16 @@ class _Active:
     early_review: tuple[str, asyncio.Task[Any]] | None = None
     # Speculative reviews, one per builder's worktree while racing: (tree, review).
     speculative: dict[str, tuple[str, asyncio.Task[Any]]] = field(default_factory=dict)
+    # Speculative gate runs, one per builder's worktree: (tree, stop, gates).
+    gates: dict[str, tuple[str, threading.Event, asyncio.Task[list[GateResult]]]] = field(
+        default_factory=dict
+    )
+
+    def stop_gates(self, keep: str | None = None) -> None:
+        """Stop the speculative gate runs, all but the one for tree ``keep``."""
+        for tree, stop, _ in self.gates.values():
+            if tree != keep:
+                stop.set()
 
 
 @dataclass
@@ -1027,6 +1037,7 @@ class Engine:
         try:
             await self._run_steps(active)
         finally:
+            active.stop_gates()
             heartbeat.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await heartbeat
@@ -1694,6 +1705,14 @@ class Engine:
             return StepResult(
                 StepStatus.FAILED, {"error": str(exc)}, RunStatus.FAILED, str(exc), str(exc)
             )
+        if not parts:
+            # Faster as one card: the epic becomes one, and this run goes on to build it.
+            with self.db.session() as session:
+                store.get_card(session, ctx.card_id).kind = CardKind.CHANGE
+            ctx.journal.append("epic.one_card", {})
+            return StepResult(
+                StepStatus.SKIPPED, {"reason": "the planner judged it faster built as one card"}
+            )
         ids = await asyncio.to_thread(epics.create_parts, self.db, ctx.card_id, parts)
         await asyncio.to_thread(
             self._bench_episode,
@@ -1781,6 +1800,7 @@ class Engine:
             stats = await asyncio.to_thread(self.worktrees.diff_stats, worktree, ctx.base, commit)
             if stats.empty:
                 return
+            self._speculate_gates(ctx, active, slot, tree, commit)
             diff = await asyncio.to_thread(self.worktrees.diff_text, worktree, ctx.base, commit)
             ctx.journal.append("critique.speculative", {"tree": tree, "worktree": str(worktree)})
             self._start_early_review(
@@ -1788,6 +1808,79 @@ class Engine:
             )
         except Exception:
             log.exception("a speculative review of run %s could not start", ctx.run_id)
+
+    def _speculate_gates(
+        self, ctx: _Ctx, active: _Active, slot: str, tree: str, commit: str
+    ) -> None:
+        """Start PRAT's gates on a builder's snapshot, in a worktree of their own. Verify keeps
+        the result only for the tree it hands over, and only when every gate passed."""
+        if (
+            not self.settings.speculative_gates
+            or self.settings.sandbox == "docker"
+            or ctx.is_setup
+            or ctx.project_spec.workspace.database
+            or not ctx.project_spec.verify.gates
+        ):
+            return
+        previous = active.gates.get(slot)
+        if previous is not None:
+            if previous[0] == tree:
+                return
+            previous[1].set()
+        stop = threading.Event()
+        task = asyncio.create_task(self._gates_on(ctx, tree, commit, stop))
+        self._setups.add(task)
+        task.add_done_callback(self._setups.discard)
+        active.gates[slot] = (tree, stop, task)
+        ctx.journal.append("verify.speculative_started", {"tree": tree, "worktree": slot})
+
+    async def _gates_on(
+        self, ctx: _Ctx, tree: str, commit: str, stop: threading.Event
+    ) -> list[GateResult]:
+        spec = ctx.project_spec
+        where = ctx.worktree_path.parent / f"{ctx.worktree_path.name}-gates-{tree[:10]}"
+        try:
+            await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, where)
+            git = Git(ctx.agent_path)
+            await asyncio.to_thread(
+                git.run, "worktree", "add", "--quiet", "--detach", str(where), commit
+            )
+            logs = ctx.run_dir / f"gates-{tree[:10]}"
+            await asyncio.to_thread(logs.mkdir, parents=True, exist_ok=True)
+            env = _database_env(spec, ctx.card_id, self._environ(ctx.project_slug))
+            return await asyncio.to_thread(
+                functools.partial(
+                    run_gates,
+                    spec,
+                    where,
+                    logs,
+                    stop=stop,
+                    timeout=min(spec.verify.timeout_seconds, self.settings.gate_timeout_seconds),
+                    env=env or None,
+                )
+            )
+        finally:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, where)
+
+    async def _speculated_gates(
+        self, ctx: _Ctx, active: _Active, tree: str | None
+    ) -> list[GateResult] | None:
+        """The speculative gates for ``tree`` when they all passed, else ``None``; the runs
+        for any other tree are stopped."""
+        active.stop_gates(keep=tree)
+        found = next((t for key, _, t in active.gates.values() if key == tree), None)
+        active.gates.clear()
+        if found is None:
+            return None
+        await asyncio.wait({found})
+        if found.cancelled() or found.exception() is not None:
+            return None
+        gates = found.result()
+        if not gates or not all(g.passed for g in gates):
+            return None
+        ctx.journal.append("verify.speculative_kept", {"tree": tree})
+        return gates
 
     async def _start_race(
         self,
@@ -2700,6 +2793,7 @@ class Engine:
                 )
         timeout = min(gate_spec.verify.timeout_seconds, self.settings.gate_timeout_seconds)
         gates = []
+        speculated: list[GateResult] | None = None
         if not findings and proposal_problem is not None:
             gates = [problem_gate(proposal_problem)]
         elif not findings:
@@ -2723,11 +2817,14 @@ class Engine:
                         active.early_review[1].cancel()
                         active.early_review = None
                     self._start_early_review(ctx, active, stats, diff, gate_spec, tree=head_tree)
+                speculated = await self._speculated_gates(ctx, active, head_tree)
             try:
                 sandbox = await asyncio.to_thread(self._sandbox, ctx, gate_env, gate_spec)
             except SandboxError as exc:
                 sandbox, gates = None, [sandbox_gate(str(exc))]
-            if not gates:
+            if not gates and speculated is not None and sandbox is None:
+                gates = speculated
+            elif not gates:
                 gates = await asyncio.to_thread(
                     functools.partial(
                         run_gates,

@@ -101,8 +101,10 @@ async def run_plain(
                     # for the process to exit can hang on a process the session left running.
                     break
         finally:
-            with contextlib.suppress(Exception):
-                await asyncio.wait_for(stream.aclose(), CLOSE_TIMEOUT_SECONDS)
+            close = getattr(stream, "aclose", None)
+            if close is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(close(), CLOSE_TIMEOUT_SECONDS)
 
     try:
         await asyncio.wait_for(drive(), time_limit)

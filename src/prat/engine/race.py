@@ -86,9 +86,10 @@ class Race:
         started = time.monotonic()
         lead_task = asyncio.ensure_future(lead())
         tasks: dict[asyncio.Future[Any], Rival | None] = {lead_task: None}
-        for rival in self.rivals:
-            future = asyncio.ensure_future(collect(self.runtime, rival.task, on_event=rival.record))
-            tasks[future] = rival
+        for each in self.rivals:
+            tasks[asyncio.ensure_future(collect(self.runtime, each.task, on_event=each.record))] = (
+                each
+            )
         pending: set[asyncio.Future[Any]] = set(tasks)
         lead_won = False
         try:
