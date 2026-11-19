@@ -117,6 +117,8 @@ class Settings(BaseSettings):
     # Builders racing on each card (prat.engine.race): the first to finish with a change is
     # kept. 1 turns racing off.
     race_builders: int = Field(default=2, ge=1, le=2)
+    # The reviewer starts while the gates run; its verdict counts only if they all pass.
+    review_during_gates: bool = True
     # Ceiling for every project and card. A project file cannot raise it.
     max_autonomy: Autonomy = Autonomy.MEDIUM
     default_budget_usd: float = Field(default=5.0, gt=0)

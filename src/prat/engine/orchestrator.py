@@ -93,7 +93,14 @@ from prat.knowledge.select import Selection
 from prat.model_registry import Role, resolve_model
 from prat.overlay import load_overlay, overlay_path
 from prat.policy import Decision, McpToolSpec, Policy, ToolCall
-from prat.projects import PROJECT_FILE_REL, ProjectSpec, command_argv, parse_spec, show_project_file
+from prat.projects import (
+    PROJECT_FILE_REL,
+    ProjectSpec,
+    command_argv,
+    command_text,
+    parse_spec,
+    show_project_file,
+)
 from prat.runtime import (
     ALL_TOOLS,
     READ_TOOLS,
@@ -314,6 +321,8 @@ class _Active:
     session_id: str | None = None
     cancel_requested: bool = False
     finalizing: bool = False
+    # A review started while the gates run, for the commit it reviews (see _step_verify).
+    early_review: tuple[str, asyncio.Task[Any]] | None = None
 
 
 @dataclass
@@ -2392,6 +2401,7 @@ class Engine:
             else:
                 won = await race.run(lead, lambda: outcome)
                 race_detail = race.detail
+                journal.append("race.finished", race_detail)
                 if won is not None:
                     # The other builder finished first with a change: the card takes its work.
                     if active.session_id:
@@ -2577,6 +2587,8 @@ class Engine:
                 # installed while trying things: a stale .venv or node_modules can make its
                 # gates pass, or fail, for reasons the next checkout will not share.
                 await asyncio.to_thread(_reset_worktree, worktree, ignored=True)
+            if not ctx.is_setup:
+                self._start_early_review(ctx, active, stats, diff, gate_spec)
             try:
                 sandbox = await asyncio.to_thread(self._sandbox, ctx, gate_env, gate_spec)
             except SandboxError as exc:
@@ -2667,6 +2679,10 @@ class Engine:
             "changes": _with_data_changes(changes.to_dict(), databases, spec),
             "databases": databases,
         }
+        failed = [g for g in gates if not g.passed]
+        if (findings or failed) and active.early_review is not None:
+            active.early_review[1].cancel()
+            active.early_review = None
         if findings:
             return StepResult(
                 StepStatus.FAILED,
@@ -2675,7 +2691,6 @@ class Engine:
                 f"verification failed: {findings[0].message}",
                 findings[0].message,
             )
-        failed = [g for g in gates if not g.passed]
         if failed:
             return StepResult(
                 StepStatus.FAILED,
@@ -2686,25 +2701,17 @@ class Engine:
             )
         return StepResult(detail=detail)
 
-    async def _step_critique(self, ctx: _Ctx, active: _Active) -> StepResult:
-        if self.reviewer is None:
-            return StepResult(StepStatus.SKIPPED, detail={"reason": "no reviewer configured"})
+    async def _review_request(
+        self,
+        ctx: _Ctx,
+        stats: Any,
+        diff: str,
+        gates: list[dict[str, Any]],
+        changes: Any,
+        databases: list[dict[str, Any]],
+        model: str | None,
+    ) -> tuple[ReviewRequest, Any]:
         remaining = self._remaining_budget(ctx)
-        if remaining is not None and remaining <= 0:
-            return StepResult(
-                StepStatus.SKIPPED, detail={"reason": "no budget left for the reviewer"}
-            )
-        stats = await asyncio.to_thread(self.worktrees.diff_stats, ctx.worktree_path, ctx.base)
-        diff = await asyncio.to_thread(self.worktrees.diff_text, ctx.worktree_path, ctx.base)
-        with self.db.session() as session:
-            verify = self._step_row(session, ctx.run_id, StepName.VERIFY)
-            gates = list(verify.detail.get("gates", []))
-            changes = verify.detail.get("changes")
-            databases = list(verify.detail.get("databases") or [])
-            project = session.get(Project, ctx.project_id)
-            is_self = bool(project is not None and project.is_self)
-        wants_security = is_self or "security" in ctx.project_spec.review.reviewers
-        model = self._model(Role.CRITIC, ctx)
         # The diff's file names seed the code map too: the reviewer needs notes on what changed.
         knowledge = await self._knowledge(ctx, Role.CRITIC, diff[:4000])
         request = ReviewRequest(
@@ -2735,7 +2742,84 @@ class Engine:
                 if t
             ),
         )
-        result = await self.reviewer.review(request)
+        return request, knowledge
+
+    def _start_early_review(
+        self, ctx: _Ctx, active: _Active, stats: Any, diff: str, spec: ProjectSpec
+    ) -> None:
+        """Start the reviewer while the gates run (``review_during_gates``). Its verdict is used
+        only if every gate then passes on the same commit; a failing gate discards it. Cards with
+        database changes are reviewed after the gates, which they need to show those changes."""
+        if (
+            self.reviewer is None
+            or not self.settings.review_during_gates
+            or not spec.verify.gates
+            or spec.workspace.database
+        ):
+            return
+        remaining = self._remaining_budget(ctx)
+        if remaining is not None and remaining <= 0:
+            return
+        pending: list[dict[str, Any]] = []
+        for name in spec.verify.gates:
+            command = spec.commands.get(name)
+            pending.append(
+                {
+                    "name": name,
+                    "command": command_text(command) if command is not None else "",
+                    "pending": True,
+                }
+            )
+        changes = classify_diff(stats, diff, spec.changes).to_dict()
+        model = self._model(Role.CRITIC, ctx)
+        reviewer = self.reviewer
+
+        async def review() -> tuple[ReviewRequest, Any, Any]:
+            request, knowledge = await self._review_request(
+                ctx, stats, diff, pending, changes, [], model
+            )
+            return request, knowledge, await reviewer.review(request)
+
+        ctx.journal.append("critique.early", {"head_commit": stats.head})
+        active.early_review = (stats.head, asyncio.create_task(review(), name="prat-early-review"))
+
+    async def _step_critique(self, ctx: _Ctx, active: _Active) -> StepResult:
+        if self.reviewer is None:
+            return StepResult(StepStatus.SKIPPED, detail={"reason": "no reviewer configured"})
+        remaining = self._remaining_budget(ctx)
+        if remaining is not None and remaining <= 0:
+            return StepResult(
+                StepStatus.SKIPPED, detail={"reason": "no budget left for the reviewer"}
+            )
+        stats = await asyncio.to_thread(self.worktrees.diff_stats, ctx.worktree_path, ctx.base)
+        diff = await asyncio.to_thread(self.worktrees.diff_text, ctx.worktree_path, ctx.base)
+        with self.db.session() as session:
+            verify = self._step_row(session, ctx.run_id, StepName.VERIFY)
+            gates = list(verify.detail.get("gates", []))
+            changes = verify.detail.get("changes")
+            databases = list(verify.detail.get("databases") or [])
+            project = session.get(Project, ctx.project_id)
+            is_self = bool(project is not None and project.is_self)
+        wants_security = is_self or "security" in ctx.project_spec.review.reviewers
+        model = self._model(Role.CRITIC, ctx)
+        early, active.early_review = active.early_review, None
+        reused: tuple[ReviewRequest, Any, Any] | None = None
+        if early is not None and early[0] == stats.head:
+            try:
+                reused = await early[1]
+            except Exception:
+                log.exception("the early review of run %s failed; reviewing again", ctx.run_id)
+        elif early is not None:
+            early[1].cancel()
+        if reused is not None:
+            request, knowledge, result = reused
+            # The verdict was reached while the gates ran; they have all passed since.
+            request = dataclasses.replace(request, gates=gates)
+        else:
+            request, knowledge = await self._review_request(
+                ctx, stats, diff, gates, changes, databases, model
+            )
+            result = await self.reviewer.review(request)
         if result.cost_usd:
             self._add_cost(ctx.run_id, result.cost_usd)
         verdict_word = str(result.verdict)

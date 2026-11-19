@@ -66,10 +66,9 @@ async def test_the_rival_finishes_first_and_the_card_takes_its_work(
     race = execute_detail(run)["race"]
     assert race["winner"] == "rival" and race["seconds"] < 20
     assert on_branch("rival.txt") == "rival"
-    with pytest.raises(Exception):
-        on_branch("lead.txt")
-    # The rival's worktree and branch are gone.
     agent = Path(project.agent_path)
+    assert "lead.txt" not in git(agent, "ls-tree", "-r", "--name-only", str(run.branch))
+    # The rival's worktree and branch are gone.
     assert not Path(str(run.worktree_path) + "-race").exists()
     assert "-race" not in git(agent, "branch", "--list")
 

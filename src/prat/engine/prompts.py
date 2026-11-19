@@ -316,6 +316,15 @@ def _gate_lines(gates: Sequence[Mapping[str, Any]]) -> list[str]:
         return ["No gates were configured for this project."]
     lines = []
     for gate in gates:
+        if gate.get("pending"):
+            lines.append(f"### {gate.get('name')}: running now")
+            lines.append(f"Command: {gate.get('command')}")
+            lines.append(
+                "PRAT is running this gate while you review. If it fails, your verdict is "
+                "discarded, so judge the change as if it passes, and check yourself that the "
+                "tests a criterion asks for exist in the diff."
+            )
+            continue
         state = "passed" if gate.get("passed") else f"failed (exit {gate.get('exit_code')})"
         lines.append(f"### {gate.get('name')}: {state}")
         lines.append(f"Command: {gate.get('command')}")

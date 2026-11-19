@@ -33,21 +33,27 @@ MAX_COMMAND_OUTPUT = 1500
 
 def executed_commands(journal_path: str | None) -> list[dict[str, str]]:
     """The shell commands the builder ran in this run and their output, from PRAT's own
-    journal (secrets are redacted there), most recent last. Denied calls are left out."""
+    journal (secrets are redacted there), most recent last. Denied calls are left out. When a
+    racing builder's work was kept (prat.engine.race), they are its commands."""
     if not journal_path:
         return []
     try:
-        entries = read_journal(Path(journal_path))
+        entries = list(read_journal(Path(journal_path)))
     except OSError:
         return []
+    winner = next(
+        (str((e.data or {}).get("winner")) for e in reversed(entries) if e.kind == "race.finished"),
+        "lead",
+    )
+    who = "rival" if winner == "rival" else "runtime"
     calls: dict[str, str] = {}
     found: list[dict[str, str]] = []
     for entry in entries:
         data = entry.data or {}
         call_id = str(data.get("call_id", ""))
-        if entry.kind == "runtime.tool_call" and str(data.get("tool", "")).lower() == "bash":
+        if entry.kind == f"{who}.tool_call" and str(data.get("tool", "")).lower() == "bash":
             calls[call_id] = str((data.get("input") or {}).get("command", ""))
-        elif entry.kind == "runtime.tool_result" and call_id in calls and not data.get("denied"):
+        elif entry.kind == f"{who}.tool_result" and call_id in calls and not data.get("denied"):
             output = str(data.get("output", ""))
             if len(output) > MAX_COMMAND_OUTPUT:
                 head, tail = output[: MAX_COMMAND_OUTPUT // 3], output[-MAX_COMMAND_OUTPUT // 2 :]
