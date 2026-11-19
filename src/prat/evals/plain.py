@@ -12,6 +12,7 @@ It runs on this machine even when PRAT's sandbox is on, so run it on cases you t
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import dataclasses
 import os
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ from prat.model_registry import Role, resolve_model
 from prat.projects import ProjectSpec
 
 SESSION_TIMEOUT_SECONDS = 3600.0
+CLOSE_TIMEOUT_SECONDS = 30.0
 
 
 @dataclass(frozen=True)
@@ -85,14 +87,22 @@ async def run_plain(
     totals = {"cost": 0.0, "turns": 0}
 
     async def drive() -> None:
-        async for message in query(prompt=text, options=options):
-            if log is not None:
-                log.append(f"plain.{type(message).__name__}", _as_data(message))
-            if isinstance(message, ResultMessage):
-                totals["cost"] = float(message.total_cost_usd or 0.0)
-                totals["turns"] = int(message.num_turns or 0)
-                outcome["status"] = "failed" if message.is_error else "succeeded"
-                outcome["reason"] = str(message.subtype)
+        stream = query(prompt=text, options=options)
+        try:
+            async for message in stream:
+                if log is not None:
+                    log.append(f"plain.{type(message).__name__}", _as_data(message))
+                if isinstance(message, ResultMessage):
+                    totals["cost"] = float(message.total_cost_usd or 0.0)
+                    totals["turns"] = int(message.num_turns or 0)
+                    outcome["status"] = "failed" if message.is_error else "succeeded"
+                    outcome["reason"] = str(message.subtype)
+                    # The result is the end of the session, as in PRAT's runtime: waiting on
+                    # for the process to exit can hang on a process the session left running.
+                    break
+        finally:
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(stream.aclose(), CLOSE_TIMEOUT_SECONDS)
 
     try:
         await asyncio.wait_for(drive(), time_limit)
