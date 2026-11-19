@@ -881,6 +881,20 @@ class ClaudeRuntime:
                     live.client.interrupt(), self.config.interrupt_timeout_seconds
                 )
 
+    async def abandon(self, session_id: str) -> None:
+        """End a session at once, without letting it finish its turn: for work that is thrown
+        away (the losing builder of a race). A graceful stop waits for the process to exit."""
+        self._cancelled.add(session_id)
+        live = next((v for v in self._live.values() if v.session_id == session_id), None)
+        if live is None:
+            return
+        live.cancel.set()
+        transport = getattr(live.client, "_transport", None)
+        process = getattr(transport, "_process", None)
+        if process is not None and getattr(process, "returncode", 0) is None:
+            with contextlib.suppress(Exception):
+                process.kill()
+
     # Internals -----------------------------------------------------------------
 
     async def _session(self, task: AgentTask, *, resume: str | None) -> AsyncIterator[RuntimeEvent]:

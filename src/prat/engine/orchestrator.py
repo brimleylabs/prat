@@ -2410,12 +2410,7 @@ class Engine:
             if race is None:
                 await lead()
             else:
-
-                async def stop_lead() -> None:
-                    if active.session_id:
-                        await self.runtime.cancel(active.session_id)
-
-                won = await race.run(lead, lambda: outcome, stop_lead)
+                won = await race.run(lead, lambda: outcome, lambda: active.session_id)
                 race_detail = race.detail
                 journal.append("race.finished", race_detail)
                 if won is not None:
