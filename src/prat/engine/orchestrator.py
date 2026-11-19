@@ -2399,13 +2399,16 @@ class Engine:
             if race is None:
                 await lead()
             else:
-                won = await race.run(lead, lambda: outcome)
+
+                async def stop_lead() -> None:
+                    if active.session_id:
+                        await self.runtime.cancel(active.session_id)
+
+                won = await race.run(lead, lambda: outcome, stop_lead)
                 race_detail = race.detail
                 journal.append("race.finished", race_detail)
                 if won is not None:
                     # The other builder finished first with a change: the card takes its work.
-                    if active.session_id:
-                        await self.runtime.cancel(active.session_id)
                     outcome, message = won.outcome, won.message
                     blocked_reason = won.blocked_reason
                     active.session_id = won.session_id
@@ -2415,7 +2418,10 @@ class Engine:
                 self._update_run(ctx.run_id, cost_usd=cost)
         finally:
             if race is not None:
-                await asyncio.to_thread(race.cleanup)
+                # The rival's worktree goes in the background: the run moves on at once.
+                cleanup = asyncio.create_task(asyncio.to_thread(race.cleanup))
+                self._setups.add(cleanup)
+                cleanup.add_done_callback(self._setups.discard)
             if sandbox is not None:
                 # Commands the agent's runtime gave up on leave their containers behind.
                 await asyncio.to_thread(sandbox.cleanup)

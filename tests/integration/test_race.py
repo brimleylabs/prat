@@ -49,6 +49,7 @@ async def run_race(
     card_id = add_card(db, project)
     result = await engine.run_card(card_id)
     assert result.card_status is CardStatus.REVIEW, result.reason
+    await engine.checkouts_set_up()  # the rival's worktree is removed in the background
     run = run_of(db, card_id)
     agent = Path(project.agent_path)
 

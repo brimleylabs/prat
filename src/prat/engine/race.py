@@ -56,6 +56,7 @@ class Race:
         self,
         lead: Callable[[], Awaitable[None]],
         lead_outcome: Callable[[], Outcome | None],
+        stop_lead: Callable[[], Awaitable[None]] | None = None,
     ) -> SessionOutput | None:
         """Run the lead (the card's own session loop) against the rival. Returns the rival's
         output when the rival won, ``None`` when the lead's result stands."""
@@ -86,6 +87,11 @@ class Race:
                     )
                     if rival_good:
                         self.detail["winner"] = "rival"
+                        if stop_lead is not None and not lead_task.done():
+                            # Ending the lead's session directly is faster than waiting for
+                            # its stream to wind down.
+                            with contextlib.suppress(Exception):
+                                await stop_lead()
                         break
             self.detail.setdefault("winner", "none")
         except BaseException:
