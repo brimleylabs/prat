@@ -324,6 +324,8 @@ class _Active:
     finalizing: bool = False
     # A review started while the gates run, for the commit it reviews (see _step_verify).
     early_review: tuple[str, asyncio.Task[Any]] | None = None
+    # Speculative reviews, one per builder's worktree while racing: (tree, review).
+    speculative: dict[str, tuple[str, asyncio.Task[Any]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -1742,22 +1744,15 @@ class Engine:
         ):
             return lambda event: None
         markers = speculative.test_markers(ctx.project_spec)
-        edited = False
 
         def observe(event: Any) -> None:
-            nonlocal edited
-            if not isinstance(event, ToolCallEvent):
+            if not isinstance(event, ToolCallEvent) or event.tool.lower() != "bash":
                 return
-            tool = event.tool.lower()
-            if tool in speculative.EDIT_TOOLS:
-                edited = True
-            elif tool == "bash" and edited:
-                command = str((event.input or {}).get("command", ""))
-                if speculative.runs_tests(command, markers):
-                    edited = False
-                    task = asyncio.create_task(self._speculate(ctx, active, worktree))
-                    self._setups.add(task)
-                    task.add_done_callback(self._setups.discard)
+            command = str((event.input or {}).get("command", ""))
+            if speculative.runs_tests(command, markers):
+                task = asyncio.create_task(self._speculate(ctx, active, worktree))
+                self._setups.add(task)
+                task.add_done_callback(self._setups.discard)
 
         return observe
 
@@ -1767,18 +1762,20 @@ class Engine:
             if shot is None or ctx.base is None:
                 return
             tree, commit = shot
-            if active.early_review is not None:
-                if active.early_review[0] == tree:
+            slot = str(worktree)
+            previous = active.speculative.get(slot)
+            if previous is not None:
+                if previous[0] == tree:
                     return
-                active.early_review[1].cancel()
-                active.early_review = None
+                previous[1].cancel()
+                active.speculative.pop(slot, None)
             stats = await asyncio.to_thread(self.worktrees.diff_stats, worktree, ctx.base, commit)
             if stats.empty:
                 return
             diff = await asyncio.to_thread(self.worktrees.diff_text, worktree, ctx.base, commit)
             ctx.journal.append("critique.speculative", {"tree": tree, "worktree": str(worktree)})
             self._start_early_review(
-                ctx, active, stats, diff, ctx.project_spec, tree=tree, worktree=worktree
+                ctx, active, stats, diff, ctx.project_spec, tree=tree, worktree=worktree, slot=slot
             )
         except Exception:
             log.exception("a speculative review of run %s could not start", ctx.run_id)
@@ -2500,11 +2497,13 @@ class Engine:
             if race is not None:
                 # The rival's worktree goes in the background: the run moves on at once, and
                 # a review still reading it finishes first.
-                reading = active.early_review[1] if active.early_review is not None else None
+                reading = [review for _, review in active.speculative.values()]
+                if active.early_review is not None:
+                    reading.append(active.early_review[1])
 
                 async def remove_rival(race: Race = race) -> None:
-                    if reading is not None:
-                        await asyncio.wait({reading}, timeout=600)
+                    if reading:
+                        await asyncio.wait(set(reading), timeout=600)
                     await asyncio.to_thread(race.cleanup)
 
                 cleanup = asyncio.create_task(remove_rival())
@@ -2683,6 +2682,12 @@ class Engine:
                 await asyncio.to_thread(_reset_worktree, worktree, ignored=True)
             if not ctx.is_setup:
                 head_tree = await asyncio.to_thread(speculative.tree_of, worktree, stats.head)
+                for key, review in active.speculative.values():
+                    if key == head_tree and active.early_review is None:
+                        active.early_review = (key, review)
+                    else:
+                        review.cancel()
+                active.speculative.clear()
                 if active.early_review is not None and active.early_review[0] == head_tree:
                     ctx.journal.append("critique.speculative_kept", {"tree": head_tree})
                 else:
@@ -2781,6 +2786,10 @@ class Engine:
             "databases": databases,
         }
         failed = [g for g in gates if not g.passed]
+        if findings or failed:
+            for _, review in active.speculative.values():
+                review.cancel()
+            active.speculative.clear()
         if (findings or failed) and active.early_review is not None:
             active.early_review[1].cancel()
             active.early_review = None
@@ -2855,6 +2864,7 @@ class Engine:
         *,
         tree: str | None = None,
         worktree: Path | None = None,
+        slot: str | None = None,
     ) -> None:
         """Start the reviewer while the gates run (``review_during_gates``). Its verdict is used
         only if every gate then passes on the same commit; a failing gate discards it. Cards with
@@ -2894,7 +2904,11 @@ class Engine:
 
         key = tree or speculative.tree_of(ctx.worktree_path, stats.head) or stats.head
         ctx.journal.append("critique.early", {"head_commit": stats.head, "tree": key})
-        active.early_review = (key, asyncio.create_task(review(), name="prat-early-review"))
+        started = (key, asyncio.create_task(review(), name="prat-early-review"))
+        if slot is not None:
+            active.speculative[slot] = started
+        else:
+            active.early_review = started
 
     async def _step_critique(self, ctx: _Ctx, active: _Active) -> StepResult:
         if self.reviewer is None:

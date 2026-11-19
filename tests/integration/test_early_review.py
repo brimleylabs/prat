@@ -14,6 +14,7 @@ from prat.domain import CardStatus
 from prat.engine import FakeReviewer
 from prat.engine.interfaces import ReviewRequest, ReviewResult
 from prat.journal import read_journal
+from prat.runtime import FakeRuntime
 
 pytestmark = pytest.mark.integration
 
@@ -105,7 +106,9 @@ async def test_the_reviewer_starts_when_the_builder_runs_the_tests(
     result = await engine.run_card(card_id)
     assert result.card_status is CardStatus.REVIEW
     kinds = kinds_of(db, card_id)
-    assert "critique.speculative" in kinds and "critique.speculative_kept" in kinds, [k for k in kinds if "critique" in k or "tool" in k]
+    assert "critique.speculative" in kinds and "critique.speculative_kept" in kinds, [
+        k for k in kinds if "critique" in k or "tool" in k
+    ]
     assert len(reviewer.requests) == 1
     assert "hello.py" in reviewer.requests[0].diff
 
@@ -128,3 +131,41 @@ async def test_a_change_after_the_snapshot_is_reviewed_again(
     assert "critique.speculative_kept" not in kinds_of(db, card_id)
     # The verdict that counts was given on the code that was handed over.
     assert "later.py" in reviewer.requests[-1].diff
+
+
+async def test_the_winning_rivals_own_speculative_review_is_kept(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    from prat.runtime import AgentTask, FakeScript
+
+    def script_for(task: AgentTask) -> FakeScript:
+        if task.metadata.get("role") == "rival":
+            return FakeScript.parse(
+                [
+                    {"op": "write", "path": "rival.py", "content": "x = 1\n"},
+                    {"op": "bash", "command": "echo pytest"},
+                    {"op": "wait", "seconds": 1},
+                    {"op": "finish"},
+                ]
+            )
+        return FakeScript.parse(
+            [
+                {"op": "write", "path": "lead.py", "content": "y = 1\n"},
+                {"op": "wait", "seconds": 0.5},
+                {"op": "bash", "command": "echo pytest"},
+                {"op": "wait", "seconds": 20},
+                {"op": "finish"},
+            ]
+        )
+
+    reviewer = SlowReviewer()
+    engine, _ = make_engine(
+        settings, db, FakeRuntime(script_for), reviewer=reviewer, race_builders=2
+    )
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    await engine.checkouts_set_up()
+    assert result.card_status is CardStatus.REVIEW
+    assert "critique.speculative_kept" in journal_kinds(db, card_id)
+    kept = [r for r in reviewer.requests if "rival.py" in r.diff]
+    assert kept and "lead.py" not in kept[0].diff
