@@ -74,7 +74,7 @@ from prat.engine.prompts import (
     project_facts,
     repository_instructions,
 )
-from prat.engine.race import Race
+from prat.engine.race import Race, Rival
 from prat.engine.security import SecurityResult, SecurityReviewer, SecurityVerdict
 from prat.engine.summary import render_summary
 from prat.engine.telemetry import RunTelemetry
@@ -1729,9 +1729,9 @@ class Engine:
     # Swarms (prat.swarm) ----------------------------------------------------------
 
     def _rival_events(
-        self, ctx: _Ctx, active: _Active, worktree: Path
+        self, ctx: _Ctx, active: _Active, worktree: Path, name: str = "rival"
     ) -> Callable[[RuntimeEvent], None]:
-        record = self._journal_events(ctx, "rival")
+        record = self._journal_events(ctx, name)
         watch = self._watch(ctx, active, worktree)
 
         def observe(event: RuntimeEvent) -> None:
@@ -1797,8 +1797,8 @@ class Engine:
         env: Mapping[str, str],
         active: _Active,
     ) -> Race | None:
-        """A rival builder for this card (prat.engine.race), or ``None`` when the card does not
-        race: a resumed session, a setup or infra card, or one with its own database branch."""
+        """The rival builders for this card (prat.engine.race), or ``None`` when the card does
+        not race: a resumed session, a setup or infra card, or one with its own database branch."""
         if (
             self.settings.race_builders < 2
             or ctx.session_id
@@ -1808,55 +1808,74 @@ class Engine:
         ):
             return None
         lead_path = ctx.worktree_path
-        path = lead_path.parent / f"{lead_path.name}-race"
-        branch = f"{ctx.branch or card_branch(ctx.card_id, ctx.title)}-race"
+        base_branch = ctx.branch or card_branch(ctx.card_id, ctx.title)
         try:
             start = await asyncio.to_thread(Git(lead_path).head)
-            await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, path)
-            await asyncio.to_thread(
-                Git(ctx.agent_path).run, "branch", "-D", "--quiet", branch, check=False
-            )
-            await asyncio.to_thread(
-                self.worktrees.create_worktree, ctx.agent_path, path, branch, start
-            )
-        except (GitError, CloneError, OSError) as exc:
+        except GitError as exc:
             ctx.journal.append("race.skipped", {"reason": str(exc)})
             return None
-        rival_ctx = dataclasses.replace(ctx, worktree=path)
-        rival_sandbox = None
-        if sandbox is not None:
+        rivals: list[Rival] = []
+        for number in range(1, self.settings.race_builders):
+            suffix = "race" if number == 1 else f"race{number}"
+            name = "rival" if number == 1 else f"rival{number}"
+            path = lead_path.parent / f"{lead_path.name}-{suffix}"
+            branch = f"{base_branch}-{suffix}"
             try:
-                rival_sandbox = await asyncio.to_thread(self._sandbox, rival_ctx, env)
-            except SandboxError as exc:
-                ctx.journal.append("race.skipped", {"reason": str(exc)})
                 await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, path)
-                return None
-        rival_task = dataclasses.replace(
-            task,
-            workdir=path,
-            policy=self._guarded(rival_ctx, None, "rival"),
-            shell=(
-                functools.partial(rival_sandbox.shell, cwd=path, env=env)
-                if rival_sandbox is not None
-                else None
-            ),
-            # The crew's own tools write the card's memory and journal: the lead's alone.
-            helpers={},
-            prat_tools=(),
-            metadata={**task.metadata, "role": "rival"},
+                await asyncio.to_thread(
+                    Git(ctx.agent_path).run, "branch", "-D", "--quiet", branch, check=False
+                )
+                await asyncio.to_thread(
+                    self.worktrees.create_worktree, ctx.agent_path, path, branch, start
+                )
+            except (GitError, CloneError, OSError) as exc:
+                ctx.journal.append("race.skipped", {"reason": str(exc), "rival": name})
+                continue
+            rival_ctx = dataclasses.replace(ctx, worktree=path)
+            rival_sandbox = None
+            if sandbox is not None:
+                try:
+                    rival_sandbox = await asyncio.to_thread(self._sandbox, rival_ctx, env)
+                except SandboxError as exc:
+                    ctx.journal.append("race.skipped", {"reason": str(exc), "rival": name})
+                    await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, path)
+                    continue
+            rival_task = dataclasses.replace(
+                task,
+                workdir=path,
+                policy=self._guarded(rival_ctx, None, name),
+                shell=(
+                    functools.partial(rival_sandbox.shell, cwd=path, env=env)
+                    if rival_sandbox is not None
+                    else None
+                ),
+                # The crew's own tools write the card's memory and journal: the lead's alone.
+                helpers={},
+                prat_tools=(),
+                metadata={**task.metadata, "role": name},
+            )
+            rivals.append(
+                Rival(
+                    name=name,
+                    task=rival_task,
+                    path=path,
+                    branch=branch,
+                    on_event=self._rival_events(ctx, active, path, name),
+                    sandbox=rival_sandbox,
+                )
+            )
+        if not rivals:
+            return None
+        ctx.journal.append(
+            "race.started", {"rivals": [str(r.path) for r in rivals], "start": start}
         )
-        ctx.journal.append("race.started", {"rival": str(path), "start": start})
         return Race(
             runtime=self.runtime,
-            task=rival_task,
             worktrees=self.worktrees,
             agent_path=ctx.agent_path,
             lead_path=lead_path,
-            path=path,
-            branch=branch,
             start=start,
-            on_event=self._rival_events(ctx, active, path),
-            sandbox=rival_sandbox,
+            rivals=rivals,
         )
 
     def _is_swarm_part(self, card_id: int) -> bool:

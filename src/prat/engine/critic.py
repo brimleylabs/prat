@@ -45,7 +45,7 @@ def executed_commands(journal_path: str | None) -> list[dict[str, str]]:
         (str((e.data or {}).get("winner")) for e in reversed(entries) if e.kind == "race.finished"),
         "lead",
     )
-    who = "rival" if winner == "rival" else "runtime"
+    who = winner if winner.startswith("rival") else "runtime"
     calls: dict[str, str] = {}
     found: list[dict[str, str]] = []
     for entry in entries:

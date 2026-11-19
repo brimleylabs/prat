@@ -106,3 +106,27 @@ async def test_without_racing_there_is_one_builder(
     await engine.run_card(card_id)
     assert "rival" not in seen
     assert "race" not in execute_detail(run_of(db, card_id))
+
+
+async def test_three_builders_race_and_the_fastest_rival_wins(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    def script_for(task: AgentTask) -> FakeScript:
+        role = task.metadata.get("role")
+        if role == "rival2":
+            return FakeScript.parse(write("second.txt", "second"))
+        if role == "rival":
+            return FakeScript.parse(write("first.txt", "first", wait=30))
+        return FakeScript.parse(write("lead.txt", "lead", wait=30))
+
+    engine, _ = make_engine(settings, db, FakeRuntime(script_for), race_builders=3)
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    await engine.checkouts_set_up()
+    assert result.card_status is CardStatus.REVIEW
+    run = run_of(db, card_id)
+    race = execute_detail(run)["race"]
+    assert race["winner"] == "rival2" and race["rivals"] == 2 and race["seconds"] < 20
+    agent = Path(project.agent_path)
+    assert git(agent, "show", f"{run.branch}:second.txt") == "second"
+    assert "-race" not in git(agent, "branch", "--list")
