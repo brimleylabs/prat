@@ -114,6 +114,9 @@ class Settings(BaseSettings):
     # A separate read-only planning session before the builder of a high-complexity card. Off:
     # the builder writes its plan as it starts, in the same session, so the code is read once.
     plan_pass: bool = False
+    # Builders racing on each card (prat.engine.race): the first to finish with a change is
+    # kept. 1 turns racing off.
+    race_builders: int = Field(default=2, ge=1, le=2)
     # Ceiling for every project and card. A project file cannot raise it.
     max_autonomy: Autonomy = Autonomy.MEDIUM
     default_budget_usd: float = Field(default=5.0, gt=0)

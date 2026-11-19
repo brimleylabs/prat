@@ -74,6 +74,7 @@ from prat.engine.prompts import (
     project_facts,
     repository_instructions,
 )
+from prat.engine.race import Race
 from prat.engine.security import SecurityResult, SecurityReviewer, SecurityVerdict
 from prat.engine.summary import render_summary
 from prat.engine.telemetry import RunTelemetry
@@ -84,7 +85,7 @@ from prat.environments import (
     load_local,
 )
 from prat.errors import record_error
-from prat.git import Git, GitError, MergeConflict, WorktreeManager, card_branch
+from prat.git import CloneError, Git, GitError, MergeConflict, WorktreeManager, card_branch
 from prat.infra import INFRA_TASK, infra_system_prompt
 from prat.journal import Journal
 from prat.knowledge.provide import for_card
@@ -1706,6 +1707,71 @@ class Engine:
 
     # Swarms (prat.swarm) ----------------------------------------------------------
 
+    async def _start_race(
+        self, ctx: _Ctx, task: AgentTask, sandbox: Sandbox | None, env: Mapping[str, str]
+    ) -> Race | None:
+        """A rival builder for this card (prat.engine.race), or ``None`` when the card does not
+        race: a resumed session, a setup or infra card, or one with its own database branch."""
+        if (
+            self.settings.race_builders < 2
+            or ctx.session_id
+            or ctx.card_kind is not CardKind.CHANGE
+            or ctx.is_setup
+            or env
+        ):
+            return None
+        lead_path = ctx.worktree_path
+        path = lead_path.parent / f"{lead_path.name}-race"
+        branch = f"{ctx.branch or card_branch(ctx.card_id, ctx.title)}-race"
+        try:
+            start = await asyncio.to_thread(Git(lead_path).head)
+            await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, path)
+            await asyncio.to_thread(
+                Git(ctx.agent_path).run, "branch", "-D", "--quiet", branch, check=False
+            )
+            await asyncio.to_thread(
+                self.worktrees.create_worktree, ctx.agent_path, path, branch, start
+            )
+        except (GitError, CloneError, OSError) as exc:
+            ctx.journal.append("race.skipped", {"reason": str(exc)})
+            return None
+        rival_ctx = dataclasses.replace(ctx, worktree=path)
+        rival_sandbox = None
+        if sandbox is not None:
+            try:
+                rival_sandbox = await asyncio.to_thread(self._sandbox, rival_ctx, env)
+            except SandboxError as exc:
+                ctx.journal.append("race.skipped", {"reason": str(exc)})
+                await asyncio.to_thread(self.worktrees.remove_worktree, ctx.agent_path, path)
+                return None
+        rival_task = dataclasses.replace(
+            task,
+            workdir=path,
+            policy=self._guarded(rival_ctx, None, "rival"),
+            shell=(
+                functools.partial(rival_sandbox.shell, cwd=path, env=env)
+                if rival_sandbox is not None
+                else None
+            ),
+            # The crew's own tools write the card's memory and journal: the lead's alone.
+            helpers={},
+            prat_tools=(),
+            metadata={**task.metadata, "role": "rival"},
+        )
+        ctx.journal.append("race.started", {"rival": str(path), "start": start})
+        return Race(
+            runtime=self.runtime,
+            task=rival_task,
+            worktrees=self.worktrees,
+            agent_path=ctx.agent_path,
+            lead_path=lead_path,
+            path=path,
+            branch=branch,
+            start=start,
+            on_event=self._journal_events(ctx, "rival"),
+            sandbox=rival_sandbox,
+        )
+
     def _is_swarm_part(self, card_id: int) -> bool:
         with self.db.session() as session:
             return bool(store.get_card(session, card_id).base_branch)
@@ -2283,37 +2349,63 @@ class Engine:
         outcome: Outcome | None = None
         message = ""
         blocked_reason: str | None = None
-        try:
-            async for event in stream:
-                journal.append(f"runtime.{event.type}", event_to_dict(event))
-                self._observe(ctx.run_id, str(role), event)
-                if crew_session is not None:
-                    crew_session.observe(event)
-                if isinstance(event, SessionStarted):
-                    active.session_id = event.session_id
-                    self._update_run(ctx.run_id, session_id=event.session_id)
-                elif isinstance(event, CostEvent):
-                    cost += event.usd
-                    self._update_run(ctx.run_id, cost_usd=cost)
-                    if ctx.budget_usd is not None and cost > ctx.budget_usd:
-                        outcome = Outcome.BUDGET_EXCEEDED
-                        message = f"budget exceeded: spent ${cost:.2f} of ${ctx.budget_usd:.2f}"
-                        if active.session_id:
-                            await self.runtime.cancel(active.session_id)
+
+        async def lead() -> None:
+            nonlocal cost, outcome, message, blocked_reason
+            try:
+                async for event in stream:
+                    journal.append(f"runtime.{event.type}", event_to_dict(event))
+                    self._observe(ctx.run_id, str(role), event)
+                    if crew_session is not None:
+                        crew_session.observe(event)
+                    if isinstance(event, SessionStarted):
+                        active.session_id = event.session_id
+                        self._update_run(ctx.run_id, session_id=event.session_id)
+                    elif isinstance(event, CostEvent):
+                        cost += event.usd
+                        self._update_run(ctx.run_id, cost_usd=cost)
+                        if ctx.budget_usd is not None and cost > ctx.budget_usd:
+                            outcome = Outcome.BUDGET_EXCEEDED
+                            message = f"budget exceeded: spent ${cost:.2f} of ${ctx.budget_usd:.2f}"
+                            if active.session_id:
+                                await self.runtime.cancel(active.session_id)
+                            break
+                    elif isinstance(event, BlockedEvent):
+                        blocked_reason = event.reason
+                    elif isinstance(event, DoneEvent):
+                        outcome = event.outcome
+                        message = event.message
                         break
-                elif isinstance(event, BlockedEvent):
-                    blocked_reason = event.reason
-                elif isinstance(event, DoneEvent):
-                    outcome = event.outcome
-                    message = event.message
-                    break
-                if active.cancel_requested:
-                    outcome = Outcome.CANCELLED
-                    break
+                    if active.cancel_requested:
+                        outcome = Outcome.CANCELLED
+                        break
+            finally:
+                closer = getattr(stream, "aclose", None)
+                if closer is not None:
+                    await closer()
+
+        race = await self._start_race(ctx, task, sandbox, env)
+        race_detail: dict[str, Any] = {}
+        try:
+            if race is None:
+                await lead()
+            else:
+                won = await race.run(lead, lambda: outcome)
+                race_detail = race.detail
+                if won is not None:
+                    # The other builder finished first with a change: the card takes its work.
+                    if active.session_id:
+                        await self.runtime.cancel(active.session_id)
+                    outcome, message = won.outcome, won.message
+                    blocked_reason = won.blocked_reason
+                    active.session_id = won.session_id
+                    self._update_run(ctx.run_id, session_id=won.session_id)
+                    await asyncio.to_thread(race.adopt, ctx.worktree_path)
+                cost += race.cost_usd
+                self._update_run(ctx.run_id, cost_usd=cost)
         finally:
-            closer = getattr(stream, "aclose", None)
-            if closer is not None:
-                await closer()
+            if race is not None:
+                await asyncio.to_thread(race.cleanup)
             if sandbox is not None:
                 # Commands the agent's runtime gave up on leave their containers behind.
                 await asyncio.to_thread(sandbox.cleanup)
@@ -2327,6 +2419,8 @@ class Engine:
             "outcome": str(outcome) if outcome else None,
             "message": message,
         }
+        if race_detail:
+            detail["race"] = race_detail
         if knowledge.ids:
             detail["knowledge"] = knowledge.ids
         if crew_session is not None:

@@ -183,6 +183,8 @@ def settings(tmp_path: Path) -> Iterator[Settings]:
         max_autonomy=Autonomy.HIGH,
         # Lessons add a session per card; the tests that are about them turn them on.
         lessons="off",
+        # One builder per card; the tests about racing turn the rival on.
+        race_builders=1,
         **overrides,
     )
     if name:
