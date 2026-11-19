@@ -14,7 +14,6 @@ from prat.domain import CardStatus
 from prat.engine import FakeReviewer
 from prat.engine.interfaces import ReviewRequest, ReviewResult
 from prat.journal import read_journal
-from prat.runtime import FakeRuntime
 
 pytestmark = pytest.mark.integration
 

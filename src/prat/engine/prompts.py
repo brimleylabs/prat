@@ -145,7 +145,7 @@ def builder_system_prompt(
         "# Rules",
         "- Work only inside the current directory, which is the card's worktree. Do not "
         "create, change or commit files anywhere else.",
-        "- Commit your work in this worktree with clear messages. Never push, and do not "
+        "- Do not commit: PRAT commits your work when you finish. Never push, and do not "
         "change git remotes or configuration: PRAT merges approved work locally.",
         _test_instruction(spec),
         "- Do not read or write secret files (.env, keys, credentials).",
@@ -153,7 +153,8 @@ def builder_system_prompt(
         SERVER_CHECK_RULE,
         "- If PRAT's policy denies a tool call, do not try to get around it: choose "
         "another approach or report that you are blocked.",
-        "- Finish with a short summary of what you changed and how you checked it.",
+        "- Finish with two or three lines on what you changed and how you checked it; PRAT "
+        "writes the card's summary from the diff.",
     ]
     instructions = repository_instructions(repo_instructions)
     if instructions:

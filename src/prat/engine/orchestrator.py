@@ -57,7 +57,7 @@ from prat.domain import (
     Verdict,
     lowest_autonomy,
 )
-from prat.engine import crewing
+from prat.engine import context_pack, crewing
 from prat.engine.instructions import load_repo_instructions
 from prat.engine.interfaces import (
     NoPlanner,
@@ -2280,6 +2280,15 @@ class Engine:
                 "Implement the card described in your instructions.", SETUP_TASK, 1
             )
         else:
+            files = ""
+            if not ctx.session_id:
+                # A resumed session has read them already.
+                files = await asyncio.to_thread(
+                    context_pack.pack,
+                    ctx.worktree_path,
+                    f"{ctx.title}\n{ctx.goal}\n{ctx.acceptance_criteria}",
+                    self.settings.context_pack_chars,
+                )
             system_prompt = builder_system_prompt(
                 title=ctx.title,
                 goal=ctx.goal,
@@ -2287,7 +2296,7 @@ class Engine:
                 spec=ctx.project_spec,
                 autonomy=ctx.run_autonomy,
                 repo_instructions=instructions,
-                knowledge=knowledge.text,
+                knowledge="\n\n".join(t for t in (knowledge.text, files) if t),
             )
             task_prompt = builder_task_prompt(feedback=ctx.feedback, plan=ctx.plan)
         try:
@@ -2331,7 +2340,9 @@ class Engine:
             helpers=crew_session.helpers if crew_session else {},
             skill_dirs=crew_session.skill_dirs if crew_session else (),
             prat_tools=crew_session.prat_tools if crew_session else (),
-            thinking=crew_session.thinking if crew_session else False,
+            thinking=bool(
+                crew_session and crew_session.thinking and self.settings.builder_thinking
+            ),
         )
         journal.append(
             "execute.model",
@@ -2515,7 +2526,7 @@ class Engine:
         commit = await asyncio.to_thread(
             self.worktrees.safety_commit,
             ctx.worktree_path,
-            f"PRAT: save work from run {ctx.run_id} (card {ctx.card_id})",
+            f"{ctx.title}\n\nCard {ctx.card_id}, run {ctx.run_id}.",
         )
         stats = await asyncio.to_thread(self.worktrees.diff_stats, ctx.worktree_path, ctx.start)
         detail["safety_commit"] = commit

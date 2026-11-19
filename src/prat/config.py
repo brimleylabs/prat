@@ -119,6 +119,11 @@ class Settings(BaseSettings):
     race_builders: int = Field(default=2, ge=1, le=2)
     # The reviewer starts while the gates run; its verdict counts only if they all pass.
     review_during_gates: bool = True
+    # Extended thinking for builders, where the project's crew allows it.
+    builder_thinking: bool = True
+    # The files a card names, read for its builder before it starts (prat.engine.context_pack),
+    # up to this many characters; 0 turns it off.
+    context_pack_chars: int = Field(default=40_000, ge=0)
     # Ceiling for every project and card. A project file cannot raise it.
     max_autonomy: Autonomy = Autonomy.MEDIUM
     default_budget_usd: float = Field(default=5.0, gt=0)

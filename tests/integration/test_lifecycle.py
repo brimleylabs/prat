@@ -91,7 +91,11 @@ async def test_happy_path_to_review_then_approve(
     card_id = add_card(db, project, goal="Add hello.greet()")
     reviewer = FakeReviewer(Verdict.COMPLETE, "Looks right.")
     engine, _runtime = make_engine(
-        settings, db, [*WRITE_GREET, {"op": "cost", "usd": 0.4}], reviewer=reviewer
+        settings,
+        db,
+        [*WRITE_GREET, {"op": "cost", "usd": 0.4}],
+        reviewer=reviewer,
+        review_during_gates=False,
     )
     before = checkout_refs(project)
 
@@ -172,7 +176,10 @@ async def test_gate_failure_fails_the_run(
     verify = next(s for s in run.steps if s.name == StepName.VERIFY)
     assert "2 failed" in verify.detail["gates"][0]["output_tail"]
     assert steps(run)["critique"] == "skipped"
-    assert reviewer.requests == []
+    # A review may have started alongside the gates; failing gates discard it unrecorded.
+    with db.session() as session:
+        card = store.get_card(session, card_id)
+        assert not [c for c in card.comments if c.kind == "verdict"]
 
 
 async def test_blocked_run_moves_card_to_blocked_never_review(
