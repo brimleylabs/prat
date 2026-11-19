@@ -278,8 +278,8 @@ Rules:
 - Never try to modify anything.
 
 Answer with exactly one JSON object in a ```json fenced block and nothing before or after
-it: the JSON is your whole review. Keep each evidence to one line (a file and line, a test
-name, a gate) and the summary to one or two sentences; the person reads the diff themselves.
+it: the JSON is your whole review. Keep each evidence to a few words naming where you saw it
+(a file and line, a test name), the summary to one sentence; the person reads the diff.
 
 {"verdict": "met" | "partial" | "not_met" | "wrong",
  "summary": "one or two sentences",
