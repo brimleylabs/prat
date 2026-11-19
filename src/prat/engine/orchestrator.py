@@ -1656,6 +1656,13 @@ class Engine:
         from prat.runtime.session import collect
 
         recalled = await asyncio.to_thread(self._bench_memory, ctx, "planner")
+        # The files the epic names, read for the planner, so the split starts from the code.
+        files = await asyncio.to_thread(
+            context_pack.pack,
+            ctx.worktree_path,
+            f"{ctx.title}\n{ctx.goal}\n{ctx.acceptance_criteria}",
+            self.settings.context_pack_chars,
+        )
         task = AgentTask(
             prompt="Split this epic into parts. Answer with the JSON only.",
             system_prompt="\n\n".join(
@@ -1666,6 +1673,7 @@ class Engine:
                     project_facts(ctx.project_spec, Autonomy.READ_ONLY),
                     knowledge,
                     recalled,
+                    files,
                 )
                 if t
             ),
@@ -1673,7 +1681,8 @@ class Engine:
             allowed_tools=READ_TOOLS,
             policy=self._guarded(ctx, Autonomy.READ_ONLY, "planner"),
             budget=Budget(max_usd=remaining),
-            model=self._model(Role.PLANNER, ctx),
+            # A split is quick to judge: by default the builder's model, not the planner's.
+            model=self.settings.epic_split_model or self._model(Role.BUILDER, ctx),
             metadata={"role": "planner", "card_id": str(ctx.card_id)},
         )
         out = await collect(self.runtime, task, on_event=self._journal_events(ctx, "planner"))
