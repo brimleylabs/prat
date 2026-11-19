@@ -414,6 +414,8 @@ class Engine:
         self._telemetry: dict[int, RunTelemetry] = {}
         # Setups of the checkout approved work reached, likewise.
         self._setups: set[asyncio.Task[Any]] = set()
+        # Crew members choosing their names in the background (see _introductions).
+        self._introducing: asyncio.Task[None] | None = None
         settings.ensure_dirs()
 
     # Queue -------------------------------------------------------------------
@@ -1467,8 +1469,9 @@ class Engine:
 
     async def _introductions(self, ctx: _Ctx) -> None:
         """The first time a lead or helper works, it chooses its name, bio and personality
-        (prat.identity). Scripted runtimes keep the default names."""
-        if getattr(self.runtime, "name", "") == "fake":
+        (prat.identity), in the background: a run never waits for it, and a member still
+        unnamed works under its default name. Scripted runtimes keep the default names."""
+        if getattr(self.runtime, "name", "") == "fake" or self._introducing is not None:
             return
         from prat import crew, identity
 
@@ -1476,11 +1479,23 @@ class Engine:
             lead = crew.lead_for(ctx.project_spec.crew.model_dump(), ctx.worktree_path)
             keys = [lead.key, *(ctx.project_spec.crew.helpers or crew.HELPER_PROMPTS)]
             missing = [k for k in keys if identity.load(self.settings.home, k) is None]
-            model = resolve_model(Role.CREW, settings_models=self.settings.models)
-            for key in missing:  # one at a time: each sees the names already taken
-                await identity.ensure(self.settings.home, self.runtime, key, model=model)
         except Exception:
             log.exception("introductions failed for run %s", ctx.run_id)
+            return
+        if not missing:
+            return
+        model = resolve_model(Role.CREW, settings_models=self.settings.models)
+
+        async def introduce() -> None:
+            try:
+                for key in missing:  # one at a time: each sees the names already taken
+                    await identity.ensure(self.settings.home, self.runtime, key, model=model)
+            except Exception:
+                log.exception("introductions failed for run %s", ctx.run_id)
+            finally:
+                self._introducing = None
+
+        self._introducing = asyncio.create_task(introduce(), name="prat-introductions")
 
     def _crew(self, ctx: _Ctx, role: str) -> crewing.CrewSession | None:
         """The lead, helpers, skills, memory and PRAT tools for a builder or setup session.
@@ -1691,7 +1706,11 @@ class Engine:
 
     # Swarms (prat.swarm) ----------------------------------------------------------
 
-    def _after_run(self, card_id: int, work: Coroutine[Any, Any, None]) -> None:
+    def _is_swarm_part(self, card_id: int) -> bool:
+        with self.db.session() as session:
+            return bool(store.get_card(session, card_id).base_branch)
+
+    def _after_run(self, card_id: int, work: Callable[[], Coroutine[Any, Any, None]]) -> None:
         """Start ``work`` once the card's current run task has finished (it may queue the card
         again, which its own task cannot)."""
         current = self._tasks.get(card_id)
@@ -1700,7 +1719,7 @@ class Engine:
             if current is not None and current is not asyncio.current_task():
                 await asyncio.wait({current})
             try:
-                await work
+                await work()
             except Exception:
                 log.exception("swarm work for card %s failed", card_id)
 
@@ -2027,6 +2046,9 @@ class Engine:
         knowledge = await self._knowledge(ctx, Role.PLANNER)
         if ctx.card_kind is CardKind.EPIC:
             return await self._split_epic(ctx, knowledge.text, remaining)
+        if not self.settings.plan_pass:
+            # The builder plans in its own session: the codebase is read once, not twice.
+            return StepResult(StepStatus.SKIPPED, {"reason": "the builder plans as it starts"})
         recalled = await asyncio.to_thread(self._bench_memory, ctx, "planner")
         raw = await self.planner.plan(
             PlanRequest(
@@ -2751,9 +2773,9 @@ class Engine:
                 except Exception as exc:
                     detail["warnings"].append(f"worktree cleanup failed: {exc}")
         detail.update(self._apply_outcome(ctx.run_id))
-        if detail.get("card_status") == str(CardStatus.REVIEW):
+        if detail.get("card_status") == str(CardStatus.REVIEW) and self._is_swarm_part(ctx.card_id):
             # A swarm part is merged into its epic's branch once this run has ended.
-            self._after_run(ctx.card_id, self._swarm_part_finished(ctx.card_id))
+            self._after_run(ctx.card_id, functools.partial(self._swarm_part_finished, ctx.card_id))
         return StepResult(detail=detail)
 
     def _apply_outcome(self, run_id: int) -> dict[str, Any]:

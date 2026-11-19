@@ -25,18 +25,22 @@ from prat.domain import CardKind, CardStatus, CommentAuthor, Complexity
 MIN_PARTS, MAX_PARTS = 2, 8
 
 EPIC_PROMPT = """\
-You split a feature into parts that separate cards will build, one agent each, reviewed and
-landed one at a time. Read the codebase first (read-only tools) so the parts follow how the code
-is really organised.
+You split a feature into parts that separate agents build at the same time; each part is checked
+and merged into the feature as soon as it passes. Read the codebase first (read-only tools) so
+the parts follow how the code is really organised.
 
 Rules for the parts:
-- Between {lo} and {hi} parts. Each must land on its own and leave the project working.
-- Order them so the foundations land first (schema, then backend, then UI, then docs).
-- A part depends on another only when it truly needs that part's code or data; parts that do
-  not depend on each other may be built at the same time, so prefer independent parts.
-- Each part names the files or folders it will mostly touch, in its goal, so parts built at the
-  same time do not collide.
-- Acceptance criteria are testable statements, one per line.
+- Between {lo} and {hi} parts, and no more than the feature needs: every part has a cost of its
+  own (its own checks and review), so do not split work one agent does quickly anyway.
+- Speed comes from parts running at once. Keep the dependency chain short: a part depends on
+  another only when it cannot be written and tested without that part's code. Prefer one
+  foundation part, then parts that need only the foundation.
+- Where parts meet (function names and signatures, fields, module names), write the exact
+  interface into the goal of every part that uses it, so each agent builds against the same
+  contract.
+- Each part must land on its own and leave the project working, and names the files it will
+  mostly touch, in its goal.
+- Acceptance criteria are testable statements, one per line; each part tests its own work.
 
 Answer with JSON only, no prose before or after:
 {{"parts": [{{"title": "...", "goal": "...", "acceptance_criteria": "line one\\nline two",

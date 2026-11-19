@@ -355,6 +355,12 @@ class Governor:
             for other in running:
                 if other.kind in WRITES_PROJECT_FILE:
                     return f"#{other.id} is changing the project file too"
+        if card.base_branch:
+            # A swarm part: parts of one epic may touch the same files at once; PRAT's
+            # integrator resolves what collides when they are merged (prat.swarm).
+            running = [other for other in running if other.base_branch != card.base_branch]
+            if not running:
+                return None
         named = paths_named(f"{card.title}\n{card.goal}\n{card.acceptance_criteria}")
         if not named:
             return None

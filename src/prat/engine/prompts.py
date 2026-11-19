@@ -181,6 +181,11 @@ def builder_task_prompt(
     plan: str | None = None,
 ) -> str:
     parts = ["Implement the card described in your instructions."]
+    if not (plan and plan.strip()) and not (feedback and feedback.strip()):
+        parts.append(
+            "Read what you need first, then say your plan in a few lines (the files to change, "
+            "the tests to add, the order) before your first edit."
+        )
     if plan and plan.strip():
         parts += ["## Plan", "A planning pass produced this plan. Follow it:", plan.strip()]
     if feedback and feedback.strip():

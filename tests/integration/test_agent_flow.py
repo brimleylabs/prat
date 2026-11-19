@@ -102,6 +102,24 @@ def comments(db: Database, card_id: int) -> list[tuple[str, str, str]]:
 # Planner --------------------------------------------------------------------------------
 
 
+async def test_by_default_the_builder_plans_in_its_own_session(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    scripts = RoleScripts(
+        planner=[{"op": "finish", "message": "1. x"}], builder=[GREET, {"op": "finish"}]
+    )
+    engine, _ = engine_for(settings, db, scripts, planner=None)
+    engine.planner = AgentPlanner(engine.runtime)
+    card_id = add_card(db, project, complexity=Complexity.HIGH)
+
+    outcome = await engine.run_card(card_id)
+
+    assert outcome.card_status is CardStatus.REVIEW
+    assert scripts.of("planner") == []
+    assert "say your plan" in scripts.of("builder")[0].prompt
+    assert steps(last_run(db, card_id))["plan"] == "skipped"
+
+
 async def test_high_complexity_plan_goes_into_the_builder_prompt(
     settings: Settings, db: Database, project: Project
 ) -> None:
@@ -109,7 +127,7 @@ async def test_high_complexity_plan_goes_into_the_builder_prompt(
         planner=[{"op": "finish", "message": "1. Add greet() to hello.py\n2. Test it"}],
         builder=[GREET, {"op": "finish"}],
     )
-    engine, _ = engine_for(settings, db, scripts, planner=None)
+    engine, _ = engine_for(settings, db, scripts, planner=None, plan_pass=True)
     engine.planner = AgentPlanner(engine.runtime)
     card_id = add_card(db, project, complexity=Complexity.HIGH)
 
@@ -129,7 +147,7 @@ async def test_low_complexity_skips_the_planner(
     settings: Settings, db: Database, project: Project
 ) -> None:
     scripts = RoleScripts(builder=[GREET, {"op": "finish"}])
-    engine, _ = engine_for(settings, db, scripts)
+    engine, _ = engine_for(settings, db, scripts, plan_pass=True)
     engine.planner = AgentPlanner(engine.runtime)
     card_id = add_card(db, project, complexity=Complexity.MEDIUM)
     await engine.run_card(card_id)
@@ -144,7 +162,7 @@ async def test_blocked_plan_blocks_the_card_and_is_not_overwritten(
         planner=[{"op": "block", "reason": "Which API version should this target?"}],
         builder=[GREET, {"op": "finish"}],
     )
-    engine, _ = engine_for(settings, db, scripts)
+    engine, _ = engine_for(settings, db, scripts, plan_pass=True)
     engine.planner = AgentPlanner(engine.runtime)
     card_id = add_card(db, project, complexity=Complexity.HIGH)
 
@@ -364,7 +382,7 @@ async def test_repository_instruction_files_reach_every_agent(
         builder=[GREET, {"op": "finish"}],
         critic=[{"op": "finish", "message": "```json\n" + json.dumps(verdict) + "\n```"}],
     )
-    engine, _ = engine_for(settings, db, scripts)
+    engine, _ = engine_for(settings, db, scripts, plan_pass=True)
     engine.planner = AgentPlanner(engine.runtime)
     engine.reviewer = AgentReviewer(engine.runtime)
     card_id = add_card(db, project, complexity=Complexity.HIGH)

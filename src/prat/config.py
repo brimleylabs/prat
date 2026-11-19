@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     # branch, each merged in as soon as its gates and reviewer pass, and the whole feature comes
     # to review once. Off: each part comes to review and lands on its own, as a card.
     swarm_epics: bool = True
+    # A separate read-only planning session before the builder of a high-complexity card. Off:
+    # the builder writes its plan as it starts, in the same session, so the code is read once.
+    plan_pass: bool = False
     # Ceiling for every project and card. A project file cannot raise it.
     max_autonomy: Autonomy = Autonomy.MEDIUM
     default_budget_usd: float = Field(default=5.0, gt=0)
