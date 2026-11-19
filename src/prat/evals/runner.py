@@ -258,6 +258,8 @@ async def _run(
         for number in range(1, limit + 1):
             started = time.monotonic()
             outcome = await engine.run_card(card_id)
+            # Background work of the run (a racing builder's worktree going) ends first.
+            await engine.checkouts_set_up()
             attempt = read_attempt(db, scratch, outcome.run_id, number)
             attempt.card_status = str(outcome.card_status)
             attempt.reason = outcome.reason

@@ -141,7 +141,9 @@ def card_branch(card_id: int, title: str) -> str:
     return check_branch_name(f"card/{card_id}-{slugify(title, 40)}")
 
 
-def _force_remove(func: Callable[..., Any], path: str, _exc: BaseException) -> None:
+def _force_remove(func: Callable[..., Any], path: str, exc: BaseException) -> None:
+    if isinstance(exc, FileNotFoundError):
+        return  # removed meanwhile (by another cleanup): nothing left to do
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
