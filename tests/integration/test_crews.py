@@ -143,9 +143,7 @@ async def test_an_epic_is_split_into_parts_that_run_once_approved(
         ids = [p.id for p in parts]
         assert [p.status for p in parts] == [CardStatus.DRAFT] * 3
         assert parts[1].depends_on == [ids[0]] and parts[2].depends_on == ids[:2]
-    engine2, _ = make_engine(
-        settings, db, SCRIPT, governor_poll_seconds=0.05, swarm_epics=False
-    )
+    engine2, _ = make_engine(settings, db, SCRIPT, governor_poll_seconds=0.05, swarm_epics=False)
     await engine2.approve(epic_id)
     assert status(db, epic_id) is CardStatus.DONE
     assert status(db, ids[0]) in (CardStatus.READY, CardStatus.RUNNING, CardStatus.REVIEW)

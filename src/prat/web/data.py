@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from prat import store
 from prat.db import Card, Client, Comment, Event, ImproveCycle, Project, Run, RunStep
-from prat.domain import CardStatus, RunStatus, StepName, StepStatus
+from prat.domain import CardKind, CardStatus, RunStatus, StepName, StepStatus
 from prat.engine import Engine
 from prat.git import DiffStats, Git, GitError, WorktreeManager
 from prat.journal import read_journal
@@ -266,6 +266,8 @@ class CardPage:
     undone: dict[str, Any] | None = None
     # The newest lesson on the card (prat.lessons), already redacted when it was stored.
     lesson: dict[str, Any] | None = None
+    # An epic's parts, for the swarm panel (prat.swarm): one row per part, in order.
+    swarm: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def data_changed(self) -> bool:
@@ -515,7 +517,34 @@ def load_card(
         landed=_last_event_data(session, card.id, "card.merged"),
         undone=_last_event_data(session, card.id, "card.undone"),
         lesson=_lesson(comments),
+        swarm=_swarm_parts(session, card) if card.kind == CardKind.EPIC else [],
     )
+
+
+def _swarm_parts(session: Session, epic: Card) -> list[dict[str, Any]]:
+    """Each part of an epic: its state, what it waits on, and when it was merged in."""
+    parts = list(session.scalars(select(Card).where(Card.parent_id == epic.id).order_by(Card.id)))
+    rows = []
+    for part in parts:
+        if part.status == CardStatus.CANCELLED:
+            continue
+        merged = _last_event_data(session, part.id, "card.integrated")
+        runs = list(part.runs)
+        started = min((r.started_at for r in runs if r.started_at), default=None)
+        rows.append(
+            {
+                "id": part.id,
+                "title": part.title,
+                "status": str(part.status),
+                "depends_on": list(part.depends_on or []),
+                "hold": part.hold_reason,
+                "runs": len(runs),
+                "started_at": started,
+                "merged": (merged or {}).get("commit"),
+                "sent_back": sum(1 for c in part.comments if c.kind == "swarm_conflict"),
+            }
+        )
+    return rows
 
 
 def _databases_of(run: Run | None) -> list[dict[str, Any]]:

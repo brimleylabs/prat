@@ -37,9 +37,7 @@ def status(db: Database, card_id: int) -> CardStatus:
 
 def parts_of(db: Database, epic_id: int) -> list[Card]:
     with db.session() as session:
-        found = list(
-            session.query(Card).filter(Card.parent_id == epic_id).order_by(Card.id).all()
-        )
+        found = list(session.query(Card).filter(Card.parent_id == epic_id).order_by(Card.id).all())
         session.expunge_all()
     return found
 
@@ -101,9 +99,7 @@ async def test_a_swarm_builds_the_parts_on_the_epics_branch_and_the_feature_land
             {"op": "finish", "message": f"{name} done"},
         ]
 
-    engine, _ = make_engine(
-        settings, db, runtime_for(split, builder), governor_poll_seconds=0.05
-    )
+    engine, _ = make_engine(settings, db, runtime_for(split, builder), governor_poll_seconds=0.05)
     epic_id = add_epic(db, project)
     await build_epic(engine, db, epic_id)
 

@@ -104,6 +104,9 @@
   </div>
   {% elif status == 'cancelled' %}
   <div class="callout tone-neutral">{{ icon('minus-circle', 18) }}<div><p class="callout-title">Cancelled</p><p class="pre">{{ card.status_reason or '' }}</p></div></div>
+  {% elif status == 'building' %}
+  {% set merged_count = page.swarm|selectattr('merged')|list|length %}
+  <div class="callout tone-accent">{{ icon('merge', 18) }}<div><p class="callout-title">A swarm is building this epic: {{ merged_count }} of {{ page.swarm|length }} parts merged</p><p>Parts run at once on <span class="mono">{{ card.branch }}</span>, and each is merged in as soon as its gates and reviewer pass. When the last part is in, the gates run on the whole feature and it comes to you once.</p></div></div>
   {% elif status == 'draft' %}
   <div class="callout tone-neutral">{{ icon('edit', 18) }}<div><p class="callout-title">Draft</p><p>Move it to ready to start a run through the queue.</p></div></div>
   {% endif %}
@@ -111,6 +114,28 @@
   <div class="card-grid">
     <div class="card-main">
 
+
+      {% if page.swarm %}
+      <section class="panel" id="swarm" aria-labelledby="swarm-h">
+        <header class="panel-head"><h2 id="swarm-h">{{ icon('branch') }}Parts</h2><div class="panel-tools"><span class="setup-progress">{% if card.branch and card.branch.startswith('epic/') %}Built by a swarm on {{ card.branch }}{% else %}Each part lands as its own card{% endif %}</span></div></header>
+        <div class="panel-body flush">
+          <table class="files">
+            <thead><tr><th scope="col">Part</th><th scope="col">State</th><th scope="col">Waits on</th><th scope="col">Runs</th><th scope="col">Merged into the epic</th></tr></thead>
+            <tbody>
+            {% for p in page.swarm %}
+              <tr>
+                <td><a href="/cards/{{ p.id }}">#{{ p.id }} {{ p.title }}</a></td>
+                <td><span class="badge tone-{{ status_tone(p.status) }}"><span class="dot tone-{{ status_tone(p.status) }}{% if p.status == 'running' %} pulse{% endif %}" aria-hidden="true"></span>{{ status_label(p.status) }}</span>{% if p.hold %}<div class="muted">{{ p.hold }}</div>{% endif %}</td>
+                <td>{% for d in p.depends_on %}<a href="/cards/{{ d }}">#{{ d }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">nothing</span>{% endfor %}</td>
+                <td>{{ p.runs }}{% if p.sent_back %} <span class="muted">({{ p.sent_back }} sent back to resolve a conflict)</span>{% endif %}</td>
+                <td>{% if p.merged %}<span class="mono">{{ p.merged[:10] }}</span>{% else %}<span class="muted">not yet</span>{% endif %}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
 
       {% if page.live %}{% include "_session_panel.html" %}{% endif %}
 
