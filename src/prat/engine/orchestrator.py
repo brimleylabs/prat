@@ -31,7 +31,7 @@ import functools
 import logging
 import threading
 import uuid
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Coroutine, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -40,7 +40,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from prat import governor, memory, onboard, paths, store
+from prat import governor, memory, onboard, paths, store, swarm
 from prat.changes import classify_diff
 from prat.config import Settings
 from prat.db import Card, Database, Project, Run, RunStep, as_utc
@@ -84,7 +84,7 @@ from prat.environments import (
     load_local,
 )
 from prat.errors import record_error
-from prat.git import Git, MergeConflict, WorktreeManager, card_branch
+from prat.git import Git, GitError, MergeConflict, WorktreeManager, card_branch
 from prat.infra import INFRA_TASK, infra_system_prompt
 from prat.journal import Journal
 from prat.knowledge.provide import for_card
@@ -164,6 +164,8 @@ def sandbox_gate(problem: str) -> GateResult:
 MAX_REVIEW_DIFF_CHARS = 200_000
 # The reason on runs and queued cards stopped by a restart; resume_after_restart picks them up.
 SUSPENDED_REASON = "PRAT restarted"
+
+STOPPED_REASON = "stopped by a person; the branch and its work are kept"
 
 OUTCOME_TO_CARD = {
     RunStatus.SUCCEEDED: CardStatus.REVIEW,
@@ -605,6 +607,53 @@ class Engine:
             if step.status == StepStatus.RUNNING:
                 step.status = StepStatus.PENDING
 
+    async def stop(self, card_id: int) -> bool:
+        """Stop the card's current run and keep the card.
+
+        The run ends cancelled and the card goes to failed, with its branch, its work
+        (saved by the safety commit) and its database branches kept, so it can be run
+        again or sent back with feedback. Returns ``True`` if a run was stopped.
+        """
+        active = self._active.get(card_id)
+        if active is not None:
+            if active.finalizing:
+                return False
+            with self.db.session() as session:
+                _get_run(session, active.run_id).stop_only = True
+            await self._cancel_active(active)
+            return True
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
+            run = store.latest_run(session, card)
+            if card.status != CardStatus.RUNNING or run is None:
+                return False
+            if run.status == RunStatus.RUNNING and not self._is_stale(run):
+                # Owned by another live process: ask it to stop via the database.
+                run.stop_only = True
+                run.cancel_requested_at = _now()
+                store.record_event(session, "run.stop_requested", card_id=card_id, run_id=run.id)
+                return True
+            if run.status not in (RunStatus.RUNNING, RunStatus.INTERRUPTED):
+                return False
+            if run.status == RunStatus.RUNNING:
+                self._interrupt(session, run)
+            store.set_run_status(session, run, RunStatus.CANCELLED, STOPPED_REASON)
+            run.stop_only = True
+            run.finished_at = _now()
+            store.set_card_status(session, card, CardStatus.FAILED, STOPPED_REASON)
+            worktree = Path(run.worktree_path) if run.worktree_path else None
+            agent = Path(card.project.agent_path)
+            run_id = run.id
+        if worktree is not None and worktree.exists():
+            await asyncio.to_thread(
+                self.worktrees.safety_commit,
+                worktree,
+                f"PRAT: save work from run {run_id} (card {card_id}), stopped",
+            )
+            await asyncio.to_thread(self.worktrees.remove_worktree, agent, worktree)
+        versioning.commit(self.db, f"card {card_id}: run stopped", actor="person")
+        return True
+
     async def cancel(self, card_id: int) -> bool:
         """Cancel a queued or running card. Returns ``True`` if anything changed."""
         changed = await self._cancel(card_id)
@@ -693,6 +742,10 @@ class Engine:
             if card.status != CardStatus.REVIEW:
                 raise ApproveError(f"card {card_id} is {card.status}; only cards in review merge")
             epic = card.kind is CardKind.EPIC
+            # A swarm epic whose parts are all merged into its branch lands like a card.
+            built = swarm.is_swarm_epic(card)
+        if epic and built:
+            return await self._land_epic(card_id)
         if epic:
             # Approving an epic approves its split: nothing merges, its parts become ready.
             return await self._approve_epic(card_id)
@@ -908,7 +961,9 @@ class Engine:
                 raise EngineError(
                     "rework needs feedback: add a comment to the card first or pass feedback"
                 )
-            store.set_card_status(session, card, CardStatus.REWORK, "sent back for rework")
+            if card.status != CardStatus.REWORK:
+                # Already waiting for rework: the new feedback joins what the next run reads.
+                store.set_card_status(session, card, CardStatus.REWORK, "sent back for rework")
             slug = card.project.slug
             said = feedback or "\n".join(
                 c.body for c in store.human_comments_since_last_run(session, card)
@@ -1264,6 +1319,8 @@ class Engine:
             author = project.client.commit_author if project.client else None
             card = store.get_card(session, ctx.card_id)
             branch = card.branch or card_branch(card.id, card.title)
+            # A swarm part starts from (and is merged into) its epic's branch (prat.swarm).
+            start_ref = card.base_branch or ctx.default_branch
         async with self._project_lock(ctx.project_id):
             if is_self:
                 # PRAT's own clone is both checkout and agent clone (prat.improve).
@@ -1272,6 +1329,7 @@ class Engine:
                     ctx.agent_path,
                     ctx.default_branch,
                     source="the self repository's remote",
+                    merge_diverged=False,
                 )
             else:
                 clone = await asyncio.to_thread(
@@ -1289,22 +1347,41 @@ class Engine:
             path = self.worktrees.worktree_path(ctx.project_slug, ctx.card_id)
             paths.assert_outside(path, all_checkouts)
             info = await asyncio.to_thread(
-                self.worktrees.create_worktree, ctx.agent_path, path, branch, ctx.default_branch
+                self.worktrees.create_worktree, ctx.agent_path, path, branch, start_ref
             )
-            # A rerun's branch may predate the project file it now needs (a no-op otherwise).
-            brought = await asyncio.to_thread(
-                self.worktrees.bring_project_files, info.path, ctx.default_branch
-            )
+            if start_ref != ctx.default_branch:
+                # A swarm part's rerun brings in what the other parts merged meanwhile; a
+                # conflict is left for the builder to resolve, and its gates check the result.
+                brought, conflicted = await asyncio.to_thread(
+                    self.worktrees.bring_base, info.path, start_ref
+                )
+                if brought == "conflict" and conflicted:
+                    clone.warnings.append(
+                        f"merging {start_ref} into {branch} conflicts in: {', '.join(conflicted)}"
+                    )
+                    await asyncio.to_thread(
+                        self._add_feedback, ctx.run_id, swarm.conflict_note(start_ref, conflicted)
+                    )
+            else:
+                # A rerun's branch may predate the project file it now needs (a no-op otherwise).
+                brought = await asyncio.to_thread(
+                    self.worktrees.bring_project_files, info.path, ctx.default_branch
+                )
+                if brought == "conflict":
+                    clone.warnings.append(
+                        f"{ctx.default_branch} changed the project file, but merging it into "
+                        f"{branch} conflicted; the card runs with the project file it had"
+                    )
             if brought == "merged":
                 info = replace(info, head=Git(info.path).head())
-            elif brought == "conflict":
-                clone.warnings.append(
-                    f"{ctx.default_branch} changed the project file, but merging it into "
-                    f"{branch} conflicted; the card runs with the project file it had"
+            if brought == "conflict" and start_ref != ctx.default_branch:
+                # The merge completes with the builder's first commit; measured from the
+                # epic's head, the card's change stays its own.
+                base = await asyncio.to_thread(Git(ctx.agent_path).rev_parse, start_ref)
+            else:
+                base = await asyncio.to_thread(
+                    self.worktrees.merge_base, ctx.agent_path, start_ref, branch
                 )
-            base = await asyncio.to_thread(
-                self.worktrees.merge_base, ctx.agent_path, ctx.default_branch, branch
-            )
         # The project's databases: a branch per card next to the git branch.
         databases: list[dict[str, Any]] = []
         try:
@@ -1603,11 +1680,339 @@ class Engine:
         with self.db.session() as session:
             card = store.get_card(session, card_id)
             branch = card.branch or ""
-        ready = await asyncio.to_thread(epics.approve_split, self.db, card_id)
+        if self.settings.swarm_epics:
+            ready = await asyncio.to_thread(swarm.start, self.db, card_id)
+        else:
+            ready = await asyncio.to_thread(epics.approve_split, self.db, card_id)
         for part in ready:
             with contextlib.suppress(EngineError):
                 self.submit(part)
         return MergeResult(card_id, branch, "")
+
+    # Swarms (prat.swarm) ----------------------------------------------------------
+
+    def _after_run(self, card_id: int, work: Coroutine[Any, Any, None]) -> None:
+        """Start ``work`` once the card's current run task has finished (it may queue the card
+        again, which its own task cannot)."""
+        current = self._tasks.get(card_id)
+
+        async def later() -> None:
+            if current is not None and current is not asyncio.current_task():
+                await asyncio.wait({current})
+            try:
+                await work
+            except Exception:
+                log.exception("swarm work for card %s failed", card_id)
+
+        task = asyncio.create_task(later(), name=f"prat-swarm-{card_id}")
+        self._setups.add(task)
+        task.add_done_callback(self._setups.discard)
+
+    def _add_feedback(self, run_id: int, text: str) -> None:
+        with self.db.session() as session:
+            run = _get_run(session, run_id)
+            run.feedback = f"{run.feedback}\n\n{text}" if run.feedback else text
+
+    async def _swarm_part_finished(self, card_id: int) -> None:
+        """A swarm part reached review (its gates and reviewer passed): merge it into its epic's
+        branch, start the parts that were waiting on it, and finish the epic after the last."""
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
+            epic = session.get(Card, card.parent_id) if card.parent_id is not None else None
+            if (
+                card.status != CardStatus.REVIEW
+                or not card.base_branch
+                or not card.branch
+                or epic is None
+                or epic.status != CardStatus.BUILDING
+                or epic.branch != card.base_branch
+            ):
+                return
+            epic_id, epic_branch, branch = epic.id, card.base_branch, card.branch
+            project_id, slug = card.project_id, card.project.slug
+            agent, title, runs = Path(card.project.agent_path), card.title, len(card.runs)
+        if await asyncio.to_thread(
+            swarm.conflict_markers, self.worktrees, agent, epic_branch, branch
+        ):
+            await self._swarm_send_back(
+                card_id, epic_branch, [], "Your change still has conflict markers in it."
+            )
+            return
+        async with self._project_lock(project_id):
+            try:
+                commit = await asyncio.to_thread(
+                    swarm.integrate,
+                    self.worktrees,
+                    agent,
+                    epic_branch,
+                    branch,
+                    f"Merge part #{card_id} into epic #{epic_id}: {title}",
+                )
+            except MergeConflict as exc:
+                conflicted: list[str] | None = exc.files
+            else:
+                conflicted = None
+        if conflicted is not None:
+            await self._swarm_send_back(card_id, epic_branch, conflicted, "")
+            return
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
+            store.set_card_status(
+                session, card, CardStatus.DONE, f"merged into epic #{epic_id} as {commit[:10]}"
+            )
+            store.record_event(
+                session,
+                "card.integrated",
+                project_id=project_id,
+                card_id=card_id,
+                data={
+                    "epic": epic_id,
+                    "branch": branch,
+                    "epic_branch": epic_branch,
+                    "commit": commit,
+                },
+            )
+        versioning.commit(
+            self.db,
+            f"card {card_id} merged into epic {epic_id} ({epic_branch}) as git {commit}",
+            actor="engine (swarm)",
+        )
+        self._settle(slug, card_id, "landed", first_review=runs == 1)
+        remaining = await asyncio.to_thread(swarm.parts, self.db, epic_id)
+        for part in remaining:
+            if part.status in (CardStatus.READY, CardStatus.REWORK) and not self.is_scheduled(
+                part.id
+            ):
+                with contextlib.suppress(EngineError):
+                    self.submit(part.id)
+        if remaining and all(p.status == CardStatus.DONE for p in remaining):
+            await self._finish_epic(epic_id)
+
+    async def _swarm_send_back(
+        self, card_id: int, epic_branch: str, files: list[str], why: str
+    ) -> None:
+        """The part does not merge cleanly into its epic: back to its builder, whose next run
+        starts with the epic's branch merged in. After too many rounds the person decides."""
+        rounds = await asyncio.to_thread(swarm.conflict_rounds, self.db, card_id)
+        note = why or (
+            f"Your change conflicts with work merged into {epic_branch} in: {', '.join(files)}."
+        )
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
+            if rounds >= swarm.MAX_CONFLICT_ROUNDS:
+                store.add_comment(
+                    session,
+                    card,
+                    f"{note} It has gone back {rounds} times; it waits in review for you.",
+                    author=CommentAuthor.SYSTEM,
+                    kind="merge_conflict",
+                    data={"files": files},
+                )
+                return
+            store.add_comment(
+                session,
+                card,
+                note,
+                author=CommentAuthor.SYSTEM,
+                kind="swarm_conflict",
+                data={"files": files, "epic_branch": epic_branch},
+            )
+            store.set_card_status(
+                session, card, CardStatus.REWORK, "does not merge into its epic: sent back"
+            )
+        with contextlib.suppress(EngineError):
+            self.submit(card_id)
+
+    async def _finish_epic(self, epic_id: int) -> None:
+        """Every part is in: run the project's gates on the epic's branch, the whole feature,
+        then bring the epic to review (or to failed, with the gate that failed)."""
+        with self.db.session() as session:
+            epic = store.get_card(session, epic_id)
+            if epic.status != CardStatus.BUILDING or not epic.branch:
+                return
+            project = epic.project
+            agent, slug, branch = Path(project.agent_path), project.slug, epic.branch
+            default, fallback = project.default_branch, _spec_of(project)
+        spec = _spec_from_branch(agent, branch) or fallback
+        spec = load_overlay(overlay_path(self.settings.home)).apply_to_spec(spec)
+        path = self.worktrees.worktrees_root / "_swarm" / f"epic-{epic_id}-gates"
+        head = await asyncio.to_thread(Git(agent).rev_parse, f"refs/heads/{branch}")
+        environ = self._environ(slug)
+        dbs: list[DoltBranchProvider] = []
+        gates: list[GateResult] = []
+        problem: str | None = None
+        try:
+            await asyncio.to_thread(self.worktrees.remove_worktree, agent, path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(
+                Git(agent).run, "worktree", "add", "--quiet", "--detach", str(path), head
+            )
+            dbs = _databases(spec, environ)
+            for project_db in dbs:
+                await asyncio.to_thread(project_db.create, epic_id)
+            env = _database_env(spec, epic_id, environ)
+            sandbox = sandbox_for(
+                self.settings,
+                name=f"{slug}-epic-{epic_id}",
+                workdir=path,
+                network=False,
+                env=env,
+                image=spec.sandbox.image,
+            )
+            log_dir = self.settings.home / "runs" / f"epic-{epic_id}"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            gates = await asyncio.to_thread(
+                functools.partial(
+                    run_gates,
+                    spec,
+                    path,
+                    log_dir,
+                    timeout=min(spec.verify.timeout_seconds, self.settings.gate_timeout_seconds),
+                    env=env or None,
+                    sandbox=sandbox,
+                )
+            )
+            if sandbox is not None:
+                await asyncio.to_thread(sandbox.cleanup)
+        except (SandboxError, WorkspaceError, GitError, OSError) as exc:
+            problem = str(exc)
+        finally:
+            for project_db in dbs:
+                with contextlib.suppress(Exception):
+                    await asyncio.to_thread(project_db.discard, epic_id)
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self.worktrees.remove_worktree, agent, path)
+        failed = [g for g in gates if not g.passed]
+        stats = await asyncio.to_thread(
+            self.worktrees.diff_stats,
+            agent,
+            await asyncio.to_thread(self.worktrees.merge_base, agent, default, branch),
+            branch,
+        )
+        parts = await asyncio.to_thread(swarm.parts, self.db, epic_id)
+        lines = [
+            f"A swarm built this epic in {len(parts)} parts, each merged into {branch}:",
+            "",
+            *(f"- #{p.id} {p.title}" for p in parts),
+            "",
+            f"The whole feature: {len(stats.files)} files, +{stats.insertions} -{stats.deletions}.",
+        ]
+        if problem:
+            lines.append(f"The gates could not run on the epic's branch: {problem}")
+        elif failed:
+            lines.append(
+                f"The gate `{failed[0].name}` failed on the epic's branch:\n{failed[0].output_tail}"
+            )
+        else:
+            names = ", ".join(g.name for g in gates) or "none configured"
+            lines.append(f"The project's gates passed on the epic's branch ({names}).")
+        with self.db.session() as session:
+            epic = store.get_card(session, epic_id)
+            store.add_comment(
+                session,
+                epic,
+                "\n".join(lines),
+                author=CommentAuthor.SYSTEM,
+                kind="epic_summary",
+                data={"head": head, "gates": [g.name for g in gates if g.passed]},
+            )
+            epic.summary = render_summary(stats)
+            store.record_event(
+                session,
+                "epic.verified",
+                project_id=epic.project_id,
+                card_id=epic_id,
+                data={"head": head, "passed": not (problem or failed)},
+            )
+            if problem or failed:
+                store.set_card_status(
+                    session,
+                    epic,
+                    CardStatus.FAILED,
+                    problem or f"gate {failed[0].name} failed on the epic's branch",
+                )
+            else:
+                store.set_card_status(
+                    session, epic, CardStatus.REVIEW, "every part merged; the whole feature passed"
+                )
+        versioning.commit(self.db, f"epic {epic_id} built by a swarm", actor="engine (swarm)")
+
+    async def _land_epic(self, epic_id: int) -> MergeResult:
+        """Approve a swarm epic: merge its branch into the default branch, with each part's
+        database branch, all or nothing."""
+        with self.db.session() as session:
+            epic = store.get_card(session, epic_id)
+            project = epic.project
+            agent, checkout = Path(project.agent_path), Path(project.checkout_path)
+            branch, default, title = epic.branch or "", project.default_branch, epic.title
+            verified = next(
+                (
+                    e.data.get("head")
+                    for e in reversed(store.events_for_card(session, epic))
+                    if e.kind == "epic.verified" and e.data.get("passed")
+                ),
+                None,
+            )
+            spec = _spec_of(project)
+        part_ids = [p.id for p in await asyncio.to_thread(swarm.parts, self.db, epic_id)]
+        async with self._project_lock(project.id):
+            head = await asyncio.to_thread(Git(agent).rev_parse, f"refs/heads/{branch}")
+            if verified != head:
+                raise ApproveError(
+                    f"epic {epic_id}: {branch} is at {head[:10]} but its gates passed at "
+                    f"{(verified or 'no commit')[:10]}"
+                )
+            try:
+                project_dbs = _databases(spec, self._environ(project.slug))
+            except WorkspaceError as exc:
+                raise ApproveError(f"epic {epic_id}: {exc}") from exc
+            merged_data: list[tuple[DoltBranchProvider, str, str]] = []
+            try:
+                for part_id in part_ids:
+                    for project_db in project_dbs:
+                        if await asyncio.to_thread(project_db.exists, part_id):
+                            before, after = await asyncio.to_thread(
+                                project_db.merge, part_id, f"Merge part {part_id} of epic {epic_id}"
+                            )
+                            merged_data.append((project_db, before, after))
+            except (DatabaseMergeConflict, WorkspaceError, SQLAlchemyError) as exc:
+                await _undo_data(merged_data)
+                raise ApproveError(f"epic {epic_id}: database merge failed: {exc}") from exc
+            try:
+                commit = await asyncio.to_thread(
+                    self.worktrees.merge, agent, branch, default, f"Merge epic {epic_id}: {title}"
+                )
+            except MergeConflict as exc:
+                await _undo_data(merged_data)
+                raise ApproveError(str(exc)) from exc
+            except BaseException:
+                await _undo_data(merged_data)
+                raise
+            followed = await asyncio.to_thread(
+                _follow_checkout, checkout, agent, default, onboard.projects_dir(self.settings)
+            )
+        with self.db.session() as session:
+            epic = store.get_card(session, epic_id)
+            store.set_card_status(session, epic, CardStatus.DONE, f"merged as {commit[:10]}")
+            store.record_event(
+                session,
+                "card.merged",
+                project_id=epic.project_id,
+                card_id=epic_id,
+                data={
+                    "commit": commit,
+                    "branch": branch,
+                    "branch_head": head,
+                    "checkout": followed,
+                },
+            )
+        if versioning.commit(
+            self.db, f"epic {epic_id} approved: merged {branch} as git {commit}", actor="person"
+        ):
+            versioning.tag(self.db, f"card-{epic_id}-approved", message=f"git {commit}")
+        if followed == "updated":
+            self._start_checkout_setup(project.slug, epic_id)
+        return MergeResult(epic_id, branch, commit)
 
     def _epic_progress(self, card_id: int) -> None:
         from prat import epics
@@ -2346,6 +2751,9 @@ class Engine:
                 except Exception as exc:
                     detail["warnings"].append(f"worktree cleanup failed: {exc}")
         detail.update(self._apply_outcome(ctx.run_id))
+        if detail.get("card_status") == str(CardStatus.REVIEW):
+            # A swarm part is merged into its epic's branch once this run has ended.
+            self._after_run(ctx.card_id, self._swarm_part_finished(ctx.card_id))
         return StepResult(detail=detail)
 
     def _apply_outcome(self, run_id: int) -> dict[str, Any]:
@@ -2357,6 +2765,9 @@ class Engine:
                 run.finished_at = _now()
             target = OUTCOME_TO_CARD[outcome]
             reason = None if target == CardStatus.REVIEW else run.reason
+            if outcome == RunStatus.CANCELLED and run.stop_only:
+                target, reason = CardStatus.FAILED, STOPPED_REASON
+                run.reason = STOPPED_REASON
             if outcome == RunStatus.SUCCEEDED:
                 critique = next((s for s in run.steps if s.name == StepName.CRITIQUE), None)
                 if critique is not None and (critique.detail or {}).get("rework"):

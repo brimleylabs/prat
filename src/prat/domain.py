@@ -31,6 +31,8 @@ class CardStatus(StrEnum):
     CANCELLED = "cancelled"
     FAILED = "failed"
     BLOCKED = "blocked"
+    # An epic whose parts a swarm is building and merging into the epic's own branch.
+    BUILDING = "building"
 
 
 class RunStatus(StrEnum):
@@ -223,10 +225,17 @@ CARD_TRANSITIONS: Mapping[CardStatus, frozenset[CardStatus]] = {
             CardStatus.CANCELLED,
         }
     ),
-    CardStatus.REVIEW: frozenset({CardStatus.DONE, CardStatus.REWORK, CardStatus.CANCELLED}),
+    # review -> building: a swarm epic's split was approved; building -> review: every part
+    # was merged into the epic's branch and its gates passed there.
+    CardStatus.REVIEW: frozenset(
+        {CardStatus.DONE, CardStatus.REWORK, CardStatus.CANCELLED, CardStatus.BUILDING}
+    ),
+    CardStatus.BUILDING: frozenset({CardStatus.REVIEW, CardStatus.FAILED, CardStatus.CANCELLED}),
     CardStatus.REWORK: frozenset({CardStatus.RUNNING, CardStatus.CANCELLED}),
     CardStatus.BLOCKED: frozenset({CardStatus.READY, CardStatus.REWORK, CardStatus.CANCELLED}),
-    CardStatus.FAILED: frozenset({CardStatus.READY, CardStatus.REWORK, CardStatus.CANCELLED}),
+    CardStatus.FAILED: frozenset(
+        {CardStatus.READY, CardStatus.REWORK, CardStatus.CANCELLED, CardStatus.BUILDING}
+    ),
     CardStatus.CANCELLED: frozenset({CardStatus.DRAFT}),
     CardStatus.DONE: frozenset(),
 }

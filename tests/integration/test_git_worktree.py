@@ -77,6 +77,49 @@ def test_prepare_fast_forwards_from_checkout(
     assert info.default_head == git(checkout, "rev-parse", "HEAD")
 
 
+def test_a_clone_with_commits_of_its_own_still_takes_in_the_checkouts_new_work(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    manager.prepare_agent_clone(checkout, agent, "main")
+    # PRAT's own commit (the project file) and the person's new work, made meanwhile.
+    (agent / ".prat").mkdir()
+    (agent / ".prat" / "project.toml").write_text('name = "acme-api"\n')
+    git(agent, "add", "-A")
+    git(agent, "commit", "-q", "-m", "project file")
+    (checkout / "migrations").mkdir()
+    (checkout / "migrations" / "0045_reviews.sql").write_text("create table reviews ();\n")
+    git(checkout, "add", "-A")
+    git(checkout, "commit", "-q", "-m", "migration 0045")
+
+    info = manager.prepare_agent_clone(checkout, agent, "main")
+
+    assert (agent / "migrations" / "0045_reviews.sql").exists()
+    assert (agent / ".prat" / "project.toml").exists()
+    assert any("merged" in w for w in info.warnings)
+    assert (
+        git(agent, "merge-base", "--is-ancestor", git(checkout, "rev-parse", "HEAD"), "HEAD") == ""
+    )
+
+
+def test_a_clone_whose_own_commits_conflict_stops_rather_than_run_on_stale_code(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    manager.prepare_agent_clone(checkout, agent, "main")
+    (agent / "src" / "app.py").write_text("print('agent')\n")
+    git(agent, "commit", "-q", "-am", "agent side")
+    (checkout / "src" / "app.py").write_text("print('person')\n")
+    git(checkout, "commit", "-q", "-am", "person side")
+    head = git(agent, "rev-parse", "HEAD")
+
+    with pytest.raises(CloneError, match=r"src/app.py"):
+        manager.prepare_agent_clone(checkout, agent, "main")
+
+    assert git(agent, "rev-parse", "HEAD") == head
+    assert not Git(agent).is_dirty()
+
+
 def test_worktree_lifecycle(manager: WorktreeManager, checkout: Path, tmp_path: Path) -> None:
     agent = tmp_path / "agent"
     manager.prepare_agent_clone(checkout, agent, "main")

@@ -435,8 +435,10 @@ def card_actions(card: Card, latest: Run | None, scheduled: bool) -> frozenset[s
         CardStatus.FAILED,
     ):
         actions.add("run")
-    if status in (CardStatus.REVIEW, CardStatus.BLOCKED, CardStatus.FAILED):
+    if status in (CardStatus.REVIEW, CardStatus.BLOCKED, CardStatus.FAILED, CardStatus.REWORK):
         actions.add("rework")
+    if status == CardStatus.RUNNING:
+        actions.add("stop")
     if status == CardStatus.REVIEW:
         actions.add("approve")
     if status not in (CardStatus.DONE, CardStatus.CANCELLED):

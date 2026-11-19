@@ -162,6 +162,9 @@ class Card(Base):
         ForeignKey("cards.id", ondelete="SET NULL"), nullable=True, index=True
     )
     depends_on: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    # The branch a card starts from and is merged into, when it is not the project's default:
+    # a swarm epic's parts build on the epic's branch.
+    base_branch: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Why the governor is holding a ready card back, while it does.
     hold_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
@@ -206,6 +209,8 @@ class Run(Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     journal_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     cancel_requested_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Set with cancel_requested_at by a stop: the run ends, the card stays (failed, rerunnable).
+    stop_only: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(nullable=True)
     owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Usage per role and model (prat.usage), and what the agent is doing right now: its task

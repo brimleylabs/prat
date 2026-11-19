@@ -348,7 +348,24 @@ def rework_feedback(session: Session, card: Card) -> str | None:
     verdict = latest_verdict(session, card)
     if verdict is not None:
         parts.append("From the previous automated review:\n" + verdict.body)
+    swarm = _swarm_notes_since_last_run(session, card)
+    if swarm:
+        parts.append("From PRAT, merging your work into the epic:\n" + swarm[-1].body)
     return "\n\n".join(parts) or None
+
+
+def _swarm_notes_since_last_run(session: Session, card: Card) -> list[Comment]:
+    run = latest_run(session, card)
+    query = (
+        select(Comment)
+        .where(Comment.card_id == card.id, Comment.kind == "swarm_conflict")
+        .order_by(Comment.id)
+    )
+    comments = list(session.scalars(query))
+    if run is None:
+        return comments
+    started = as_utc(run.created_at)
+    return [c for c in comments if started is None or (as_utc(c.created_at) or started) >= started]
 
 
 def latest_run(session: Session, card: Card) -> Run | None:

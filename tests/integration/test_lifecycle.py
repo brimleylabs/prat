@@ -401,6 +401,53 @@ async def test_cancel_queued_card(settings: Settings, db: Database, project: Pro
     await asyncio.wait_for(t1, timeout=20)
 
 
+async def test_stop_ends_the_run_and_keeps_the_card_and_its_work(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    card_id = add_card(db, project)
+    script = [{"op": "write", "path": "started.txt", "content": "1"}, {"op": "wait", "seconds": 60}]
+    engine, runtime = make_engine(settings, db, script)
+    task = engine.submit(card_id)
+    await wait_for(lambda: ("write", "started.txt") in runtime.executed)
+    assert await engine.stop(card_id)
+    result = await asyncio.wait_for(task, timeout=20)
+    assert result.run_status is RunStatus.CANCELLED
+    assert result.card_status is CardStatus.FAILED
+    assert runtime.cancelled
+    run = last_run(db, card_id)
+    assert run.stop_only and "stopped" in (run.reason or "")
+    # The work so far is on the card's branch, and the card can run again.
+    agent = Path(project.agent_path)
+    assert git(agent, "show", f"{run.branch}:started.txt") == "1"
+    engine2, _ = make_engine(settings, db, [{"op": "finish"}])
+    engine2.rework(card_id, "Carry on from where you stopped.")
+    again = await asyncio.wait_for(engine2.submit(card_id), timeout=30)
+    assert again.card_status is CardStatus.REVIEW
+
+
+async def test_stop_from_another_process_keeps_the_card(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    card_id = add_card(db, project)
+    script = [{"op": "write", "path": "a.txt", "content": "1"}, {"op": "wait", "seconds": 60}]
+    engine, runtime = make_engine(settings, db, script, stale_run_seconds=30)
+    task = engine.submit(card_id)
+    await wait_for(lambda: bool(runtime.executed))
+    other, _ = make_engine(settings, db, [], stale_run_seconds=30)
+    assert await other.stop(card_id)
+    result = await asyncio.wait_for(task, timeout=20)
+    assert result.card_status is CardStatus.FAILED
+
+
+async def test_stop_with_no_run_changes_nothing(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    card_id = add_card(db, project)
+    engine, _ = make_engine(settings, db, [])
+    assert not await engine.stop(card_id)
+    assert card_state(db, card_id)[0] is CardStatus.READY
+
+
 async def test_cancel_idle_card(settings: Settings, db: Database, project: Project) -> None:
     card_id = add_card(db, project, ready=False)
     engine, _ = make_engine(settings, db, [])
@@ -696,6 +743,28 @@ async def test_a_rerun_brings_the_current_project_file_onto_the_card_branch(
         assert second.base_commit == main_head  # the merge moved the base
         summary = card.summary or ""
     assert ".prat/setup.sh" not in summary and "pass_2.txt" in summary
+
+
+async def test_more_feedback_on_a_card_already_waiting_for_rework_is_kept(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    card_id = add_card(db, project)
+    prompts: list[str] = []
+
+    def script_for(task: AgentTask) -> FakeScript:
+        prompts.append(task.prompt)
+        return FakeScript.parse(
+            [{"op": "write", "path": "a.txt", "content": "1\n"}, {"op": "finish"}]
+        )
+
+    engine, _ = make_engine(settings, db, FakeRuntime(script_for))
+    await engine.run_card(card_id)
+    engine.rework(card_id, "Add a docstring.")
+    engine.rework(card_id, "And rename greet to hello.")
+    assert card_state(db, card_id)[0] is CardStatus.REWORK
+    await engine.run_card(card_id)
+    assert "Add a docstring." in prompts[1]
+    assert "And rename greet to hello." in prompts[1]
 
 
 async def test_a_rework_that_only_shows_something_still_reaches_review(

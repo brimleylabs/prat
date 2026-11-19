@@ -975,6 +975,18 @@ def card_cancel(ctx: typer.Context, card_id: int) -> None:
         console.print("cancelled" if changed else "nothing to cancel")
 
 
+@card_app.command("stop")
+def card_stop(ctx: typer.Context, card_id: int) -> None:
+    """Stop the card's current run and keep the card, its branch and its work."""
+    with _database(ctx) as (settings, db):
+        engine = Engine(settings, db, FakeRuntime([]))
+        try:
+            changed = asyncio.run(engine.stop(card_id))
+        except store.NotFound as exc:
+            raise _fail(str(exc)) from exc
+        console.print("stopped; the card is kept" if changed else "no run to stop")
+
+
 @card_app.command("comment")
 def card_comment(
     ctx: typer.Context,

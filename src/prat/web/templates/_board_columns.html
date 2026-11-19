@@ -1,5 +1,5 @@
 {% from "_tile.html" import tile %}
-{% set active_statuses = ['ready', 'running', 'review', 'rework', 'blocked', 'failed'] %}
+{% set active_statuses = ['ready', 'running', 'building', 'review', 'rework', 'blocked', 'failed'] %}
 {% set backlog_statuses = ['draft', 'done', 'cancelled'] %}
 {% macro column(col) %}
   {% set count = col.tiles|length %}

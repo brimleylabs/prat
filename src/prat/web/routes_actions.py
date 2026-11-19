@@ -213,6 +213,22 @@ async def card_cancel(request: Request, card_id: int) -> Response:
     return _go(request, f"/cards/{card_id}")
 
 
+@router.post("/cards/{card_id}/stop")
+async def card_stop(request: Request, card_id: int) -> Response:
+    ctx = web_context(request)
+    with ctx.db.session() as session:
+        _card_or_404(session, card_id)
+    changed = await ctx.engine.stop(card_id)
+    _flash(
+        request,
+        "Stopped. The card and its work are kept; run it again or send it back."
+        if changed
+        else "No run to stop.",
+        "ok" if changed else "warn",
+    )
+    return _go(request, f"/cards/{card_id}")
+
+
 @router.post("/cards/{card_id}/rework")
 async def card_rework(request: Request, card_id: int) -> Response:
     ctx = web_context(request)
@@ -227,7 +243,7 @@ async def card_rework(request: Request, card_id: int) -> Response:
     if len(feedback) > MAX_TEXT:
         _flash(request, f"Keep the feedback under {MAX_TEXT} characters.", "warn")
         return _go(request, f"/cards/{card_id}#rework")
-    if status not in (CardStatus.REVIEW, CardStatus.BLOCKED, CardStatus.FAILED):
+    if status not in (CardStatus.REVIEW, CardStatus.BLOCKED, CardStatus.FAILED, CardStatus.REWORK):
         _flash(request, f"A {status} card cannot be sent back for rework.", "warn")
         return _go(request, f"/cards/{card_id}")
     try:

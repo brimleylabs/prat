@@ -63,6 +63,12 @@
         <button type="submit" class="btn">{{ icon('undo') }}Reopen as draft</button>
       </form>
       {% endif %}
+      {% if 'stop' in acts %}
+      <form method="post" action="/cards/{{ card.id }}/stop" hx-post="/cards/{{ card.id }}/stop" data-confirm-label="Stop run" hx-confirm="Stop this run of card #{{ card.id }}? The card, its branch and its work are kept, so you can run it again or send it back.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn">{{ icon('stop') }}Stop run</button>
+      </form>
+      {% endif %}
       {% if 'cancel' in acts %}
       <form method="post" action="/cards/{{ card.id }}/cancel" hx-post="/cards/{{ card.id }}/cancel" data-confirm-label="Cancel card" data-confirm-tone="danger" hx-confirm="Cancel card #{{ card.id }}?{% if status == 'running' %} The running agent is stopped and its work so far stays on the branch.{% endif %}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

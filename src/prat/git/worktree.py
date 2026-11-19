@@ -216,11 +216,17 @@ class WorktreeManager:
         *,
         source: str = "the checkout",
         author: tuple[str, str] | None = None,
+        merge_diverged: bool = True,
     ) -> CloneInfo:
-        """Harden an existing agent clone, fetch its origin and fast-forward.
+        """Harden an existing agent clone, fetch its origin and bring its work in.
 
-        ``source`` names the origin in warnings. A default branch that has
-        diverged from the origin is left as it is and reported as a warning.
+        ``source`` names the origin in messages. The agent clone's default branch
+        holds commits of its own (the project file, approved cards), so it often
+        cannot fast-forward; with ``merge_diverged`` the origin's new commits are
+        merged in, so a card never starts from code older than the person's. A
+        merge that conflicts is abandoned and raised: running on stale code is how
+        two cards end up with the same migration number. Without it, a diverged
+        branch is left as it is and reported as a warning.
         """
         agent = paths.resolve(agent_path)
         git = Git(agent)
@@ -240,10 +246,34 @@ class WorktreeManager:
         remote_ref = f"refs/remotes/origin/{default_branch}"
         if git.ref_exists(remote_ref) and not git.is_dirty():
             ff = git.run("merge", "--ff-only", "--quiet", remote_ref, check=False)
-            if not ff.ok:
+            if not ff.ok and not merge_diverged:
                 warnings.append(
                     f"{default_branch} in the agent clone has diverged from {source}; "
                     "using the agent clone's copy"
+                )
+            elif not ff.ok:
+                merged = git.run(
+                    "merge",
+                    "--no-edit",
+                    "--no-verify",
+                    "-m",
+                    f"PRAT: bring {source}'s {default_branch} into the agent clone",
+                    remote_ref,
+                    check=False,
+                )
+                if not merged.ok:
+                    conflicted = git.run("diff", "--name-only", "--diff-filter=U", check=False)
+                    files = [f for f in conflicted.stdout.splitlines() if f.strip()]
+                    git.run("merge", "--abort", check=False)
+                    raise CloneError(
+                        f"{default_branch} in the agent clone has commits of its own, and "
+                        f"{source}'s new commits conflict with them in: "
+                        f"{', '.join(files) or 'unknown files'}. Resolve it in {agent} "
+                        f"(merge origin/{default_branch}) before running cards; PRAT will not "
+                        "run a card on code older than yours."
+                    )
+                warnings.append(
+                    f"merged {source}'s new commits into the agent clone's {default_branch}"
                 )
         return CloneInfo(agent, False, git.head(), warnings)
 
@@ -361,6 +391,32 @@ class WorktreeManager:
             return "merged"
         git.run("merge", "--abort", check=False)
         return "conflict"
+
+    def bring_base(self, worktree: Path, base_ref: str) -> tuple[str | None, list[str]]:
+        """Merge ``base_ref`` into the card branch: a swarm part starts each run from the work
+        its epic has gathered since. Returns ``(None, [])`` when the branch already has it,
+        ``("merged", [])``, or ``("conflict", files)`` with the merge left in progress and the
+        conflict markers in those files, for the builder to resolve (PRAT's safety commit then
+        completes the merge). A merge that fails without conflicting files is abandoned."""
+        git = Git(worktree)
+        if git.run("merge-base", "--is-ancestor", base_ref, "HEAD", check=False).ok:
+            return None, []
+        merged = git.run(
+            "merge",
+            "--no-edit",
+            "--no-verify",
+            "-m",
+            f"PRAT: bring {base_ref} into the card branch",
+            base_ref,
+            check=False,
+        )
+        if merged.ok:
+            return "merged", []
+        conflicted = git.run("diff", "--name-only", "--diff-filter=U", check=False)
+        files = [f for f in conflicted.stdout.splitlines() if f.strip()]
+        if not files:
+            git.run("merge", "--abort", check=False)
+        return "conflict", files
 
     def remove_worktree(self, agent_path: Path, path: Path) -> None:
         git = Git(agent_path)

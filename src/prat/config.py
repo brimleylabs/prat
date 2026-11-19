@@ -107,6 +107,10 @@ class Settings(BaseSettings):
     # refusal holds it.
     pressure_hold: float | None = Field(default=0.95, gt=0, le=1)
     governor_poll_seconds: float = Field(default=5.0, gt=0)
+    # An approved epic is built by a swarm (prat.swarm): its parts run at once on the epic's own
+    # branch, each merged in as soon as its gates and reviewer pass, and the whole feature comes
+    # to review once. Off: each part comes to review and lands on its own, as a card.
+    swarm_epics: bool = True
     # Ceiling for every project and card. A project file cannot raise it.
     max_autonomy: Autonomy = Autonomy.MEDIUM
     default_budget_usd: float = Field(default=5.0, gt=0)

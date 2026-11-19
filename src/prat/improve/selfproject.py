@@ -299,7 +299,9 @@ def setup_self_project(
             created = True
         git.run("remote", "set-head", "origin", "--auto", check=False)
         branch = _default_branch(git)
-        refreshed = worktrees.refresh_agent_clone(clone, branch, source=SOURCE_NAME)
+        refreshed = worktrees.refresh_agent_clone(
+            clone, branch, source=SOURCE_NAME, merge_diverged=False
+        )
         spec = _spec_on(git, branch)
     except (GitError, CloneError, SelfProjectError) as exc:
         if created:
