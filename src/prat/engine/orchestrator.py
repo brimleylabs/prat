@@ -522,7 +522,8 @@ class Engine:
             )
             candidates = []
             for card in ready:
-                if card.updated_at is not None and as_utc(card.updated_at) > cutoff:
+                updated = as_utc(card.updated_at)
+                if updated is not None and updated > cutoff:
                     continue
                 running = session.scalar(
                     select(Run.id).where(Run.card_id == card.id, Run.status == RunStatus.RUNNING)
