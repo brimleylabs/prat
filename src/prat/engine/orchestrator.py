@@ -57,7 +57,7 @@ from prat.domain import (
     Verdict,
     lowest_autonomy,
 )
-from prat.engine import context_pack, crewing
+from prat.engine import context_pack, crewing, speculative
 from prat.engine.instructions import load_repo_instructions
 from prat.engine.interfaces import (
     NoPlanner,
@@ -113,6 +113,7 @@ from prat.runtime import (
     Outcome,
     RuntimeEvent,
     SessionStarted,
+    ToolCallEvent,
     event_to_dict,
 )
 from prat.runtime.base import PressureEvent
@@ -1716,8 +1717,79 @@ class Engine:
 
     # Swarms (prat.swarm) ----------------------------------------------------------
 
+    def _rival_events(
+        self, ctx: _Ctx, active: _Active, worktree: Path
+    ) -> Callable[[RuntimeEvent], None]:
+        record = self._journal_events(ctx, "rival")
+        watch = self._watch(ctx, active, worktree)
+
+        def observe(event: RuntimeEvent) -> None:
+            record(event)
+            watch(event)
+
+        return observe
+
+    def _watch(self, ctx: _Ctx, active: _Active, worktree: Path) -> Callable[[Any], None]:
+        """Watch a builder's tool calls: when it runs the tests after editing, start the
+        reviewer on a snapshot of its worktree (prat.engine.speculative)."""
+        if (
+            self.reviewer is None
+            or not self.settings.review_during_gates
+            or not self.settings.speculative_review
+            or ctx.is_setup
+            or ctx.project_spec.workspace.database
+            or not ctx.project_spec.verify.gates
+        ):
+            return lambda event: None
+        markers = speculative.test_markers(ctx.project_spec)
+        edited = False
+
+        def observe(event: Any) -> None:
+            nonlocal edited
+            if not isinstance(event, ToolCallEvent):
+                return
+            tool = event.tool.lower()
+            if tool in speculative.EDIT_TOOLS:
+                edited = True
+            elif tool == "bash" and edited:
+                command = str((event.input or {}).get("command", ""))
+                if speculative.runs_tests(command, markers):
+                    edited = False
+                    task = asyncio.create_task(self._speculate(ctx, active, worktree))
+                    self._setups.add(task)
+                    task.add_done_callback(self._setups.discard)
+
+        return observe
+
+    async def _speculate(self, ctx: _Ctx, active: _Active, worktree: Path) -> None:
+        try:
+            shot = await asyncio.to_thread(speculative.snapshot, worktree)
+            if shot is None or ctx.base is None:
+                return
+            tree, commit = shot
+            if active.early_review is not None:
+                if active.early_review[0] == tree:
+                    return
+                active.early_review[1].cancel()
+                active.early_review = None
+            stats = await asyncio.to_thread(self.worktrees.diff_stats, worktree, ctx.base, commit)
+            if stats.empty:
+                return
+            diff = await asyncio.to_thread(self.worktrees.diff_text, worktree, ctx.base, commit)
+            ctx.journal.append("critique.speculative", {"tree": tree, "worktree": str(worktree)})
+            self._start_early_review(
+                ctx, active, stats, diff, ctx.project_spec, tree=tree, worktree=worktree
+            )
+        except Exception:
+            log.exception("a speculative review of run %s could not start", ctx.run_id)
+
     async def _start_race(
-        self, ctx: _Ctx, task: AgentTask, sandbox: Sandbox | None, env: Mapping[str, str]
+        self,
+        ctx: _Ctx,
+        task: AgentTask,
+        sandbox: Sandbox | None,
+        env: Mapping[str, str],
+        active: _Active,
     ) -> Race | None:
         """A rival builder for this card (prat.engine.race), or ``None`` when the card does not
         race: a resumed session, a setup or infra card, or one with its own database branch."""
@@ -1777,7 +1849,7 @@ class Engine:
             path=path,
             branch=branch,
             start=start,
-            on_event=self._journal_events(ctx, "rival"),
+            on_event=self._rival_events(ctx, active, path),
             sandbox=rival_sandbox,
         )
 
@@ -2376,6 +2448,7 @@ class Engine:
                 async for event in stream:
                     journal.append(f"runtime.{event.type}", event_to_dict(event))
                     self._observe(ctx.run_id, str(role), event)
+                    watch(event)
                     if crew_session is not None:
                         crew_session.observe(event)
                     if isinstance(event, SessionStarted):
@@ -2404,7 +2477,8 @@ class Engine:
                 if closer is not None:
                     await closer()
 
-        race = await self._start_race(ctx, task, sandbox, env)
+        watch = self._watch(ctx, active, ctx.worktree_path)
+        race = await self._start_race(ctx, task, sandbox, env, active)
         race_detail: dict[str, Any] = {}
         try:
             if race is None:
@@ -2424,8 +2498,16 @@ class Engine:
                 self._update_run(ctx.run_id, cost_usd=cost)
         finally:
             if race is not None:
-                # The rival's worktree goes in the background: the run moves on at once.
-                cleanup = asyncio.create_task(asyncio.to_thread(race.cleanup))
+                # The rival's worktree goes in the background: the run moves on at once, and
+                # a review still reading it finishes first.
+                reading = active.early_review[1] if active.early_review is not None else None
+
+                async def remove_rival(race: Race = race) -> None:
+                    if reading is not None:
+                        await asyncio.wait({reading}, timeout=600)
+                    await asyncio.to_thread(race.cleanup)
+
+                cleanup = asyncio.create_task(remove_rival())
                 self._setups.add(cleanup)
                 cleanup.add_done_callback(self._setups.discard)
             if sandbox is not None:
@@ -2600,7 +2682,14 @@ class Engine:
                 # gates pass, or fail, for reasons the next checkout will not share.
                 await asyncio.to_thread(_reset_worktree, worktree, ignored=True)
             if not ctx.is_setup:
-                self._start_early_review(ctx, active, stats, diff, gate_spec)
+                head_tree = await asyncio.to_thread(speculative.tree_of, worktree, stats.head)
+                if active.early_review is not None and active.early_review[0] == head_tree:
+                    ctx.journal.append("critique.speculative_kept", {"tree": head_tree})
+                else:
+                    if active.early_review is not None:
+                        active.early_review[1].cancel()
+                        active.early_review = None
+                    self._start_early_review(ctx, active, stats, diff, gate_spec, tree=head_tree)
             try:
                 sandbox = await asyncio.to_thread(self._sandbox, ctx, gate_env, gate_spec)
             except SandboxError as exc:
@@ -2757,7 +2846,15 @@ class Engine:
         return request, knowledge
 
     def _start_early_review(
-        self, ctx: _Ctx, active: _Active, stats: Any, diff: str, spec: ProjectSpec
+        self,
+        ctx: _Ctx,
+        active: _Active,
+        stats: Any,
+        diff: str,
+        spec: ProjectSpec,
+        *,
+        tree: str | None = None,
+        worktree: Path | None = None,
     ) -> None:
         """Start the reviewer while the gates run (``review_during_gates``). Its verdict is used
         only if every gate then passes on the same commit; a failing gate discards it. Cards with
@@ -2786,14 +2883,18 @@ class Engine:
         model = self._model(Role.CRITIC, ctx)
         reviewer = self.reviewer
 
+        # The reviewer reads the worktree the snapshot came from (a racing builder's, maybe).
+        review_ctx = dataclasses.replace(ctx, worktree=worktree) if worktree else ctx
+
         async def review() -> tuple[ReviewRequest, Any, Any]:
             request, knowledge = await self._review_request(
-                ctx, stats, diff, pending, changes, [], model
+                review_ctx, stats, diff, pending, changes, [], model
             )
             return request, knowledge, await reviewer.review(request)
 
-        ctx.journal.append("critique.early", {"head_commit": stats.head})
-        active.early_review = (stats.head, asyncio.create_task(review(), name="prat-early-review"))
+        key = tree or speculative.tree_of(ctx.worktree_path, stats.head) or stats.head
+        ctx.journal.append("critique.early", {"head_commit": stats.head, "tree": key})
+        active.early_review = (key, asyncio.create_task(review(), name="prat-early-review"))
 
     async def _step_critique(self, ctx: _Ctx, active: _Active) -> StepResult:
         if self.reviewer is None:
@@ -2816,7 +2917,8 @@ class Engine:
         model = self._model(Role.CRITIC, ctx)
         early, active.early_review = active.early_review, None
         reused: tuple[ReviewRequest, Any, Any] | None = None
-        if early is not None and early[0] == stats.head:
+        head_tree = await asyncio.to_thread(speculative.tree_of, ctx.worktree_path, stats.head)
+        if early is not None and early[0] in (head_tree, stats.head):
             try:
                 reused = await early[1]
             except Exception:

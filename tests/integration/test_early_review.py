@@ -84,3 +84,47 @@ async def test_without_it_the_review_waits_for_the_gates(
     await engine.run_card(card_id)
     assert "critique.early" not in journal_kinds(db, card_id)
     assert not reviewer.requests[0].gates[0].get("pending")
+
+
+def kinds_of(db: Database, card_id: int) -> list[str]:
+    return journal_kinds(db, card_id)
+
+
+async def test_the_reviewer_starts_when_the_builder_runs_the_tests(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    script = [
+        {"op": "write", "path": "hello.py", "content": "def greet():\n    return 'hi'\n"},
+        {"op": "bash", "command": "echo pytest"},
+        {"op": "wait", "seconds": 1},
+        {"op": "finish"},
+    ]
+    reviewer = SlowReviewer()
+    engine, _ = make_engine(settings, db, script, reviewer=reviewer)
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    assert result.card_status is CardStatus.REVIEW
+    kinds = kinds_of(db, card_id)
+    assert "critique.speculative" in kinds and "critique.speculative_kept" in kinds, [k for k in kinds if "critique" in k or "tool" in k]
+    assert len(reviewer.requests) == 1
+    assert "hello.py" in reviewer.requests[0].diff
+
+
+async def test_a_change_after_the_snapshot_is_reviewed_again(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    script = [
+        {"op": "write", "path": "hello.py", "content": "def greet():\n    return 'hi'\n"},
+        {"op": "bash", "command": "echo pytest"},
+        {"op": "wait", "seconds": 0.3},
+        {"op": "write", "path": "later.py", "content": "x = 1\n"},
+        {"op": "finish"},
+    ]
+    reviewer = SlowReviewer()
+    engine, _ = make_engine(settings, db, script, reviewer=reviewer)
+    card_id = add_card(db, project)
+    result = await engine.run_card(card_id)
+    assert result.card_status is CardStatus.REVIEW
+    assert "critique.speculative_kept" not in kinds_of(db, card_id)
+    # The verdict that counts was given on the code that was handed over.
+    assert "later.py" in reviewer.requests[-1].diff

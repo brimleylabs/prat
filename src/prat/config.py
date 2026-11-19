@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     race_builders: int = Field(default=2, ge=1, le=2)
     # The reviewer starts while the gates run; its verdict counts only if they all pass.
     review_during_gates: bool = True
+    # With it, the reviewer starts when a builder runs the tests, on a snapshot of its work
+    # (prat.engine.speculative); the verdict counts only for that same code.
+    speculative_review: bool = True
     # Extended thinking for builders, where the project's crew allows it.
     builder_thinking: bool = True
     # The files a card names, read for its builder before it starts (prat.engine.context_pack),
