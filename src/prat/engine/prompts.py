@@ -122,6 +122,17 @@ def _test_instruction(spec: ProjectSpec) -> str:
     return "- Before you finish, run the tests that exist for the code you changed."
 
 
+# Builders like to write several files in one shell command (cat > a.py <<'EOF' ... EOF, again
+# for b.py). A long command is cut off before it reaches the shell (at about 8,000 characters on
+# Windows), so it fails on an unmatched quote after the model has spent a minute writing it, and
+# every file is written again. Measured 2026-11-21: 25 to 65 seconds lost per builder.
+WRITE_FILES_RULE = (
+    "- Create and change files with the Write and Edit tools, never through a shell command "
+    "(no `cat > file <<EOF`, no `python -c` that writes files): a long command is cut off and "
+    "fails. To write several files, send their Write calls together in one message; they run "
+    "at once."
+)
+
 # Each tool call is a new shell, so a server started in one call cannot be stopped from the next
 # (kill is only allowed for the same command's own background job).
 SERVER_CHECK_RULE = (
@@ -150,6 +161,7 @@ def builder_system_prompt(
         _test_instruction(spec),
         "- Do not read or write secret files (.env, keys, credentials).",
         "- Keep the change to what the card asks for.",
+        WRITE_FILES_RULE,
         SERVER_CHECK_RULE,
         "- If PRAT's policy denies a tool call, do not try to get around it: choose "
         "another approach or report that you are blocked.",
