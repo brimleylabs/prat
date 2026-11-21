@@ -48,13 +48,50 @@ Rules for the parts:
   mostly touch, in its goal. Parts that run at the same time do not edit the same file: give
   each its own module where the contract allows, since two parts changing one file collide when
   they merge and one of them is built again.
-- Acceptance criteria are testable statements, one per line; each part tests its own work.
+{brief}
 
 Answer with JSON only, no prose before or after:
 {{"parts": [{{"title": "...", "goal": "...", "acceptance_criteria": "line one\\nline two",
   "complexity": "low|medium|high", "depends_on": [0]}}]}}
 where depends_on lists the indexes (0-based) of earlier parts this one needs.
 """
+
+# How much a part's goal says. In full: the planner writes each part out, which for a long epic
+# is most of the epic's text again, one word at a time, before any builder starts.
+BRIEF_IN_FULL = (
+    "- Acceptance criteria are testable statements, one per line; each part tests its own work."
+)
+# By reference (settings.epic_parts_by_reference): every part's builder is given the whole
+# epic, and the planner only says which piece is whose.
+BRIEF_BY_REFERENCE = """\
+- Every part's builder is given the whole text of the epic, so never copy it. A part's goal is a
+  few lines: which piece of the epic it builds (name the numbered section, the heading or the
+  functions), the files it owns, and only what the epic does not already say, such as an
+  interface two parts must agree on. Its acceptance criteria are one or two lines naming that
+  piece; each part tests its own work."""
+
+
+def split_prompt(*, by_reference: bool) -> str:
+    return EPIC_PROMPT.format(
+        lo=MIN_PARTS, hi=MAX_PARTS, brief=BRIEF_BY_REFERENCE if by_reference else BRIEF_IN_FULL
+    )
+
+
+def part_goal(part_goal_text: str, epic: Card, *, by_reference: bool) -> str:
+    """The goal of a part's card. By reference it carries the whole epic under the part's own
+    few lines, marked as reference, so the builder has every rule the epic states."""
+    own = f"{part_goal_text}\n\nPart of epic #{epic.id}: {epic.title}."
+    if not by_reference:
+        return own
+    criteria = (epic.acceptance_criteria or "").strip()
+    return (
+        f"{own} Other agents are building the other parts at this moment: build and test only "
+        "the piece described above, and leave the rest of the epic to them. This card is "
+        "reviewed against that piece and its own acceptance criteria alone.\n\n"
+        "## The whole epic, for reference\n\n"
+        f"{(epic.goal or '').strip()}"
+        + (f"\n\nThe epic's acceptance criteria:\n{criteria}" if criteria else "")
+    )
 
 
 @dataclass
@@ -117,7 +154,9 @@ def parse_parts(text: str) -> list[Part]:
     return parts
 
 
-def create_parts(db: Database, epic_id: int, parts: list[Part]) -> list[int]:
+def create_parts(
+    db: Database, epic_id: int, parts: list[Part], *, by_reference: bool = False
+) -> list[int]:
     """Add the parts as draft child cards of the epic. Returns their ids, in order."""
     ids: list[int] = []
     with db.session() as session:
@@ -130,7 +169,7 @@ def create_parts(db: Database, epic_id: int, parts: list[Part]) -> list[int]:
                 session,
                 epic.project,
                 title=part.title,
-                goal=f"{part.goal}\n\nPart of epic #{epic_id}: {epic.title}.",
+                goal=part_goal(part.goal, epic, by_reference=by_reference),
                 acceptance_criteria=part.acceptance_criteria,
                 complexity=part.complexity,
                 kind=CardKind.CHANGE,

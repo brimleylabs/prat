@@ -203,6 +203,15 @@ class FakeRuntime:
                     return
                 self._save_cursor(session_id, index)
                 step = script.steps[index]
+                if step.op == "finish" and task.finish_check is not None:
+                    # As a real agent's turn ends: PRAT's checks run first. Handed a failure,
+                    # the script carries on with the steps written after this finish (the
+                    # agent's fix), or ends here when there are none.
+                    feedback = await task.finish_check()
+                    if feedback and index + 1 < len(script.steps):
+                        yield TextEvent(f"(told at the finish) {feedback.splitlines()[0]}")
+                        index += 1
+                        continue
                 if step.op in ("read", "write", "edit", "delete", "bash", "mcp", "web"):
                     turns += 1
                     if task.budget.max_turns is not None and turns > task.budget.max_turns:

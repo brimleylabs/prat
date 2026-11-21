@@ -94,6 +94,28 @@ def snapshot(worktree: Path) -> tuple[str, str] | None:
         return tree_id, commit.stdout.strip()
 
 
+def restore(worktree: Path, commit: str) -> list[str]:
+    """Put the worktree's files back as they were at ``commit``, a snapshot of it: whatever a
+    command changed, added or deleted since is undone. Returns the paths put back. The branch,
+    the index and ignored files are left alone."""
+    now = snapshot(worktree)
+    if now is None:
+        return []
+    git = Git(worktree)
+    diff = git.run("diff", "--name-status", "--no-renames", "-z", commit, now[1], check=False)
+    if not diff.ok:
+        return []
+    fields = [f for f in diff.stdout.split("\0") if f]
+    changed = list(zip(fields[0::2], fields[1::2], strict=False))
+    back = [path for status, path in changed if status != "A"]
+    for status, path in changed:
+        if status == "A":  # not there at the snapshot
+            (worktree / path).unlink(missing_ok=True)
+    for start in range(0, len(back), 50):
+        git.run("restore", f"--source={commit}", "--worktree", "--", *back[start : start + 50])
+    return [path for _, path in changed]
+
+
 def tree_of(repo: Path, ref: str = "HEAD") -> str | None:
     out = Git(repo).run("rev-parse", f"{ref}^{{tree}}", check=False)
     return out.stdout.strip() if out.ok else None

@@ -103,6 +103,11 @@ class AgentTask:
     prat_tools: tuple[PratTool, ...] = ()
     # Let the model think before it acts; its thoughts come back as ThoughtEvents.
     thinking: bool = False
+    # Asked when the agent is about to end its turn. Text it returns is handed to the agent and
+    # the turn goes on (PRAT's own checks failed on its work); ``None`` lets the turn end.
+    finish_check: Callable[[], Awaitable[str | None]] | None = None
+    # How long the runtime waits for ``finish_check`` (the checks can be the whole test suite).
+    finish_check_timeout: float = 900.0
 
 
 class Outcome(StrEnum):

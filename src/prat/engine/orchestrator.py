@@ -30,6 +30,7 @@ import dataclasses
 import functools
 import logging
 import threading
+import time
 import uuid
 from collections.abc import Awaitable, Callable, Coroutine, Iterable, Mapping
 from dataclasses import dataclass, field, replace
@@ -171,6 +172,8 @@ def sandbox_gate(problem: str) -> GateResult:
 
 
 MAX_REVIEW_DIFF_CHARS = 200_000
+# A swarm part reuses the agent clone another part of its project refreshed this recently.
+CLONE_FRESH_SECONDS = 30.0
 # The reason on runs and queued cards stopped by a restart; resume_after_restart picks them up.
 SUSPENDED_REASON = "PRAT restarted"
 
@@ -327,15 +330,26 @@ class _Active:
     # Speculative reviews, one per builder's worktree while racing: (tree, review).
     speculative: dict[str, tuple[str, asyncio.Task[Any]]] = field(default_factory=dict)
     # Speculative gate runs, one per builder's worktree: (tree, stop, gates).
-    gates: dict[str, tuple[str, threading.Event, asyncio.Task[list[GateResult]]]] = field(
+    gates: dict[str, tuple[str, threading.Event, asyncio.Future[list[GateResult]]]] = field(
         default_factory=dict
     )
+    # Finish checks running in a builder's own worktree: (stop, set when it has let go).
+    finishing: dict[str, tuple[threading.Event, asyncio.Event]] = field(default_factory=dict)
 
     def stop_gates(self, keep: str | None = None) -> None:
         """Stop the speculative gate runs, all but the one for tree ``keep``."""
         for tree, stop, _ in self.gates.values():
             if tree != keep:
                 stop.set()
+
+    async def end_finish_checks(self) -> None:
+        """Stop the finish checks still running in a worktree and wait until each has put its
+        worktree back, so whatever comes next (a winner's work, a cleanup) has it to itself."""
+        waiting = list(self.finishing.values())
+        for stop, _ in waiting:
+            stop.set()
+        for _, idle in waiting:
+            await idle.wait()
 
 
 @dataclass
@@ -437,6 +451,7 @@ class Engine:
         self._telemetry: dict[int, RunTelemetry] = {}
         # Setups of the checkout approved work reached, likewise.
         self._setups: set[asyncio.Task[Any]] = set()
+        self._clone_seen: dict[int, tuple[float, Any]] = {}
         # Crew members choosing their names in the background (see _introductions).
         self._introducing: asyncio.Task[None] | None = None
         settings.ensure_dirs()
@@ -780,6 +795,8 @@ class Engine:
             return
         active.cancel_requested = True
         active.stop.set()
+        for finishing, _ in list(active.finishing.values()):
+            finishing.set()
         if active.session_id:
             await self.runtime.cancel(active.session_id)
         if active.task is not None and not active.task.done():
@@ -1390,6 +1407,14 @@ class Engine:
                     source="the self repository's remote",
                     merge_diverged=False,
                 )
+            elif (
+                start_ref != ctx.default_branch
+                and (seen := self._clone_seen.get(ctx.project_id)) is not None
+                and time.monotonic() - seen[0] < CLONE_FRESH_SECONDS
+            ):
+                # A swarm's parts start together from the epic's branch, which lives in the
+                # agent clone: the clone one of them refreshed a moment ago is fresh for all.
+                clone = replace(seen[1], created=False, warnings=[])
             else:
                 clone = await asyncio.to_thread(
                     self.worktrees.prepare_agent_clone,
@@ -1398,6 +1423,7 @@ class Engine:
                     ctx.default_branch,
                     author=author,
                 )
+                self._clone_seen[ctx.project_id] = (time.monotonic(), clone)
             spec = _spec_from_branch(ctx.agent_path, ctx.default_branch) or fallback_spec
             # The installation's overlay only adds to the project's rules; the run
             # records the result, so a resumed run keeps the rules it started with.
@@ -1712,7 +1738,7 @@ class Engine:
             system_prompt="\n\n".join(
                 t
                 for t in (
-                    epics.EPIC_PROMPT.format(lo=epics.MIN_PARTS, hi=epics.MAX_PARTS),
+                    epics.split_prompt(by_reference=self.settings.epic_parts_by_reference),
                     _card_text(ctx),
                     project_facts(ctx.project_spec, Autonomy.READ_ONLY),
                     knowledge,
@@ -1746,7 +1772,15 @@ class Engine:
             return StepResult(
                 StepStatus.SKIPPED, {"reason": "the planner judged it faster built as one card"}
             )
-        ids = await asyncio.to_thread(epics.create_parts, self.db, ctx.card_id, parts)
+        ids = await asyncio.to_thread(
+            functools.partial(
+                epics.create_parts,
+                self.db,
+                ctx.card_id,
+                parts,
+                by_reference=self.settings.epic_parts_by_reference,
+            )
+        )
         await asyncio.to_thread(
             self._bench_episode,
             ctx,
@@ -1918,6 +1952,135 @@ class Engine:
         ctx.journal.append("verify.speculative_kept", {"tree": tree})
         return gates
 
+    def _finish_check(
+        self, ctx: _Ctx, active: _Active, worktree: Path
+    ) -> Callable[[], Awaitable[str | None]] | None:
+        """PRAT's gates, run on a builder's work as it ends its turn (``finish_checks``).
+
+        A failure goes back to the builder as feedback in the same session, so it fixes it there
+        instead of the run failing and a rework starting over. The gates that already ran on a
+        snapshot of the same code count when they passed; otherwise they run in the builder's
+        own worktree, which is idle while it waits, and anything they wrote there is undone. A
+        pass is kept for verify, so the gates do not run twice on the same code."""
+        spec = ctx.project_spec
+        if (
+            not self.settings.finish_checks
+            or self.settings.finish_check_rounds < 1
+            or self.settings.sandbox == "docker"
+            or ctx.is_setup
+            or ctx.card_kind is not CardKind.CHANGE
+            or not spec.verify.gates
+        ):
+            return None
+        slot = str(worktree)
+        rounds = 0
+
+        async def check() -> str | None:
+            nonlocal rounds
+            if rounds >= self.settings.finish_check_rounds or ctx.base is None:
+                return None
+            if active.cancel_requested or active.stop.is_set():
+                return None
+            shot = await asyncio.to_thread(speculative.snapshot, worktree)
+            if shot is None:
+                return None
+            tree, commit = shot
+            stats = await asyncio.to_thread(self.worktrees.diff_stats, worktree, ctx.base, commit)
+            if stats.empty:
+                return None
+            gates: list[GateResult] | None = None
+            running = active.gates.get(slot)
+            if running is not None and running[0] == tree:
+                await asyncio.wait({running[2]})
+                done = running[2]
+                if not done.cancelled() and done.exception() is None:
+                    gates = done.result()
+            in_place = False
+            if not gates or not all(g.passed for g in gates):
+                # No pass for this code yet. A snapshot's failure can be the fresh worktree's
+                # (nothing installed there), so the verdict comes from the builder's own.
+                in_place = True
+                logs = ctx.run_dir / f"finish-{tree[:10]}"
+                await asyncio.to_thread(logs.mkdir, parents=True, exist_ok=True)
+                env = _database_env(spec, ctx.card_id, self._environ(ctx.project_slug))
+                stop, idle = threading.Event(), asyncio.Event()
+                active.finishing[slot] = (stop, idle)
+                running_gates = asyncio.ensure_future(
+                    asyncio.to_thread(
+                        functools.partial(
+                            run_gates,
+                            spec,
+                            worktree,
+                            logs,
+                            stop=stop,
+                            timeout=min(
+                                spec.verify.timeout_seconds, self.settings.gate_timeout_seconds
+                            ),
+                            env=env or None,
+                        )
+                    )
+                )
+
+                async def let_go(
+                    running_gates: asyncio.Future[list[GateResult]] = running_gates,
+                    commit: str = commit,
+                    idle: asyncio.Event = idle,
+                ) -> None:
+                    # Its own task, so a session ended under the check (a race lost, a cancel)
+                    # cannot cut it short: the commands end, the worktree is put back, and only
+                    # then is the worktree anyone else's.
+                    try:
+                        await asyncio.wait({running_gates})
+                        undone = await asyncio.to_thread(speculative.restore, worktree, commit)
+                        if undone:
+                            ctx.journal.append("verify.finish_restored", {"paths": undone[:50]})
+                    except Exception:
+                        log.exception("a finish check of run %s did not clean up", ctx.run_id)
+                    finally:
+                        if active.finishing.get(slot, (None, None))[1] is idle:
+                            active.finishing.pop(slot, None)
+                        idle.set()
+
+                letting_go = asyncio.create_task(let_go())
+                self._setups.add(letting_go)
+                letting_go.add_done_callback(self._setups.discard)
+                try:
+                    gates = await asyncio.shield(running_gates)
+                    await asyncio.shield(letting_go)
+                except asyncio.CancelledError:
+                    stop.set()
+                    raise
+                if stop.is_set():
+                    return None
+            failed = next((g for g in gates if not g.passed), None)
+            ctx.journal.append(
+                "verify.finish_check",
+                {
+                    "tree": tree,
+                    "worktree": slot,
+                    "in_place": in_place,
+                    "passed": failed is None,
+                    "gate": failed.name if failed else None,
+                },
+            )
+            if failed is None:
+                if in_place:
+                    kept: asyncio.Future[list[GateResult]] = (
+                        asyncio.get_running_loop().create_future()
+                    )
+                    kept.set_result(gates)
+                    previous = active.gates.get(slot)
+                    if previous is not None:
+                        previous[1].set()
+                    active.gates[slot] = (tree, threading.Event(), kept)
+                return None
+            if failed.cancelled or (failed.exit_code is None and not failed.timed_out):
+                return None  # stopped, or the command could not start: not the builder's to fix
+            rounds += 1
+            return finish_feedback(failed)
+
+        return check
+
     async def _start_race(
         self,
         ctx: _Ctx,
@@ -1982,6 +2145,7 @@ class Engine:
                 helpers={},
                 prat_tools=(),
                 metadata={**task.metadata, "role": name},
+                finish_check=self._finish_check(ctx, active, path),
             )
             rivals.append(
                 Rival(
@@ -2569,6 +2733,11 @@ class Engine:
             thinking=bool(
                 crew_session and crew_session.thinking and self.settings.builder_thinking
             ),
+            finish_check=self._finish_check(ctx, active, ctx.worktree_path),
+            # Every gate may take its whole time limit.
+            finish_check_timeout=120.0
+            + max(1, len(ctx.project_spec.verify.gates))
+            * min(ctx.project_spec.verify.timeout_seconds, self.settings.gate_timeout_seconds),
         )
         journal.append(
             "execute.model",
@@ -2639,6 +2808,8 @@ class Engine:
                 await lead()
             else:
                 won = await race.run(lead, lambda: outcome, lambda: active.session_id)
+                # A loser may still have PRAT's checks running in its worktree.
+                await active.end_finish_checks()
                 race_detail = race.detail
                 journal.append("race.finished", race_detail)
                 if won is not None:
@@ -3430,3 +3601,13 @@ def _follow_checkout(checkout: Path, agent: Path, default: str, projects_dir: Pa
 def _uses_project_database(spec: ProjectSpec) -> bool:
     """Whether a proposed project file uses the database PRAT made for the project."""
     return any(db.url_env == DATABASE_VARIABLE for db in spec.workspace.database)
+
+
+def finish_feedback(failed: GateResult) -> str:
+    """What a builder is told when PRAT's gates fail on its work as it ends its turn."""
+    return (
+        "PRAT ran the project's checks on your work before accepting it, and "
+        f"{failed.summary}.\n\nCommand: {failed.command}\n\nThe end of its output:\n"
+        f"{failed.output_tail.strip()[-4000:]}\n\n"
+        "Fix what it reports, run that check yourself until it passes, then finish."
+    )

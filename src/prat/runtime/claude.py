@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import re
 import uuid
@@ -123,6 +124,8 @@ SDK_TOOLS: Mapping[str, tuple[str, ...]] = {
 }
 # PRAT's own in-process tools: offered when a task carries them, always allowed (they only
 # record what the agent tells PRAT, or read through PRAT's own guarded code).
+log = logging.getLogger(__name__)
+
 PRAT_SERVER = "prat"
 PRAT_TOOL_PREFIX = f"mcp__{PRAT_SERVER}__"
 HELPER_TOOLS = frozenset({"Agent", "Task"})
@@ -821,6 +824,37 @@ class ClaudeRuntime:
                 message=DENIAL_PREFIX + f"{tool_name} was not approved by the policy hook"
             )
 
+        async def stop(
+            input_data: HookInput, tool_use_id: str | None, context: HookContext
+        ) -> HookJSONOutput:
+            # The agent is ending its turn: PRAT's own checks run on its work first, and a
+            # failure goes back to it as feedback so it is fixed in this same session.
+            check = task.finish_check
+            if check is None:
+                return {}
+            try:
+                feedback = await check()
+            except Exception:  # a check that cannot run never holds the agent
+                log.exception("the finish check could not run")
+                return {}
+            if not feedback:
+                return {}
+            return cast(HookJSONOutput, {"decision": "block", "reason": feedback})
+
+        hooks: dict[str, list[HookMatcher]] = {
+            "PreToolUse": [
+                HookMatcher(
+                    matcher=None,
+                    hooks=[pre_tool_use],
+                    timeout=self.config.hook_timeout_seconds,
+                    on_failure="block",
+                )
+            ]
+        }
+        if task.finish_check is not None:
+            hooks["Stop"] = [
+                HookMatcher(matcher=None, hooks=[stop], timeout=task.finish_check_timeout)
+            ]
         crew = crew_options(task, enabled)
         return ClaudeAgentOptions(
             **crew,
@@ -832,16 +866,7 @@ class ClaudeRuntime:
                 "append": fit_instructions(task.system_prompt, "")[0],
             },
             permission_mode="default",
-            hooks={
-                "PreToolUse": [
-                    HookMatcher(
-                        matcher=None,
-                        hooks=[pre_tool_use],
-                        timeout=self.config.hook_timeout_seconds,
-                        on_failure="block",
-                    )
-                ]
-            },
+            hooks=cast(Any, hooks),
             can_use_tool=can_use_tool,
             setting_sources=[],
             # Agents commit as PRAT's agent; Claude Code's own trailers ("Co-Authored-By",

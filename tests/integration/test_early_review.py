@@ -200,7 +200,8 @@ async def test_gates_on_an_old_snapshot_are_not_kept(
         {"op": "write", "path": "later.py", "content": "x = 1\n"},
         {"op": "finish"},
     ]
-    engine, _ = make_engine(settings, db, script, reviewer=SlowReviewer())
+    # Without the finish check, which would run the gates on the final code and keep that.
+    engine, _ = make_engine(settings, db, script, reviewer=SlowReviewer(), finish_checks=False)
     card_id = add_card(db, project)
     result = await engine.run_card(card_id)
     await engine.checkouts_set_up()

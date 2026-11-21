@@ -113,6 +113,9 @@ class Settings(BaseSettings):
     swarm_epics: bool = True
     # The model that splits an epic; unset, the builder's model (faster than the planner's).
     epic_split_model: str | None = None
+    # A part's card carries the whole epic for its builder to read, and the planner only says
+    # which piece is whose, instead of writing every part out in full before any can start.
+    epic_parts_by_reference: bool = True
     # A separate read-only planning session before the builder of a high-complexity card. Off:
     # the builder writes its plan as it starts, in the same session, so the code is read once.
     plan_pass: bool = False
@@ -124,6 +127,10 @@ class Settings(BaseSettings):
     # With it, the reviewer starts when a builder runs the tests, on a snapshot of its work
     # (prat.engine.speculative); the verdict counts only for that same code.
     speculative_review: bool = True
+    # PRAT runs the gates on a builder's work as it ends its turn; a failure goes back to it
+    # in the same session, up to finish_check_rounds times, instead of failing the run.
+    finish_checks: bool = True
+    finish_check_rounds: int = Field(default=2, ge=0, le=5)
     # With it, PRAT's gates also start on that snapshot, in a worktree of their own; their
     # result counts only if the work handed over is that same code and every gate passed.
     speculative_gates: bool = True
