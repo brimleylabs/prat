@@ -84,6 +84,9 @@ src/prat/
   journal.py         append-only JSONL journal per run, tolerant reader
   verification.py    gates with timeouts and logs, empty/oversize/protected/secret checks
   changes.py         deterministic change classifier: categories and risk per changed file
+  packs.py           fact packs: a waiting card researched and checked before it is built
+  coach.py           slips per run, standing rules for the next builder, attention by record
+  ledger.py          anonymised record of runs: which settings suit which work
   errors.py          the error log: capped, redacted rows with stable fingerprints
   improve/
     settings.py      the self-improvement toggle and its limits, stored in app_settings
@@ -413,12 +416,75 @@ becomes `blocked` with the reason. A blocked card never reaches review.
 ## Loop detector
 
 `runtime/loop.py` keeps the last `loop_window` calls (default 8) of one agent session, keyed by
-tool kind and target (the normalised command, the path, or the MCP tool and its arguments). When
-a call makes `loop_threshold` (default 5) identical calls within the window, it is denied with a
-message telling the agent to stop, reconsider, change approach or report BLOCKED. Denied calls
-count, so an agent that ignores the message keeps being denied. The engine puts a fresh detector
-in front of the policy for each agent (builder, planner, critic), so it works with every
-runtime, and journals loop denials with `loop: true`.
+tool kind, target and what the call does there: the normalised command; for a file, its path
+with the text an edit replaces and writes, the lines a read asks for, or the pattern a search
+looks for; or the MCP tool and its arguments. Five different edits to one file are work, and so
+are five reads of different parts of it; the same edit or the same read five times is a loop.
+When a call makes `loop_threshold` (default 5) identical calls within the window, it is denied
+with a message telling the agent to stop, reconsider, change approach or report BLOCKED. Denied
+calls count, so an agent that ignores the message keeps being denied. The engine puts a fresh
+detector in front of the policy for each agent (builder, planner, critic), so it works with
+every runtime, and journals loop denials with `loop: true`.
+
+## Fact packs
+
+`packs.py` researches a card while it waits. `prat serve` picks one draft or waiting change
+card of more than low complexity at a time, only while no card is being built
+(`Engine.prepare_packs`). A read-only session in a checkout of the default branch of its own
+writes the pack: the data model involved, the files to touch and to leave alone, the
+signatures the change calls, the call sites, the closest existing feature, how tests are run
+and the traps, each statement cited as `path:line`. A second, independent read-only session
+then checks every statement against the code and corrects or removes what does not hold. The
+pack is saved under `$PRAT_HOME/packs` with the commit it was researched at and a hash of the
+card's text.
+
+When the card is built, `packs.preflight` decides without a model what still holds: a card
+whose text changed is not given its pack (and is researched again), a statement about a file
+that changed since the research is left out, and a pack that would lose more than 40% of its
+statements is set aside. What remains goes into the builder's instructions as help, never as
+requirements. The reviewer never sees it: it judges the work against the card. The run
+journals `execute.fact_pack` with what was kept and dropped. `fact_packs = "off"` neither
+builds nor uses packs; `fact_pack_budget_usd` caps one card's research and check together.
+
+## Slips, and the coach
+
+Some mistakes are typing accidents that no card asks for, and PRAT finds them without a model:
+
+- `engine/tidy.py`: as a builder ends its turn, lines of its diff whose words are unchanged and
+  whose inner spacing changed (a neighbouring line retyped while adding one) are handed back to
+  it once, before the gates run (`verify.slips`).
+- `git/worktree.py` `restore_line_endings`: a change that rewrote every line ending of a file
+  (an edit through a shell command on Windows) has them put back before the diff is judged, by
+  git's own view of what changed. The agent clone is created with the checkout's own
+  `core.autocrlf`, so agents see the same files the person does.
+
+`coach.py` reads every finished run of a change card from the journal and the reviewer's
+verdict: its slips (a file changed through the shell, line endings rewritten, a line retyped,
+a turn ended with failing gates, a real loop, an oversize diff), whether it was sent back, and
+the fix list. It keeps one book per project under `$PRAT_HOME/coach`. A slip seen in two of the
+project's last ten runs becomes a standing rule in the next builder's instructions, with how
+often it was seen, and drops out when it stops happening. The coach's attention follows the
+record: `close` for a project with fewer than five runs or under 60% of recent runs clean,
+`light` once 85% of the last ten are, `normal` between. Watched closely, one occurrence makes a
+rule, and each run that is sent back has its fix list read by a short session with no tools,
+which may add up to three rules in the project's own terms; those are screened like any other
+proposal. The coach writes a note on the card only when a run slipped or was sent back.
+`prat coach show` prints each project as the coach sees it; `coach = "off"` turns it off.
+
+## The ledger
+
+`ledger.py` builds one entry per finished run from PRAT's own records: the kind of work (type
+guessed from the card's title; area, language and change size read from the files changed; the
+scale of the code base), the settings (model and effort per role, racing, thinking, whether a
+fact pack was used) and the outcome (time per step, cost, gates, verdict, who sent it back,
+whether it landed). An entry holds no client, project name, path, file name, branch, card text
+or code; projects and cards are salted hashes, and the salt stays in the installation.
+`prat ledger show` ranks, for each kind of work, the settings it was built with by how often
+they were right and then by time; `prat ledger export` writes the entries to a file that can be
+merged with another machine's.
+
+`efforts` maps a role to the effort its model works at (`low` to `max`). Builders default to
+`low`.
 
 ## Planner
 
