@@ -53,3 +53,26 @@ def test_guard_skips_the_policy_on_a_loop() -> None:
 def test_invalid_configuration() -> None:
     with pytest.raises(ValueError, match="threshold"):
         LoopDetector(threshold=5, window=3)
+
+
+def test_many_different_edits_and_reads_of_one_file_are_work() -> None:
+    from prat.runtime.claude import tool_calls_for
+
+    detector = LoopDetector()
+    path = "coverage/cmdline.py"
+    for n in range(12):
+        (edit,) = tool_calls_for(
+            "Edit", {"file_path": path, "old_string": f"line {n}", "new_string": f"line {n}!"}
+        )
+        (read,) = tool_calls_for("Read", {"file_path": path, "offset": n * 100, "limit": 100})
+        (grep, *_) = tool_calls_for("Grep", {"pattern": f"def f{n}", "path": "."})
+        assert [detector.check(call) for call in (edit, read, grep)] == [None, None, None]
+    # The same edit, the same read and the same search again and again are still loops.
+    for name, tool_input in (
+        ("Edit", {"file_path": path, "old_string": "a", "new_string": "b"}),
+        ("Read", {"file_path": path, "offset": 1, "limit": 50}),
+        ("Grep", {"pattern": "needle", "path": "."}),
+    ):
+        again = LoopDetector()
+        calls = [tool_calls_for(name, tool_input)[0] for _ in range(5)]
+        assert [again.check(call) is None for call in calls] == [True, True, True, True, False]

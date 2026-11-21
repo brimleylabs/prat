@@ -62,14 +62,17 @@ class ToolCall:
     content: str | None = None
     tool_name: str | None = None
     arguments: Mapping[str, Any] = field(default_factory=dict)
+    # What tells this call from another on the same file (the lines read, the pattern
+    # searched for): only the loop detector looks at it.
+    what: str = ""
 
     @classmethod
     def bash(cls, command: str) -> ToolCall:
         return cls(ToolKind.BASH, command=command)
 
     @classmethod
-    def read(cls, path: str) -> ToolCall:
-        return cls(ToolKind.FILE_READ, path=path)
+    def read(cls, path: str, what: str = "") -> ToolCall:
+        return cls(ToolKind.FILE_READ, path=path, what=what)
 
     @classmethod
     def write(cls, path: str, content: str = "") -> ToolCall:

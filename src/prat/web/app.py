@@ -238,6 +238,12 @@ async def _watch_orphans(engine: Engine, stale_seconds: float) -> None:
                 log.warning("ready cards made outside the server, now queued: %s", started)
         except Exception:
             log.exception("could not pick up ready cards")
+        try:
+            researching = engine.prepare_packs()
+            if researching is not None:
+                log.info("researching card %s for its fact pack", researching)
+        except Exception:
+            log.exception("could not start a fact pack")
 
 
 def create_app(

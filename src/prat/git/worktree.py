@@ -20,8 +20,11 @@ Worktrees share the clone's config, so all three apply in every worktree.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import stat
+import subprocess
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -141,6 +144,23 @@ def card_branch(card_id: int, title: str) -> str:
     return check_branch_name(f"card/{card_id}-{slugify(title, 40)}")
 
 
+# "The process cannot access the file because it is being used by another process."
+ERROR_SHARING_VIOLATION = 32
+# How long a removal waits, in seconds, for a stopped process to let go: 30 in all.
+IN_USE_WAITS = (0.5, 1.0, 1.5, 2.0, 5.0, 10.0, 10.0)
+
+
+def _line_ending(data: bytes) -> bytes | None:
+    """The one line ending a text file uses, or ``None`` (binary, mixed, or no lines)."""
+    if b"\0" in data[:8000]:
+        return None
+    crlf = data.count(b"\r\n")
+    lf = data.count(b"\n") - crlf
+    if crlf and not lf:
+        return b"\r\n"
+    return b"\n" if lf and not crlf else None
+
+
 def _force_remove(func: Callable[..., Any], path: str, exc: BaseException) -> None:
     if isinstance(exc, FileNotFoundError):
         return  # removed meanwhile (by another cleanup): nothing left to do
@@ -156,7 +176,17 @@ def rmtree(path: Path) -> None:
         # Installed packages nest past Windows' 260-character path limit; the extended form
         # lets every file be removed instead of leaving a half-deleted worktree behind.
         target = "\\\\?\\" + str(path.resolve())
-    shutil.rmtree(target, onexc=_force_remove)
+    # On Windows a folder cannot be removed while a process still has it open or is running in
+    # it: a builder that was just stopped (a racing builder that lost, a cancelled run) lets go
+    # of its worktree a moment after, not at once. Wait for it rather than fail the run.
+    for wait in (*IN_USE_WAITS, None):
+        try:
+            shutil.rmtree(target, onexc=_force_remove)
+            return
+        except PermissionError as exc:
+            if wait is None or getattr(exc, "winerror", None) != ERROR_SHARING_VIOLATION:
+                raise
+            time.sleep(wait)
 
 
 class WorktreeManager:
@@ -203,8 +233,21 @@ class WorktreeManager:
                 warnings.append(f"agent clone origin is {origin}, not the checkout")
         else:
             agent.parent.mkdir(parents=True, exist_ok=True)
+            # Files are checked out with the line endings the person's own clone uses: a
+            # clone that converts them where theirs does not shows agents different files.
+            endings = Git(checkout).run("config", "--get", "core.autocrlf", check=False)
+            same = (
+                ["-c", f"core.autocrlf={endings.stdout.strip()}"] if endings.stdout.strip() else []
+            )
             Git(agent.parent).run(
-                "clone", "--no-hardlinks", "--origin", "origin", "--", str(checkout), str(agent)
+                "clone",
+                "--no-hardlinks",
+                "--origin",
+                "origin",
+                *same,
+                "--",
+                str(checkout),
+                str(agent),
             )
             created = True
 
@@ -428,6 +471,58 @@ class WorktreeManager:
         git.run("worktree", "prune", check=False)
 
     # Commits and diffs ----------------------------------------------------
+
+    def restore_line_endings(self, worktree: Path, base: str) -> list[str]:
+        """Give back the line endings a file had at ``base`` where a change rewrote every one
+        of them: an edit made through a shell command or a script on Windows does that, and
+        turns a change of a few lines into a diff of the whole file. Returns the files put right
+        (in the working tree, not committed). Files with mixed endings are left as they are.
+
+        The judge is git's own diff: a clone that checks files out with other endings than it
+        stores (``core.autocrlf``) has nothing to put right, and there the slip looks different
+        (a shell edit doubles the carriage return, and one is left in what git stores)."""
+        git = Git(worktree)
+
+        def changed_lines(*options: str) -> dict[str, int]:
+            out = git.run(
+                "diff", "--numstat", "--diff-filter=M", "--no-renames", *options, base, check=False
+            )
+            counts: dict[str, int] = {}
+            for line in out.stdout.splitlines():
+                added, _, rest = line.partition("\t")
+                deleted, _, name = rest.partition("\t")
+                if added.isdigit() and deleted.isdigit() and name:
+                    counts[name] = int(added) + int(deleted)
+            return counts
+
+        ignoring = changed_lines("--ignore-cr-at-eol")
+        suspects = [n for n, count in changed_lines().items() if count > ignoring.get(n, 0)]
+        if not suspects:
+            return []
+        converts = git.run("config", "--get", "core.autocrlf", check=False).stdout.strip() == "true"
+        restored: list[str] = []
+        for name in suspects:
+            path = worktree / name
+            before = subprocess.run(
+                ["git", "-C", str(worktree), "cat-file", "blob", f"{base}:{name}"],
+                capture_output=True,
+                check=False,
+            )
+            was = _line_ending(before.stdout)
+            try:
+                now = path.read_bytes()
+            except OSError:
+                continue
+            if before.returncode != 0 or was is None or b"\0" in now[:8000]:
+                continue
+            plain = re.sub(rb"\r+\n", b"\n", now)
+            # What the working file should hold: the stored ending, or the one this clone
+            # checks out with.
+            wanted = plain.replace(b"\n", b"\r\n") if was == b"\r\n" or converts else plain
+            if wanted != now:
+                path.write_bytes(wanted)
+                restored.append(name)
+        return restored
 
     def safety_commit(self, worktree: Path, message: str) -> str | None:
         """Commit anything left uncommitted. Returns the new commit or ``None``."""

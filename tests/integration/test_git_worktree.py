@@ -185,6 +185,28 @@ def test_rmtree_removes_paths_past_the_windows_limit(tmp_path: Path) -> None:
     assert not deep.exists()
 
 
+@pytest.mark.skipif(os.name != "nt", reason="only Windows keeps a folder a process runs in")
+def test_rmtree_waits_for_a_process_that_is_letting_go(tmp_path: Path) -> None:
+    import shutil
+    import sys
+    import time
+
+    from prat.git.worktree import rmtree
+
+    held = tmp_path / "card-1"
+    held.mkdir()
+    # A builder that was just stopped: its command still runs in the worktree for a moment.
+    ending = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(2)"], cwd=held)
+    try:
+        time.sleep(0.5)
+        with pytest.raises(PermissionError):
+            shutil.rmtree(held)
+        rmtree(held)
+        assert not held.exists()
+    finally:
+        ending.wait(timeout=10)
+
+
 def test_worktree_ignores_build_artefacts(
     manager: WorktreeManager, checkout: Path, tmp_path: Path
 ) -> None:
@@ -310,3 +332,54 @@ def test_merge_conflict_is_aborted_and_reported(
         manager.merge(agent, "card/5-x", "main", "Merge card 5")
     assert exc.value.files == ["src/app.py"]
     assert not Git(agent).is_dirty()
+
+
+def test_line_endings_a_shell_edit_rewrote_are_put_back(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    (checkout / "unix.py").write_bytes(b"a = 1\nb = 2\nc = 3\n")
+    (checkout / "dos.py").write_bytes(b"a = 1\r\nb = 2\r\n")
+    (checkout / "mixed.py").write_bytes(b"a = 1\r\nb = 2\n")
+    git(checkout, "add", "--all")
+    git(checkout, "commit", "--quiet", "-m", "Three files")
+    manager.prepare_agent_clone(checkout, agent, "main")
+    path = manager.worktree_path("demo", 3)
+    info = manager.create_worktree(agent, path, "card/3-endings", "main")
+    # One line changed in each, and every ending of two of them flipped along the way.
+    (path / "unix.py").write_bytes(b"a = 1\r\nb = 20\r\nc = 3\r\n")
+    (path / "dos.py").write_bytes(b"a = 1\nb = 20\n")
+    (path / "mixed.py").write_bytes(b"a = 1\r\nb = 20\n")
+    assert sorted(manager.restore_line_endings(path, info.head)) == ["dos.py", "unix.py"]
+    assert (path / "unix.py").read_bytes() == b"a = 1\nb = 20\nc = 3\n"
+    assert (path / "dos.py").read_bytes() == b"a = 1\r\nb = 20\r\n"
+    manager.safety_commit(path, "The change")
+    stats = manager.diff_stats(path, info.head)
+    assert {f.path: (f.added, f.deleted) for f in stats.files} == {
+        "unix.py": (1, 1),
+        "dos.py": (1, 1),
+        "mixed.py": (1, 1),
+    }
+    assert manager.restore_line_endings(path, info.head) == []
+
+
+def test_a_clone_that_converts_line_endings_has_nothing_to_put_right(
+    manager: WorktreeManager, checkout: Path, tmp_path: Path
+) -> None:
+    agent = tmp_path / "agent"
+    (checkout / "unix.py").write_bytes(b"a = 1\nb = 2\nc = 3\n")
+    git(checkout, "add", "--all")
+    git(checkout, "commit", "--quiet", "-m", "One file")
+    # The person's clone converts line endings on checkout, so PRAT's does too.
+    git(checkout, "config", "core.autocrlf", "true")
+    manager.prepare_agent_clone(checkout, agent, "main")
+    assert git(agent, "config", "--get", "core.autocrlf") == "true"
+    path = manager.worktree_path("demo", 4)
+    info = manager.create_worktree(agent, path, "card/4-endings", "main")
+    assert (path / "unix.py").read_bytes() == b"a = 1\r\nb = 2\r\nc = 3\r\n"
+    # Its working files end in CRLF and git stores LF: an ordinary edit is no slip.
+    (path / "unix.py").write_bytes(b"a = 1\r\nb = 20\r\nc = 3\r\n")
+    assert manager.restore_line_endings(path, info.head) == []
+    manager.safety_commit(path, "The change")
+    stats = manager.diff_stats(path, info.head)
+    assert {f.path: (f.added, f.deleted) for f in stats.files} == {"unix.py": (1, 1)}

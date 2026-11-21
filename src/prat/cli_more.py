@@ -19,11 +19,15 @@ skill_app = typer.Typer(no_args_is_help=True, help="Skills: loadouts, candidates
 crew_app = typer.Typer(no_args_is_help=True, help="The crew and each agent's memory.")
 epic_app = typer.Typer(no_args_is_help=True, help="Epics and their parts.")
 idea_app = typer.Typer(no_args_is_help=True, help="The crew's ideas for working better.")
+ledger_app = typer.Typer(no_args_is_help=True, help="The ledger: which settings suit which work.")
+coach_app = typer.Typer(no_args_is_help=True, help="The coach: slips, rules and attention.")
 app.add_typer(job_app, name="job")
 app.add_typer(skill_app, name="skill")
 app.add_typer(crew_app, name="crew")
 app.add_typer(epic_app, name="epic")
 app.add_typer(idea_app, name="idea")
+app.add_typer(ledger_app, name="ledger")
+app.add_typer(coach_app, name="coach")
 
 
 # Jobs -----------------------------------------------------------------------------------
@@ -678,3 +682,113 @@ def crew_continuity(ctx: typer.Context) -> None:
             str(group.sent_back),
         )
     console.print(table)
+
+
+# The ledger ------------------------------------------------------------------------------------
+
+
+def _ledger_entries(settings: Any, db: Any) -> list[Any]:
+    from prat import ledger
+    from prat.git import Git
+
+    scales: dict[tuple[str, str], int | None] = {}
+
+    def scale(run: Any) -> int | None:
+        clone, commit = run.card.project.agent_path, run.base_commit
+        if not clone or not commit:
+            return None
+        if (clone, commit) not in scales:
+            listed = Git(clone).run("ls-tree", "-r", "--name-only", commit, check=False)
+            scales[(clone, commit)] = len(listed.stdout.splitlines()) if listed.ok else None
+        return scales[(clone, commit)]
+
+    def added_lines(run: Any) -> str | None:
+        clone = run.card.project.agent_path
+        if not clone or not run.base_commit or not run.head_commit:
+            return None
+        diff = Git(clone).run(
+            "diff", "--unified=0", f"{run.base_commit}..{run.head_commit}", check=False
+        )
+        if not diff.ok:
+            return None
+        return "\n".join(line[1:] for line in diff.stdout.splitlines() if line.startswith("+"))
+
+    return ledger.build(db, settings.home, scale=scale, added_lines=added_lines)
+
+
+@ledger_app.command("export")
+def ledger_export(ctx: typer.Context) -> None:
+    """Write the ledger to a file: one line per run, with no client, project, path or text."""
+    from prat import ledger
+
+    with _database(ctx) as (settings, db):
+        entries = _ledger_entries(settings, db)
+    path = ledger.export(entries, settings.home)
+    console.print(f"{len(entries)} runs written to {path}")
+
+
+@ledger_app.command("show")
+def ledger_show(
+    ctx: typer.Context,
+    by: Annotated[
+        str,
+        typer.Option(help="What to group the work by, e.g. area,work_type,change_size."),
+    ] = "area,work_type",
+    files: Annotated[
+        list[str] | None,
+        typer.Option("--file", help="Read exported ledgers (several machines) instead."),
+    ] = None,
+) -> None:
+    """For each kind of work: the settings it was built with, best first."""
+    from pathlib import Path
+
+    from prat import ledger
+
+    if files:
+        entries = ledger.load(Path(f) for f in files)
+    else:
+        with _database(ctx) as (settings, db):
+            entries = _ledger_entries(settings, db)
+    names = [n.strip() for n in by.split(",") if n.strip()]
+    table = _table(*names, "setting", "runs", "right", "median time", "median cost", "sent back")
+    for row in ledger.table(entries, names):
+        table.add_row(
+            *row.work,
+            row.setting,
+            str(row.runs),
+            f"{row.right} ({row.right_share:.0%})",
+            f"{row.seconds:.0f} s" if row.seconds is not None else "",
+            f"${row.cost_usd:.2f}",
+            str(row.sent_back_by_person),
+        )
+    console.print(table)
+
+
+# The coach -------------------------------------------------------------------------------------
+
+
+@coach_app.command("show")
+def coach_show(ctx: typer.Context) -> None:
+    """Each project as the coach sees it: how its recent runs went, how closely it is watched,
+    and the rules its next builder is given."""
+    from prat import coach
+
+    with _database(ctx) as (settings, db), db.session() as session:
+        slugs = [project.slug for project in store.list_projects(session)]
+    for slug in slugs:
+        book = coach.load(settings.home, slug)
+        if not book.runs:
+            continue
+        share = coach.clean_share(book)
+        console.print(
+            f"[bold]{escape(slug)}[/bold]: {len(book.runs)} runs read, "
+            f"{share:.0%} of the last {len(book.recent)} clean, attention {coach.attention(book)}"
+        )
+        slips = coach.slip_counts(book.recent)
+        if slips:
+            console.print("   slips: " + ", ".join(f"{k} in {n} runs" for k, n in slips.items()))
+        for rule in coach.standing(book):
+            console.print(
+                f"   - {escape(rule.text)}"
+                + (f" ({escape(rule.evidence)})" if rule.evidence else "")
+            )

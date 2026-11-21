@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import dataclasses
 import json
 import logging
 import os
@@ -235,6 +236,8 @@ class ClaudeConfig:
     hook_timeout_seconds: float = 120.0
     interrupt_timeout_seconds: float = 5.0
     output_limit: int = 4000
+    # Role to effort ("low" to "max"); a role not named runs at the model's default.
+    efforts: Mapping[str, str] = field(default_factory=dict)
 
 
 # Tool call mapping -------------------------------------------------------------
@@ -273,12 +276,23 @@ def tool_calls_for(tool_name: str, tool_input: Mapping[str, Any]) -> list[ToolCa
         value = tool_input.get(key)
         return value if isinstance(value, str) else None
 
+    def what(*keys: str) -> str:
+        # What tells one call on a file from the next, for the loop detector: reading other
+        # lines of it, or searching it for something else, is not the same call again.
+        return json.dumps({k: tool_input.get(k) for k in keys}, sort_keys=True, default=str)
+
     if tool_name == "Read":
-        return [ToolCall.read(text("file_path") or "")]
+        return [ToolCall.read(text("file_path") or "", what("offset", "limit", "pages"))]
     if tool_name == "Write":
         return [ToolCall.write(text("file_path") or "", text("content") or "")]
     if tool_name == "Edit":
-        return [ToolCall.write(text("file_path") or "", text("new_string") or "")]
+        # The policy judges what is written; the loop detector needs what it replaces too.
+        return [
+            dataclasses.replace(
+                ToolCall.write(text("file_path") or "", text("new_string") or ""),
+                what=what("old_string"),
+            )
+        ]
     if tool_name == "MultiEdit":
         edits = tool_input.get("edits")
         content = "\n".join(
@@ -292,7 +306,8 @@ def tool_calls_for(tool_name: str, tool_input: Mapping[str, Any]) -> list[ToolCa
             return Decision.deny("background commands are not allowed: they outlive the run")
         return [ToolCall.bash(text("command") or "")]
     if tool_name in ("Glob", "Grep"):
-        calls = [ToolCall.read(text("path") or ".")]
+        searched = what("pattern", "glob", "type", "output_mode", "-A", "-B", "-C", "context")
+        calls = [ToolCall.read(text("path") or ".", searched)]
         # Glob's pattern is a path pattern; Grep's pattern is a regex, its glob a path.
         base = _glob_base(text("pattern" if tool_name == "Glob" else "glob") or "")
         if base:
@@ -773,7 +788,13 @@ class ClaudeRuntime:
         from prat.runtime.auth import check_auth, runtime_env
 
         check_auth(settings).require()
-        return cls(ClaudeConfig(env=runtime_env(settings), cli_path=settings.claude_cli_path))
+        return cls(
+            ClaudeConfig(
+                env=runtime_env(settings),
+                cli_path=settings.claude_cli_path,
+                efforts=dict(settings.efforts),
+            )
+        )
 
     # Options ---------------------------------------------------------------
 
@@ -876,6 +897,7 @@ class ClaudeRuntime:
             mcp_servers=prat_server(task.prat_tools),
             cwd=str(task.workdir),
             model=task.model,
+            effort=cast(Any, self._effort(task)),
             max_budget_usd=task.budget.max_usd,
             max_turns=task.budget.max_turns,
             resume=resume,
@@ -884,6 +906,13 @@ class ClaudeRuntime:
             env={**_blank_prat_settings(), **self.config.env, **crew_env(task), **task.env},
             cli_path=self.config.cli_path,
             stderr=self._stderr.append,
+        )
+
+    def _effort(self, task: AgentTask) -> str | None:
+        """The effort for the task's role; a racing builder works as hard as the lead."""
+        role = task.metadata.get("role", "")
+        return self.config.efforts.get(role) or (
+            self.config.efforts.get("builder") if role.startswith("rival") else None
         )
 
     # Protocol -----------------------------------------------------------------

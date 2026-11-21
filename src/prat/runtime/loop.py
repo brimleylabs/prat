@@ -10,6 +10,7 @@ so an agent that ignores the denial keeps being denied.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import deque
 from collections.abc import Callable
@@ -25,11 +26,15 @@ LOOP_MESSAGE = (
 
 
 def call_key(call: ToolCall) -> str:
-    """What makes two calls 'the same': the tool kind plus its target."""
+    """What makes two calls 'the same': the tool kind, its target, and what it does there.
+    Five edits to one file are work, and so are five reads of different parts of it; the same
+    edit or the same read five times is a loop."""
     if call.command is not None:
         target = " ".join(call.command.split())
     elif call.path is not None:
-        target = call.path.replace("\\", "/")
+        doing = f"{call.what}\x1f{call.content or ''}"
+        digest = hashlib.sha256(doing.encode("utf-8", "replace")).hexdigest()[:16]
+        target = f"{call.path.replace(chr(92), '/')}#{digest}"
     else:
         target = f"{call.tool_name}:{json.dumps(dict(call.arguments), sort_keys=True, default=str)}"
     return f"{call.kind}|{target}"

@@ -41,7 +41,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from prat import governor, memory, onboard, paths, store, swarm
+from prat import coach, governor, memory, onboard, packs, paths, store, swarm
 from prat.changes import classify_diff
 from prat.config import Settings
 from prat.db import Card, Database, Project, Run, RunStep, as_utc
@@ -52,13 +52,14 @@ from prat.domain import (
     CardKind,
     CardStatus,
     CommentAuthor,
+    Complexity,
     RunStatus,
     StepName,
     StepStatus,
     Verdict,
     lowest_autonomy,
 )
-from prat.engine import context_pack, crewing, speculative
+from prat.engine import context_pack, crewing, speculative, tidy
 from prat.engine.instructions import load_repo_instructions
 from prat.engine.interfaces import (
     NoPlanner,
@@ -88,7 +89,7 @@ from prat.environments import (
 from prat.errors import record_error
 from prat.git import CloneError, Git, GitError, MergeConflict, WorktreeManager, card_branch
 from prat.infra import INFRA_TASK, infra_system_prompt
-from prat.journal import Journal
+from prat.journal import Journal, read_journal
 from prat.knowledge.provide import for_card
 from prat.knowledge.select import Selection
 from prat.model_registry import Role, resolve_model
@@ -447,6 +448,8 @@ class Engine:
         self._tasks: dict[int, asyncio.Task[RunResult]] = {}
         # Lessons being written in the background, so none is lost to the garbage collector.
         self._lessons: set[asyncio.Task[Any]] = set()
+        # The one backlog card being researched for its fact pack (prat.packs), if any.
+        self._packing: asyncio.Task[None] | None = None
         # Usage and live state per running run (prat.engine.telemetry).
         self._telemetry: dict[int, RunTelemetry] = {}
         # Setups of the checkout approved work reached, likewise.
@@ -1107,7 +1110,69 @@ class Engine:
             self._settle(slug, card_id, ended, feedback=result.reason or "")
         if result.card_status == CardStatus.REVIEW and self.settings.lessons == "review":
             self._start_lesson(run_id)
+        if self.settings.coach == "on":
+            try:
+                self._coach_run(run_id)
+            except Exception:  # the coach never holds up or fails a run
+                log.exception("the coach could not read run %s", run_id)
         return result
+
+    def _coach_run(self, run_id: int) -> None:
+        """The coach (prat.coach) reads a finished run: its slips and its review go into the
+        project's book, a note goes on the card when there is something to say, and fix lists
+        that keep coming are read by a model in the background."""
+        with self.db.session() as session:
+            run = _get_run(session, run_id)
+            card = run.card
+            if card.kind is not CardKind.CHANGE or run.finished_at is None:
+                return
+            slug = card.project.slug
+            critique = next((s for s in run.steps if str(s.name) == "critique"), None)
+            events = list(read_journal(Path(run.journal_path))) if run.journal_path else []
+            seen = coach.observe(
+                run=run.id,
+                card=card.id,
+                attempt=run.attempt,
+                status=str(run.status),
+                events=events,
+                critique=dict(critique.detail or {}) if critique is not None else None,
+            )
+            book = coach.load(self.settings.home, slug)
+            book.record(seen)
+            coach.save(self.settings.home, slug, book)
+            said = coach.note(seen, book)
+            if said:
+                store.add_comment(
+                    session,
+                    card,
+                    said,
+                    author=CommentAuthor.SYSTEM,
+                    kind="coach",
+                    run_id=run.id,
+                    data={"slips": seen.slips, "attention": coach.attention(book)},
+                )
+        if not coach.wants_reflection(book):
+            return
+        ctx = self._context(run_id)
+
+        async def reflect() -> None:
+            try:
+                fresh = coach.load(self.settings.home, slug)
+                added = await coach.reflect(
+                    self.runtime,
+                    fresh,
+                    workdir=self.settings.home,
+                    model=self._model(Role.RESEARCHER, ctx),
+                )
+                coach.save(self.settings.home, slug, fresh)
+                if added:
+                    log.info("the coach learned %s rules on %s", len(added), slug)
+            except Exception:
+                log.exception("the coach could not reflect on %s", slug)
+
+        task = asyncio.create_task(reflect(), name=f"prat-coach-{run_id}")
+        self._lessons.add(task)
+        task.add_done_callback(self._lessons.discard)
 
     def _start_lesson(self, run_id: int) -> None:
         """Write the run's lesson in the background: it never holds up or fails the run."""
@@ -1131,6 +1196,143 @@ class Engine:
         """Wait for the lessons still being written (used by commands that exit after a run)."""
         if self._lessons:
             await asyncio.gather(*self._lessons, return_exceptions=True)
+
+    # Fact packs (prat.packs) ----------------------------------------------------
+
+    async def prepare_pack(self, card_id: int) -> packs.Pack:
+        """Research a card and check the result, in a checkout of the default branch of its
+        own. The pack is saved whatever came of it, so a card is not researched twice for the
+        same text."""
+        with self.db.session() as session:
+            card = store.get_card(session, card_id)
+            project = card.project
+            project_id, slug, is_self = project.id, project.slug, project.is_self
+            checkout, agent = Path(project.checkout_path), Path(project.agent_path)
+            default_branch = project.default_branch
+            fallback_spec = _spec_of(project)
+            author = project.client.commit_author if project.client else None
+            title, goal, criteria = card.title, card.goal, card.acceptance_criteria
+        where = self.worktrees.worktrees_root / slug / f"pack-{card_id}"
+        async with self._project_lock(project_id):
+            if not is_self:
+                await asyncio.to_thread(
+                    self.worktrees.prepare_agent_clone,
+                    checkout,
+                    agent,
+                    default_branch,
+                    author=author,
+                )
+            spec = _spec_from_branch(agent, default_branch) or fallback_spec
+            commit = await asyncio.to_thread(Git(agent).rev_parse, f"refs/heads/{default_branch}")
+            await asyncio.to_thread(self.worktrees.remove_worktree, agent, where)
+            await asyncio.to_thread(
+                Git(agent).run, "worktree", "add", "--quiet", "--detach", str(where), commit
+            )
+        models = load_overlay(overlay_path(self.settings.home)).models_under(self.settings.models)
+        try:
+            pack = await packs.build(
+                self.runtime,
+                card_id=card_id,
+                title=title,
+                goal=goal,
+                acceptance_criteria=criteria,
+                notes=spec.notes,
+                workdir=where,
+                commit=commit,
+                model=resolve_model(
+                    Role.RESEARCHER, settings_models=models, project_models=spec.models
+                ),
+                budget_usd=self.settings.fact_pack_budget_usd,
+            )
+        finally:
+            async with self._project_lock(project_id):
+                with contextlib.suppress(Exception):
+                    await asyncio.to_thread(self.worktrees.remove_worktree, agent, where)
+        await asyncio.to_thread(packs.save, self.settings.home, pack)
+        return pack
+
+    def prepare_packs(self) -> int | None:
+        """Start researching one card of the backlog, when nothing else is going on: a draft or
+        waiting change card of more than low complexity whose text has no pack yet. Returns the
+        card, or ``None`` when there is nothing to do or this is not the moment."""
+        if self.settings.fact_packs != "backlog":
+            return None
+        if self._packing is not None and not self._packing.done():
+            return None
+        if any(not task.done() for task in self._tasks.values()):
+            return None  # cards are being built: research waits for a quiet moment
+        with self.db.session() as session:
+            waiting = session.scalars(
+                select(Card)
+                .where(
+                    Card.status.in_((CardStatus.DRAFT, CardStatus.READY)),
+                    Card.kind == CardKind.CHANGE,
+                    Card.complexity != Complexity.LOW,
+                    Card.parent_id.is_(None),
+                )
+                .order_by(Card.id)
+            )
+            chosen = None
+            for card in waiting:
+                current = packs.card_hash(card.title, card.goal, card.acceptance_criteria)
+                known = packs.load(self.settings.home, card.id)
+                if (card.goal or "").strip() and (known is None or known.card_hash != current):
+                    chosen = card.id
+                    break
+        if chosen is None:
+            return None
+
+        async def research(card_id: int) -> None:
+            try:
+                pack = await self.prepare_pack(card_id)
+                log.info(
+                    "fact pack for card %s: %s (%s corrections, %.0f s)",
+                    card_id,
+                    pack.status,
+                    pack.corrections,
+                    pack.research_seconds + pack.verify_seconds,
+                )
+            except Exception:
+                log.exception("could not prepare a fact pack for card %s", card_id)
+
+        self._packing = asyncio.create_task(research(chosen), name=f"prat-pack-{chosen}")
+        return chosen
+
+    async def packs_prepared(self) -> None:
+        """Wait for the pack being researched (used by commands that exit afterwards)."""
+        if self._packing is not None:
+            await asyncio.gather(self._packing, return_exceptions=True)
+
+    def _fact_pack(self, ctx: _Ctx, journal: Journal) -> str:
+        """The card's pack as the builder gets it, or "" when there is none that still holds."""
+        if self.settings.fact_packs == "off":
+            return ""
+        pack = packs.load(self.settings.home, ctx.card_id)
+        if pack is None:
+            return ""
+        changed: list[str] | None = None
+        start = ctx.base_commit or ctx.start_commit
+        if pack.commit and start:
+            diff = Git(ctx.agent_path).run(
+                "diff", "--name-only", "--no-renames", pack.commit, start, check=False
+            )
+            changed = diff.stdout.splitlines() if diff.ok else None
+        checked = packs.preflight(
+            pack,
+            current_hash=packs.card_hash(ctx.title, ctx.goal, ctx.acceptance_criteria),
+            changed=changed,
+        )
+        journal.append(
+            "execute.fact_pack",
+            {
+                "used": checked.text is not None,
+                "kept": checked.kept,
+                "dropped": checked.dropped,
+                "reason": checked.reason,
+                "researched_at": pack.commit,
+            },
+        )
+        return packs.render(checked.text) if checked.text else ""
 
     async def _heartbeat(self, active: _Active) -> None:
         while True:
@@ -1974,9 +2176,10 @@ class Engine:
             return None
         slot = str(worktree)
         rounds = 0
+        told_slips = False
 
         async def check() -> str | None:
-            nonlocal rounds
+            nonlocal rounds, told_slips
             if rounds >= self.settings.finish_check_rounds or ctx.base is None:
                 return None
             if active.cancel_requested or active.stop.is_set():
@@ -1988,6 +2191,16 @@ class Engine:
             stats = await asyncio.to_thread(self.worktrees.diff_stats, worktree, ctx.base, commit)
             if stats.empty:
                 return None
+            if not told_slips:
+                # Typing accidents in the diff (prat.engine.tidy): said once, before the gates.
+                slips = await asyncio.to_thread(tidy.spacing_slips, worktree, ctx.base)
+                if slips:
+                    told_slips = True
+                    ctx.journal.append(
+                        "verify.slips",
+                        {"worktree": slot, "spacing": [f"{s.path}:{s.line}" for s in slips]},
+                    )
+                    return tidy.feedback(slips)
             gates: list[GateResult] | None = None
             running = active.gates.get(slot)
             if running is not None and running[0] == tree:
@@ -2641,6 +2854,8 @@ class Engine:
         # agent sessions, so this is the only way they reach the builder.
         instructions = await asyncio.to_thread(load_repo_instructions, ctx.worktree_path)
         knowledge = await self._knowledge(ctx, Role.BUILDER, ctx.plan or "")
+        facts = ""
+        coaching = ""
         env = _database_env(ctx.project_spec, ctx.card_id, self._environ(ctx.project_slug))
         if ctx.card_kind is CardKind.INFRA:
             variables = load_local(self.settings.home, ctx.project_slug).variables
@@ -2679,6 +2894,11 @@ class Engine:
                     f"{ctx.title}\n{ctx.goal}\n{ctx.acceptance_criteria}",
                     self.settings.context_pack_chars,
                 )
+                # What was researched while the card waited (prat.packs): the builder's alone.
+                facts = await asyncio.to_thread(self._fact_pack, ctx, self._journal_for(ctx.run_id))
+                if self.settings.coach == "on":
+                    # What kept costing runs on this project a round (prat.coach).
+                    coaching = coach.render(coach.load(self.settings.home, ctx.project_slug))
             system_prompt = builder_system_prompt(
                 title=ctx.title,
                 goal=ctx.goal,
@@ -2686,7 +2906,7 @@ class Engine:
                 spec=ctx.project_spec,
                 autonomy=ctx.run_autonomy,
                 repo_instructions=instructions,
-                knowledge="\n\n".join(t for t in (knowledge.text, files) if t),
+                knowledge="\n\n".join(t for t in (coaching, knowledge.text, facts, files) if t),
             )
             task_prompt = builder_task_prompt(feedback=ctx.feedback, plan=ctx.plan)
         try:
@@ -2852,6 +3072,13 @@ class Engine:
         }
         if race_detail:
             detail["race"] = race_detail
+        # The settings this run was built with, for the ledger (prat.ledger).
+        detail["config"] = {
+            "efforts": dict(self.settings.efforts),
+            "race_builders": self.settings.race_builders,
+            "thinking": task.thinking,
+            "fact_pack": bool(facts),
+        }
         if knowledge.ids:
             detail["knowledge"] = knowledge.ids
         if crew_session is not None:
@@ -2927,6 +3154,16 @@ class Engine:
                 StepStatus.FAILED, detail, RunStatus.FAILED, f"agent error: {message}", message
             )
 
+        # A shell edit on Windows can rewrite every line ending of a file: put them back, so
+        # the diff is the change and not the whole file.
+        endings = await asyncio.to_thread(
+            self.worktrees.restore_line_endings, ctx.worktree_path, ctx.start
+        )
+        if endings:
+            detail["line_endings_restored"] = endings
+            self._journal_for(ctx.run_id).append(
+                "execute.line_endings_restored", {"paths": endings}
+            )
         commit = await asyncio.to_thread(
             self.worktrees.safety_commit,
             ctx.worktree_path,

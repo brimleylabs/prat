@@ -136,6 +136,14 @@ class Settings(BaseSettings):
     speculative_gates: bool = True
     # Extended thinking for builders, where the project's crew allows it.
     builder_thinking: bool = True
+    # Fact packs (prat.packs): "backlog" researches waiting cards while nothing is being built
+    # and gives a builder the pack that still holds; "off" neither builds nor uses them.
+    fact_packs: Literal["backlog", "off"] = "backlog"
+    # The most one card's research and its check may cost together.
+    fact_pack_budget_usd: float = Field(default=2.0, gt=0)
+    # The coach (prat.coach) reads every run, keeps rules for the next builder from the slips
+    # that repeat, and watches a project as closely as its record calls for.
+    coach: Literal["on", "off"] = "on"
     # The files a card names, read for its builder before it starts (prat.engine.context_pack),
     # up to this many characters; 0 turns it off.
     context_pack_chars: int = Field(default=40_000, ge=0)
@@ -182,6 +190,10 @@ class Settings(BaseSettings):
     sandbox_cpus: float = Field(default=2.0, gt=0, le=256)
     # Role to model overrides, e.g. {builder = "claude-haiku-5-5"}.
     models: dict[str, str] = Field(default_factory=dict)
+    # Role to effort overrides, e.g. {builder = "low"}: how hard a role's model works per step.
+    # Builders work at low effort unless told otherwise: on well-specified cards it was the
+    # fastest setting measured, with nothing lost in what the work passed.
+    efforts: dict[str, str] = Field(default_factory=lambda: {"builder": "low"})
     # Loop detector: the same tool on the same target this many times within
     # the last ``loop_window`` calls is denied.
     loop_threshold: int = Field(default=5, ge=2, le=100)
@@ -341,8 +353,19 @@ auth_mode = "api_key"
 # The client the pages open on (see prat client); without it they show every client.
 # default_client = "acme"
 
+# Fact packs: "backlog" researches waiting cards while nothing is being built and gives the
+# builder what still holds; "off" neither builds nor uses them.
+# fact_packs = "backlog"
+# fact_pack_budget_usd = 2.0
+# The coach reads every run and gives the next builder the rules repeated slips earned.
+# coach = "on"
+
 # Model per role. Defaults: builder and critic Sonnet, planner Opus, helpers Haiku.
 # [models]
 # builder = "claude-sonnet-5-5"
 # critic = "claude-sonnet-5-5"
+
+# Effort per role ("low" to "max"). Default: builders at low, every other role at its own.
+# [efforts]
+# builder = "low"
 """
