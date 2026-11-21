@@ -1,0 +1,26 @@
+title = "Gift cards"
+complexity = "high"
+goal = """Customers can pay with a gift card.
+
+1. A new module tinyshop/giftcards.py keeps gift card balances in cents. issue(code, amount_cents) creates a card (ValueError if the code already exists or the amount is not positive). balance(code) returns its balance (KeyError for an unknown code). redeem(code, amount_cents) takes up to amount_cents from the card and returns what it took. credit(code, amount_cents) adds an amount back. Codes are case-insensitive.
+
+2. place_order takes gift_card: str | None = None. The order records gift_card (the code) and gift_card_cents: what the card paid, which is the smaller of its balance and the order total, taken from the card when the order is placed. A new Order property amount_due_cents is total_cents minus gift_card_cents; total_cents itself does not change. An unknown gift card raises KeyError and reserves no stock.
+
+3. Returns pay the gift card back first. process_return(order, skus) credits the card with as much of the refund as the card paid and has not already been given back by earlier returns of the same order, and returns only the rest: the amount paid back to the customer's other payment. refund_cents keeps its meaning, the total value of the products returned.
+
+4. The API: handle_checkout accepts an optional "gift_card" and also returns "amount_due_cents". A new handle_gift_card(payload) in tinyshop/api.py handles {"action": "issue", "code": ..., "amount_cents": ...} and {"action": "balance", "code": ...}, both returning {"code": ..., "balance_cents": ...}; an unknown code returns {"error": "unknown gift card"}.
+
+5. When a gift card paid part of an order, the confirmation email has a line "Gift card: -$X.YY" and then a line "To pay: $X.YY", right after the Total line.
+
+Orders without a gift card behave exactly as before."""
+acceptance_criteria = """- tinyshop/giftcards.py provides issue, balance, redeem and credit as described, with case-insensitive codes
+- place_order takes gift_card and orders record gift_card and gift_card_cents, with amount_due_cents
+- process_return pays the gift card back first, never more than it paid across returns
+- handle_checkout and handle_gift_card behave as described
+- the confirmation email shows the gift card and what is left to pay
+- the existing tests still pass and new tests cover each part"""
+max_attempts = 3
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 120

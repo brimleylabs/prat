@@ -1,0 +1,43 @@
+# Rich 3a109ccdffe5 (MIT, github.com/Textualize/rich), extended with table export.
+title = "Export tables as CSV, Markdown, JSON and HTML, with a command line"
+complexity = "high"
+max_attempts = 3
+goal = """Rich draws tables for the terminal, but there is no way to get a table's data back out. Add a module rich.table_export that exports a rich.table.Table in four formats, and a command line on top of it. Every function takes the table as its first argument; nothing changes in rich/table.py.
+
+1. Cell text. cell_text(renderable) -> str: the text a cell shows, without styles. None gives "". A str is read as console markup, so "[bold red]hot[/bold red] tea" gives "hot tea" (no emoji codes are replaced). A rich.text.Text gives its plain text. Any other renderable is rendered at width 80 with no colour, each line with its trailing spaces removed, the lines joined with newlines. The data rows are each column's cells in order, the header is each column's header, the footer each column's footer, all read through cell_text. The other three parts build on this one.
+
+2. CSV. to_csv(table, *, header=True, footer=False) -> str: the rows as CSV written by Python's csv module with "\\n" line endings and its default quoting. With header=True the first line holds the headers (even when the table hides its header); with footer=True the last line holds the footers.
+
+3. Markdown. to_markdown(table) -> str: a GitHub table. The first line is the headers, the second the alignment: "---:" for a column justified right, ":---:" for center, "---" otherwise. Then one line per row. Each line is "| " + the cells joined with " | " + " |" and ends with "\\n". In every cell "|" becomes "\\|" and a newline becomes "<br>". When the table has a title, the output starts with "**<title text>**" and a blank line. Footers are left out.
+
+4. JSON. to_json(table, *, indent=2) -> str: json.dumps(..., indent=indent, ensure_ascii=False) of a list with one object per row, keyed by header text in column order. An empty header becomes "column N" (N counts columns from 1); a key used by an earlier column gets " (2)", " (3)" and so on. A table without rows gives [].
+
+5. HTML. to_html(table) -> str, each line ending with "\\n":
+<table>
+<caption>title</caption>            only when the table has a title
+<thead>                                only when the table shows its header
+<tr><th>Name</th><th style="text-align: right">Qty</th></tr>
+</thead>
+<tbody>
+<tr><td>apple</td><td style="text-align: right">3</td></tr>      one line per row
+</tbody>
+<tfoot>                                only when the table shows its footer
+<tr><td>total</td><td style="text-align: right">13</td></tr>
+</tfoot>
+</table>
+Text is escaped with html.escape and newlines become "<br>". A cell carries style="text-align: center" or style="text-align: right" when its column is justified that way, and no style attribute otherwise.
+
+6. Command line. python -m rich.table_export PATH [--format table|csv|markdown|json|html] reads a UTF-8 CSV file, makes a Table whose headers are the first row and whose rows are the others (a short row is filled with blank cells), and writes it out: "table" (the default) prints the table to the console, the other formats write the export to stdout exactly as returned. A missing file prints "error: no such file: PATH" to stderr and exits with status 1. A row with more cells than the header prints "error: row N has M cells but the header has K" (rows counted from 1, the header being row 1) and exits with status 1.
+
+Rich's existing behaviour does not change."""
+acceptance_criteria = """- rich.table_export provides cell_text, to_csv, to_markdown, to_json and to_html as described
+- python -m rich.table_export works as described, errors included
+- Rich's existing tests still pass and new tests in tests/ cover each part"""
+
+[source]
+repository = "https://github.com/Textualize/rich.git"
+commit = "3a109ccdffe5b2d0e30684a304fbd388e99ce57b"
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 900

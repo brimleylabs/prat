@@ -1,0 +1,11 @@
+name = "rich"
+default_branch = "main"
+autonomy = "medium"
+notes = "Rich, a Python library for rich text and formatting in the terminal. The package is rich/, the tests are in tests/. Run the tests with: python -m pytest -q -p no:cacheprovider tests (about 1,000 tests, a few seconds)."
+
+[commands]
+test = ["{python}", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+
+[verify]
+gates = ["test"]
+timeout_seconds = 300

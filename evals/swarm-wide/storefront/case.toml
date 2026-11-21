@@ -1,0 +1,26 @@
+title = "Storefront: wishlists, reviews, stock alerts, order notes and a sales export"
+complexity = "high"
+max_attempts = 3
+goal = """Five additions to the shop, each on its own.
+
+1. Wishlists. A new module tinyshop/wishlist.py: add(customer, sku) adds a product to a customer's wishlist (KeyError for an unknown product; adding one twice keeps one), remove(customer, sku) removes it (no error if it is not there), items(customer) returns the customer's skus sorted alphabetically (an empty list for a new customer).
+
+2. Product reviews. A new module tinyshop/reviews.py: add_review(sku, rating, text) records a review (KeyError for an unknown product, ValueError unless rating is a whole number from 1 to 5), average_rating(sku) returns the mean rating rounded to one decimal place, or None when the product has no reviews, and review_count(sku) returns how many it has.
+
+3. Stock alerts. In tinyshop/inventory.py: low_stock(threshold=5) returns the skus whose stock is at or below the threshold, sorted alphabetically, and restock(sku, quantity) adds stock (ValueError unless quantity is positive).
+
+4. Order notes. place_order takes note: str | None = None. The order records note, with surrounding spaces stripped (a note that is empty after stripping is recorded as None); a note longer than 200 characters raises ValueError and reserves no stock. When an order has a note, its confirmation email has a line "Note: <note>" right after the Total line.
+
+5. A sales export. In tinyshop/reports.py: sales_csv(orders) returns CSV text with the header line "date,orders,total_cents" and one line per day (date in YYYY-MM-DD form, the number of orders that day, the sum of their total_cents), oldest day first, each line ending with a newline.
+
+Everything that exists keeps working exactly as before."""
+acceptance_criteria = """- tinyshop/wishlist.py provides add, remove and items as described
+- tinyshop/reviews.py provides add_review, average_rating and review_count as described
+- inventory.low_stock and inventory.restock behave as described
+- place_order takes a note, recorded and shown in the confirmation email as described
+- reports.sales_csv returns the CSV described
+- the existing tests still pass and new tests cover each addition"""
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 120

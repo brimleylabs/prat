@@ -1,0 +1,11 @@
+name = "coveragepy"
+default_branch = "main"
+autonomy = "medium"
+notes = "coverage.py, the code coverage tool for Python. The package is coverage/, the tests are in tests/. Run the tests with: python .prat/run_tests.py (the fast part of the suite, about 400 tests, under 30 seconds). Arguments are passed to pytest and replace the default list of test files, for example: python .prat/run_tests.py tests/test_data.py -k tracer. Do not run the whole of tests/ here: it needs plugins that are not installed and takes many minutes."
+
+[commands]
+test = ["{python}", ".prat/run_tests.py"]
+
+[verify]
+gates = ["test"]
+timeout_seconds = 300

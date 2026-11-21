@@ -1,0 +1,214 @@
+title = "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles"
+complexity = "high"
+max_attempts = 3
+goal = """Eight additions to the shop. Each one is a new module in the tinyshop package. No existing file is edited, no new module imports another new module, and only the standard library is used.
+
+Rules that apply to all eight sections:
+- Money is always a whole number of cents (int). Dates are datetime.date objects. Nothing reads today's date: every date is passed in.
+- "Rounded half up" for a fraction n/d of non-negative whole numbers means the whole number (2*n + d) // (2*d), so an exact half goes up. Use whole-number arithmetic, never floats. "p percent of x, rounded half up" is the fraction (x*p)/100 rounded this way.
+- Exception classes that a section introduces by name (for example InsufficientPoints) are defined in that section's module as direct subclasses of Exception.
+- When a call raises one of the listed exceptions, it leaves all state exactly as it was before the call.
+- When a call breaks two rules at once, either of the two exceptions is acceptable, unless the section gives an order.
+- No function changes a list or dict that is passed to it.
+- A function or method that is not described as returning something returns None.
+- Parameter names and their order are exactly as written, so every parameter can be passed by position or by name. Where a signature shows a default, that is the default.
+- "Sorted ascending" for strings means plain Python string comparison (sorted()).
+
+1. Loyalty points. New module tinyshop/loyalty.py.
+
+A customer's tier depends on lifetime spend: "bronze" from 0 cents, "silver" from 50000 cents, "gold" from 200000 cents. The bounds are inclusive: exactly 50000 is silver.
+
+- tier_for(lifetime_spend_cents) returns the tier name. ValueError if the amount is negative.
+- next_tier(lifetime_spend_cents) returns a tuple (name of the next tier up, cents still needed to reach it), or None when the tier is already gold. ValueError if the amount is negative. Example: next_tier(49999) is ("silver", 1).
+- points_for_order(total_cents, tier) returns the points an order earns. The base is one point per whole 100 cents (total_cents // 100). The tier sets a percentage: bronze 100, silver 125, gold 150. The result is that percentage of the base, rounded half up. Example: points_for_order(250, "silver") is 3 (base 2, 125 percent is 2.5). ValueError if total_cents is negative or tier is not one of the three names.
+- InsufficientPoints is an exception class.
+- class LoyaltyAccount(customer). Attributes: customer (as given) and lifetime_spend_cents (starts at 0). Read-only property tier: tier_for(lifetime_spend_cents). Methods:
+  - earn(order_total_cents, on) returns the points earned. The points are points_for_order(order_total_cents, the tier the account has before this order is counted). After that lifetime_spend_cents grows by order_total_cents. The points are kept as a lot earned on the date on. ValueError if order_total_cents is negative.
+  - Expiry: a lot earned on day D can be used on every day up to and including D + 365 days (timedelta(days=365)). On later days it has expired. A lot counts as usable on any day that is on or before its last usable day, including days before D.
+  - balance(on) returns the points left in all lots that are usable on the date on.
+  - redeem(points, on) spends points and returns the discount in cents. Every 100 points are worth 250 cents, so the return value is points // 100 * 250. ValueError unless points is a positive multiple of 100. InsufficientPoints if points is more than balance(on). Points are taken only from lots usable on the date on, from the lot with the earliest earned date first (lots earned on the same date: in the order they were earned).
+  - expiring(on, within_days) returns the points left in lots that are usable on the date on and whose last usable day is on or before on + within_days days. ValueError if within_days is negative.
+  - max_redeemable(on, order_total_cents) returns the largest number p such that p is a multiple of 100 (0 is allowed), p is at most balance(on), and p // 100 * 250 is at most order_total_cents // 2. ValueError if order_total_cents is negative.
+
+2. Promotions. New module tinyshop/promotions.py.
+
+A cart is passed as lines: a dict that maps a sku to a quantity. Prices come from tinyshop.catalog.get_product(sku).price_cents. Every function below that takes lines raises KeyError for a sku that is not in the catalog (the error get_product raises) and ValueError for a quantity below 1. An empty dict is a valid cart with subtotal 0. The cart is checked even when the list of promotions is empty.
+
+- Promotion is a frozen dataclass with these fields in this order: code: str, kind: str, value: int = 0, sku: str | None = None, buy: int = 0, get: int = 0, min_spend_cents: int = 0, stackable: bool = False. Creating one raises ValueError when: code is the empty string; kind is not "percent", "bogo" or "spend"; min_spend_cents is negative; kind is "percent" and value is not from 1 to 100; kind is "bogo" and any of these holds: sku is None, buy is below 1, get is below 1; kind is "spend" and either value is below 1 or sku is not None. Fields a kind does not use are not checked.
+- subtotal_cents(lines) returns the sum of price times quantity.
+- discount_for(promo, lines) returns what one promotion takes off this cart on its own:
+  - 0 when the cart subtotal is below promo.min_spend_cents (this applies to every kind). A subtotal equal to min_spend_cents qualifies.
+  - kind "percent" with sku None: value percent of the subtotal, rounded half up. With a sku: value percent of that sku's line total (price times quantity), rounded half up, and 0 when the sku is not in lines.
+  - kind "bogo" (buy some, get some free): with q units of promo.sku in lines (0 if absent), the number of free units is (q // (buy + get)) * get, and the discount is that many times the unit price. Example: buy 2 get 1 with 7 units gives 2 free units.
+  - kind "spend": value cents, but never more than the subtotal.
+- applicable(promos, lines) takes a list of promotions and returns the codes of those whose discount_for is above 0, sorted ascending. ValueError if two promotions in the list have the same code.
+- best_combination(promos, lines) returns a dict with exactly the keys "codes" (list of str, sorted ascending), "discount_cents" and "total_cents" (subtotal minus discount). ValueError if two promotions in the list have the same code. The rules:
+  - Only promotions whose discount_for is above 0 can be part of a combination.
+  - A combination is allowed when it is exactly one promotion (stackable or not), or when it has two or more promotions that all have stackable True and no two of them have the same kind.
+  - A combination's discount is the sum of discount_for of its promotions (each worked out on the original cart), but never more than the subtotal.
+  - The result is the allowed combination with the highest discount (the discount after the limit to the subtotal). On a tie the one with fewer promotions wins. If still tied, the one whose sorted list of codes compares lower (Python list comparison) wins.
+  - When no promotion applies the result is {"codes": [], "discount_cents": 0, "total_cents": subtotal}.
+
+3. Shipping rates. New module tinyshop/shipping_rates.py.
+
+Zones are "local", "national" and "international". Any function that takes a zone raises KeyError for another zone name. Weight is in whole grams. The rate table, in cents, by weight band (upper bounds inclusive):
+
+  weight up to     local   national   international
+  500 g              399        599            1499
+  2000 g             599        899            2499
+  10000 g            999       1499            4999
+  30000 g           1999       2999            9999
+
+- base_rate(zone, weight_grams) returns the table rate. ValueError if weight_grams is below 1 or above 30000.
+- quote(zone, weight_grams, subtotal_cents, express=False, fragile=False, remote=False) returns a dict with exactly these keys:
+  - "free_shipping": True when the zone has a free-shipping threshold and subtotal_cents is at or above it. The thresholds are 5000 for local and 10000 for national. International has none.
+  - "base_cents": 0 when free_shipping is True, otherwise the table rate.
+  - "fragile_cents": 250 when fragile is True, otherwise 0.
+  - "remote_cents": when remote is True, 15 percent of the table rate rounded half up, otherwise 0.
+  - "express_cents": when express is True, 50 percent of the table rate rounded half up, but at least 500. Otherwise 0.
+  - "total_cents": the sum of the four amounts above.
+  The remote and express amounts are always worked out from the table rate, also when free shipping makes base_cents 0. ValueError if subtotal_cents is negative or the weight is outside 1 to 30000.
+- split_parcels(weight_grams, max_parcel_grams=30000) returns a list of parcel weights: as many parcels of max_parcel_grams as fit, followed by one parcel with the rest when there is a rest. Example: split_parcels(65000) is [30000, 30000, 5000] and split_parcels(30000) is [30000]. ValueError if weight_grams is below 1 or max_parcel_grams is below 1.
+- quote_parcels(zone, parcel_weights, subtotal_cents, express=False, fragile=False, remote=False) takes a list of parcel weights and returns a dict with the same six keys as quote. It calls quote once per parcel with the same zone, subtotal and flags. Each of the five amounts is the sum of that amount over the parcels, and free_shipping is the value every parcel has. ValueError if the list is empty.
+- business_days_for(zone, express=False) returns the delivery time in working days: local 1, national 3, international 7. With express: local 1, national 2, international 4.
+- add_working_days(start, days, holidays=()) steps forward from start one calendar day at a time and counts each day that is Monday to Friday and is not in holidays. The day start itself is never counted: the first day looked at is the day after start. It returns the day on which the count reaches days. With days 0 it returns start unchanged, whatever kind of day start is. holidays is any collection of dates (list, tuple or set). ValueError if days is negative.
+- estimate_delivery(zone, shipped_on, express=False, holidays=()) returns add_working_days(shipped_on, business_days_for(zone, express), holidays).
+
+4. Invoices. New module tinyshop/invoices.py.
+
+- format_money(cents) returns "$", then cents // 100, then ".", then cents % 100 as two digits, with no thousands separator: format_money(123456) is "$1234.56" and format_money(5) is "$0.05".
+- format_rate(basis_points) returns the rate as a percentage with two decimals: basis_points // 100, then ".", then basis_points % 100 as two digits, then "%". format_rate(825) is "8.25%", format_rate(0) is "0.00%".
+- InvoiceLine is a frozen dataclass with fields in this order: description: str, quantity: int, unit_price_cents: int, tax_rate_bp: int = 0 (the tax rate in basis points, 825 is 8.25 percent). Read-only property total_cents: quantity times unit_price_cents. Creating one raises ValueError if quantity is below 1, unit_price_cents is negative or tax_rate_bp is negative.
+- subtotal_cents(lines) returns the sum of the line totals of a list of InvoiceLine.
+- tax_breakdown(lines) returns a list of tuples (tax_rate_bp, taxable_cents, tax_cents), one per distinct tax rate among the lines (rate 0 included), sorted by rate ascending. taxable_cents is the sum of the line totals at that rate. tax_cents is taxable_cents * tax_rate_bp / 10000 rounded half up, worked out once on the sum for the rate, not line by line.
+- total_cents(lines) returns the subtotal plus every tax_cents of the breakdown.
+- due_date(issued_on, terms_days=30) returns issued_on plus terms_days calendar days. If that day is a Saturday or a Sunday, the result is the Monday after it. ValueError if terms_days is negative.
+- late_fee_cents(total_cents, due, on) returns 0 when on is on or before due. Otherwise, with days_late = (on - due).days and periods = (days_late + 29) // 30 (every started 30 days counts), the fee is total_cents * 150 * periods / 10000 rounded half up.
+- class InvoiceBook(prefix="INV") hands out invoice numbers. next_number(issued_on) returns prefix, "-", the year of issued_on as four digits, "-", and a sequence number padded with zeros to at least four digits, for example "INV-2026-0001". Each year has its own sequence that starts at 1, whatever order the years are used in. issued() returns a new list of all numbers handed out so far, in the order they were handed out. Two InvoiceBook objects share nothing.
+- render_invoice(number, customer, issued_on, lines, terms_days=30) returns the invoice as text. ValueError if lines is empty. Every line of the text ends with a newline character and has no trailing spaces. The layout, in order:
+  - "INVOICE " followed by number
+  - "Customer: " followed by customer
+  - "Issued: " followed by issued_on in YYYY-MM-DD form
+  - "Due: " followed by due_date(issued_on, terms_days) in YYYY-MM-DD form
+  - an empty line
+  - the column header: "Qty" right-aligned in 3 characters, two spaces, "Description" left-aligned and padded with spaces to 24 characters, "Unit" right-aligned in 10 characters, "Total" right-aligned in 12 characters
+  - a line of 51 hyphens
+  - one row per invoice line, in the order given, with the same column widths: the quantity right-aligned in 3 characters, two spaces, the description cut to its first 24 characters and padded with spaces to 24, format_money of the unit price right-aligned in 10, format_money of the line total right-aligned in 12
+  - a line of 51 hyphens
+  - "Subtotal" padded with spaces to 39 characters, then format_money of the subtotal right-aligned in 12
+  - one line per entry of tax_breakdown(lines), in that order: "Tax " followed by format_rate of the rate, padded with spaces to 39 characters, then format_money of that entry's tax_cents right-aligned in 12
+  - "Total" padded with spaces to 39 characters, then format_money of total_cents(lines) right-aligned in 12
+  Example, for number "INV-2026-0001", customer "Ann Lee", issued on 2026-11-09, lines InvoiceLine("Stoneware mug", 2, 3000, 825) and InvoiceLine("Gift wrapping", 1, 450):
+
+INVOICE INV-2026-0001
+Customer: Ann Lee
+Issued: 2026-11-09
+Due: 2026-12-09
+
+Qty  Description                   Unit       Total
+---------------------------------------------------
+  2  Stoneware mug               $30.00      $60.00
+  1  Gift wrapping                $4.50       $4.50
+---------------------------------------------------
+Subtotal                                     $64.50
+Tax 0.00%                                     $0.00
+Tax 8.25%                                     $4.95
+Total                                        $69.45
+
+5. Returns. New module tinyshop/returns_policy.py.
+
+Return reasons and their rules:
+
+  reason           return window   restocking fee             label fee   original shipping refunded
+  "changed_mind"   30 days         15 percent (25 if opened)  500 cents   no
+  "wrong_item"     60 days         none                       none        yes
+  "defective"      90 days         none                       none        yes
+
+Every function or class below that takes a reason raises ValueError for any other reason.
+
+- window_days(reason) returns 30, 60 or 90.
+- is_within_window(delivered_on, requested_on, reason) returns True when (requested_on - delivered_on).days is from 0 to window_days(reason), both ends included. A request before delivery gives False.
+- restocking_fee_cents(goods_cents, reason, opened=False) returns the fee: for "changed_mind" 15 percent of goods_cents, or 25 percent when opened is True, rounded half up. 0 for the other reasons, opened or not. ValueError if goods_cents is negative.
+- refund_amount(items, reason, opened=False, shipping_paid_cents=0) takes items as a list of (unit_price_cents, quantity) tuples and returns a dict with exactly these keys:
+  - "goods_cents": the sum of unit price times quantity
+  - "restocking_fee_cents": restocking_fee_cents(goods_cents, reason, opened), worked out once on the sum
+  - "label_fee_cents": 500 for "changed_mind", otherwise 0
+  - "shipping_refund_cents": shipping_paid_cents for "wrong_item" and "defective", 0 for "changed_mind"
+  - "refund_cents": goods minus restocking fee minus label fee plus shipping refund, but never below 0
+  ValueError if items is empty, a unit price is negative, a quantity is below 1 or shipping_paid_cents is negative.
+- A return goes through states. The allowed moves are:
+  - "requested" to "approved", "rejected" or "cancelled"
+  - "approved" to "shipped" or "cancelled"
+  - "shipped" to "received"
+  - "received" to "refunded"
+  - "rejected", "cancelled" and "refunded" allow no further move
+- can_transition(from_state, to_state) returns True for an allowed move and False for anything else, including unknown state names and a move from a state to itself.
+- InvalidTransition and ReturnWindowClosed are exception classes.
+- class Rma(rma_id, delivered_on, requested_on, reason). Creating one raises ValueError for an unknown reason, and otherwise ReturnWindowClosed when is_within_window(delivered_on, requested_on, reason) is False. Attributes: rma_id, delivered_on, requested_on, reason, state (starts as "requested") and history, a list of (state, date) tuples that starts as [("requested", requested_on)]. Members:
+  - transition(new_state, on) makes a move on the date on. The checks, in this order: InvalidTransition if can_transition(state, new_state) is False. ValueError if on is earlier than the date of the last history entry (the same date is fine). ReturnWindowClosed if new_state is "shipped" and on is more than 14 days after the date the return was approved (exactly 14 days after is fine). Otherwise state becomes new_state and (new_state, on) is appended to history.
+  - allowed_next() returns the states the return can move to now, sorted ascending (an empty list when there are none).
+  - read-only property closed: True when allowed_next() is empty.
+
+6. Product search. New module tinyshop/search.py.
+
+Products are passed in as a list of dicts. Every dict has the keys "sku" (str, unique in the list), "name" (str), "description" (str), "category" (str), "price_cents" (int), "tags" (list of str) and "in_stock" (bool). This module does not use the catalog.
+
+- tokenize(text) returns a list of tokens. The text is lowercased with str.lower. A token is a longest possible run of the characters a to z and 0 to 9. Every other character separates tokens. The stop words "a", "an", "and", "for", "of", "the" and "with" are dropped. Order is kept and repeats are kept. Example: tokenize("The Blue-Green mug, 2 of 3!") is ["blue", "green", "mug", "2", "3"].
+- score(product, query) returns a whole number. Let Q be the distinct tokens of tokenize(query), N the tokens of the name, T the tokens of all the tags (each tag is tokenized) and D the tokens of the description. Each token q in Q gets points that are the sum of three parts: the name part is 5 if q is in N, otherwise 2 if some token in N starts with q, otherwise 0. The tag part is 3 if q is in T, otherwise 0. The description part is 1 if q is in D, otherwise 0. If Q is empty, or any token in Q gets 0 points, the score is 0. Otherwise the score is the sum of the points of all tokens in Q.
+- search(products, query="", category=None, min_price_cents=None, max_price_cents=None, tags=None, in_stock_only=False, sort="relevance", page=1, page_size=10) returns a dict with exactly the keys "total", "pages", "page", "items" and "facets".
+  - Matches: when tokenize(query) is empty every product matches the query. Otherwise a product matches when its score is above 0. A match must also pass every filter that is set: category (the product's category equals it exactly, case matters), min_price_cents and max_price_cents (both bounds inclusive), tags (a list: the product's tags list must contain every listed tag as an exact string, and an empty list filters nothing), in_stock_only (when True, only products whose in_stock is True).
+  - Order of the matches, by sort: "relevance" is score descending. "price_asc" is price ascending. "price_desc" is price descending. "name" is the lowercased name ascending. In all four, ties are broken by sku ascending. When tokenize(query) is empty every score is 0, so "relevance" orders by sku. ValueError for any other sort.
+  - "total" is the number of matches. "pages" is the number of pages needed for them, (total + page_size - 1) // page_size, which is 0 when there are no matches. "page" is the page argument. "items" is the list of product dicts on that page, in order: page 1 holds the first page_size matches, and a page past the last one gives an empty list. ValueError if page is below 1 or page_size is below 1.
+  - "facets" is a dict with two keys, counted over all matches on all pages: "category" maps each category that occurs among the matches to the number of matches in it, and "tags" maps each tag that occurs among the matches to the number of matches that have it (a product that lists the same tag twice counts once). With no matches both are empty dicts.
+- suggest(products, prefix, limit=5) returns name tokens to complete a prefix. The prefix is stripped of surrounding whitespace and lowercased. If it is then empty the result is an empty list. The candidates are the distinct tokens of tokenize(name) over all products that start with the prefix (a token equal to the prefix counts). They are ordered by the number of products whose name tokens contain the candidate, highest first, ties sorted ascending. At most limit candidates are returned. ValueError if limit is below 1.
+
+7. Subscriptions. New module tinyshop/subscriptions.py.
+
+The intervals are "weekly", "biweekly", "monthly", "quarterly" and "yearly". Every function or class that takes an interval raises ValueError for another name.
+
+- add_months(day, months, anchor_day=None) returns the date months calendar months after day. The day of the month is anchor_day, or day.day when anchor_day is None, lowered to the last day of the target month when that month is shorter. Examples: add_months(date(2026, 1, 31), 1) is date(2026, 2, 28). add_months(date(2026, 2, 28), 1, 31) is date(2026, 3, 31). ValueError if months is negative or anchor_day is given and is not from 1 to 31.
+- schedule(start, interval, count) returns a list of count dates. Date number n (counting from 0) is: weekly start + 7*n days, biweekly start + 14*n days, monthly add_months(start, n), quarterly add_months(start, 3*n), yearly add_months(start, 12*n). Every date is worked out from start, not from the date before it, so a monthly schedule from 31 January gives 28 February (29 in a leap year) and then 31 March. ValueError if count is negative. A count of 0 gives an empty list.
+- prorated_refund(price_cents, period_start, period_end, cancelled_on) returns the refund for the unused part of a paid period that runs from period_start up to but not including period_end. With length = (period_end - period_start).days and unused = (period_end - cancelled_on).days, limited to the range 0 to length, the refund is price_cents * unused / length rounded half up. ValueError if period_end is not later than period_start or price_cents is negative.
+- class Subscription(start, interval, price_cents). ValueError for an unknown interval or a negative price. Attributes: start, interval, price_cents. Its scheduled dates are the endless sequence that schedule(start, interval, count) produces for a growing count. Members:
+  - pause(on) starts a pause on the date on, and resume(on) ends the open pause on the date on. A scheduled date d is skipped when pause date <= d < resume date. While a pause is open (not resumed yet), every scheduled date on or after the pause date is skipped. A subscription can be paused and resumed any number of times.
+  - cancel(on) cancels: scheduled dates on or after on are not charged.
+  - ValueError in these cases: pause while a pause is open; resume when no pause is open; resume with a date earlier than the open pause's date; pause with a date earlier than the date of the most recent resume; pause, resume or cancel on a subscription that is already cancelled.
+  - is_paused(on) returns True when the date on lies in a pause: pause date <= on < resume date, or pause date <= on for an open pause.
+  - charges_between(first, last) returns, in ascending order, the scheduled dates d with first <= d <= last that are not skipped by a pause and are earlier than the cancellation date, if there is one. An empty list when first is later than last.
+  - next_charge(after) returns the earliest such charge date that is strictly later than after, or None when there will never be one (no scheduled date is left before the cancellation date, or an open pause skips every later date).
+  - period_containing(on) returns a tuple (a, b) of two consecutive scheduled dates with a <= on < b, ignoring pauses and cancellation, or None when on is earlier than start.
+
+8. Bundles. New module tinyshop/bundles.py.
+
+A bundle is a set of catalog products sold together at a discount. The module keeps the defined bundles in a module-level registry. Prices come from tinyshop.catalog.get_product(sku).price_cents. A component's list price is its unit price times its quantity in the bundle.
+
+- reset() removes every defined bundle.
+- define_bundle(bundle_id, components, discount_percent=0) defines a bundle. components is a dict that maps a sku to the quantity of it in one bundle. The module keeps its own copy of it. ValueError if bundle_id is already defined, components is empty, a quantity is below 1 or discount_percent is not from 0 to 100. KeyError for a sku that is not in the catalog (the error get_product raises).
+- Every function below that takes a bundle_id raises KeyError when no bundle with that id is defined.
+- get_bundle(bundle_id) returns a new dict {"id": bundle_id, "components": a copy of the components dict, "discount_percent": discount_percent}.
+- list_bundles() returns the defined ids, sorted ascending.
+- list_price_cents(bundle_id) returns the sum of the components' list prices.
+- discount_cents(bundle_id) returns discount_percent percent of the list price, rounded half up.
+- bundle_price_cents(bundle_id) returns the list price minus discount_cents.
+- allocate(total_cents, weights) splits an amount across keys in proportion to whole-number weights so that the parts always add up to total_cents. weights is a dict from a str key to a weight, and W is the sum of the weights. Each key first gets total_cents * weight // W. The cents that are left over are handed out one each, to the keys with the largest remainder (total_cents * weight) % W first, ties going to the key that sorts lower. The result is a dict with every key of weights. Example: allocate(100, {"a": 1, "b": 1, "c": 1}) is {"a": 34, "b": 33, "c": 33}. ValueError if total_cents is negative, weights is empty, a weight is negative or W is 0.
+- discount_breakdown(bundle_id) returns a dict from each component sku to its share of the discount: allocate(discount_cents(bundle_id), the components' list prices).
+- component_prices(bundle_id) returns a dict from each component sku to its list price minus its share from discount_breakdown. The values add up to bundle_price_cents(bundle_id).
+- Stock: the functions below take stock, a dict from sku to units on hand. When stock is None they use tinyshop.inventory.STOCK as it is at the time of the call. A sku missing from the dict has 0 units.
+  - available(bundle_id, stock=None) returns how many complete bundles can be made: the lowest value of units on hand // quantity over the components.
+  - missing_components(bundle_id, quantity=1, stock=None) returns a dict of what is short for quantity bundles: for each component that needs more units than are on hand, sku maps to the number of units short. Components that are covered are left out, so an empty dict means everything is there. ValueError if quantity is below 1.
+  - reserve_bundle(bundle_id, quantity=1) returns None and takes the units for quantity bundles out of tinyshop.inventory.STOCK. If anything is short it raises tinyshop.inventory.OutOfStock and takes nothing. ValueError if quantity is below 1.
+
+Everything that exists keeps working exactly as before."""
+acceptance_criteria = """- tinyshop/loyalty.py provides tier_for, next_tier, points_for_order, InsufficientPoints and LoyaltyAccount as described
+- tinyshop/promotions.py provides Promotion, subtotal_cents, discount_for, applicable and best_combination as described
+- tinyshop/shipping_rates.py provides base_rate, quote, split_parcels, quote_parcels, business_days_for, add_working_days and estimate_delivery as described
+- tinyshop/invoices.py provides format_money, format_rate, InvoiceLine, subtotal_cents, tax_breakdown, total_cents, due_date, late_fee_cents, InvoiceBook and render_invoice as described
+- tinyshop/returns_policy.py provides window_days, is_within_window, restocking_fee_cents, refund_amount, can_transition, InvalidTransition, ReturnWindowClosed and Rma as described
+- tinyshop/search.py provides tokenize, score, search and suggest as described
+- tinyshop/subscriptions.py provides add_months, schedule, prorated_refund and Subscription as described
+- tinyshop/bundles.py provides reset, define_bundle, get_bundle, list_bundles, list_price_cents, discount_cents, bundle_price_cents, allocate, discount_breakdown, component_prices, available, missing_components and reserve_bundle as described
+- the existing tests still pass and new tests cover each addition"""
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 300

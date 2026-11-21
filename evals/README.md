@@ -8,10 +8,18 @@ Every case is a card, a starting codebase and a hidden check the agent never see
 | [rich-mutants](rich-mutants/) | [Rich](https://github.com/Textualize/rich), about 100 modules | 25 | the pre-registered benchmark: bugs drawn by a seeded mutation sweep, 6 for learning, 17 for testing, 2 before-and-after-learning lessons |
 | [rich](rich/) | Rich | 3 | three hand-planted bugs, found from their symptoms |
 | [tinyshop](tinyshop/) | a small shop backend written for these cases, 23 files | 2 | tracing a symptom through several modules |
+| [swarm](swarm/) | tinyshop | 1 | a small feature (gift cards) |
+| [swarm-wide](swarm-wide/) | tinyshop | 1 | five independent additions: one card, or an epic split into parts |
+| [swarm-oss](swarm-oss/) | Rich | 1 | a feature of several parts in a real code base (table export) |
+| [swarm-xl](swarm-xl/) | tinyshop | 1 | eight modules from a long specification, 113 hidden tests: the case for a swarm |
+| [packbench](packbench/) | [coverage.py](https://github.com/coveragepy/coveragepy), about 17,000 lines | 1 | a feature across a schema, a query layer and a command, from a ticket that names no files: what a builder has to find out, and what a fact pack saves it |
 
-Each set runs in seconds per case on a laptop, so a full comparison takes minutes. The
-results and the write-up are in [docs/CASE-STUDY.md](../docs/CASE-STUDY.md);
+Each of the first three sets runs in seconds per case on a laptop, so a full comparison takes
+minutes. The results and the write-up are in [docs/CASE-STUDY.md](../docs/CASE-STUDY.md);
 [exploratory/](exploratory/) holds the runs made before the benchmark's protocol was written.
+The feature cases below them were written to develop swarms and fact packs. They come with no
+published results: each has a hidden check, and `FACTS.md` in the packbench case is the list of
+verified facts its ticket leaves out.
 
 ## Running them
 

@@ -1,0 +1,11 @@
+name = "tinyshop"
+default_branch = "main"
+autonomy = "medium"
+notes = "A small Python shop backend: the package is tinyshop/, the tests are in tests/. Run them with: python -m unittest discover -q -s tests -t ."
+
+[commands]
+test = ["{python}", "-m", "unittest", "discover", "-q", "-s", "tests", "-t", "."]
+
+[verify]
+gates = ["test"]
+timeout_seconds = 120

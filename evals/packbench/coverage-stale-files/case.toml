@@ -1,0 +1,19 @@
+# coverage.py 9b2aad06e395 (Apache-2.0, github.com/coveragepy/coveragepy), extended with
+# file fingerprints in the data file and a "coverage stale" command.
+title = "Tell people when their coverage data is stale: fingerprint measured files and add coverage stale"
+complexity = "high"
+max_attempts = 3
+goal = """People edit their code after a coverage run and then read reports that no longer match the files on disk, and coverage.py gives them no way to notice. Whenever coverage saves measurement data for a file (coverage run with or without --append, --branch or --parallel-mode, or the Python API), it must also store that file's fingerprint, the SHA-256 hex digest of the file's bytes on disk at that moment; a file that cannot be read then gets no fingerprint and no error, and a file that got no new data in this run keeps the fingerprint it already had. CoverageData gets add_file_fingerprints(fingerprints), taking a mapping of file name to fingerprint string, which replaces any fingerprint already stored for a file, does nothing for an empty mapping, and raises coverage.exceptions.DataError for a file that is not among the measured files, leaving it unmeasured. It also gets file_fingerprint(filename), which returns the stored string, or None when the file has none or was never measured. Fingerprints live in the data file with the rest of the data and are gone after erase(). Combining carries them along: after a.update(b) or coverage combine, a has b's fingerprints (under the new name where file names are remapped), b's winning where both have one for a file and a's kept where b has none. A new command, coverage stale [--data-file=FILE], reads the same data file the reporting commands would read (COVERAGE_FILE included) without creating a data file or combining parallel ones, and prints only one line per stale file in ascending plain string order of file name: the word changed when the file's current fingerprint differs from the stored one, or missing when the file no longer exists, then one space, then the file name exactly as measured_files() returns it. Files without a stored fingerprint are never listed. When at least one file is listed the exit status is 2; otherwise the command prints "No stale files." and exits with status 0; with no data it prints "No data to report." and exits with status 1, as coverage report does. coverage help lists the new command, and coverage stale --help and coverage help stale describe it like any other command. Data files written before this change must stay fully usable: they still open, report, accept new data and fingerprints, and combine in both directions with new data files, their files simply having no fingerprint until they are measured again. Nothing else about coverage.py's behaviour changes."""
+acceptance_criteria = """- Measuring stores a SHA-256 fingerprint for every file that got data, as described, and combining keeps fingerprints
+- CoverageData.add_file_fingerprints and CoverageData.file_fingerprint work as described, errors included
+- coverage stale prints the changed and missing files with the outputs and exit statuses described
+- Data files written by the current release still work, without fingerprints
+- coverage.py's existing tests still pass and new tests cover the feature"""
+
+[source]
+repository = "https://github.com/coveragepy/coveragepy.git"
+commit = "9b2aad06e3959a86f317ec3b4db800ef16fefcc6"
+
+[check]
+command = ["{python}", "hidden_check.py"]
+timeout_seconds = 900
