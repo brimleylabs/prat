@@ -168,20 +168,31 @@ def gitleaks(root: Path) -> list[Finding]:
             root,
         )  # fmt: skip
         data = json.loads(out.read_text(encoding="utf-8") or "[]") if out.is_file() else []
-    return [
-        Finding(
-            "security",
-            f"secret-{str(item.get('RuleID') or 'generic').lower()}",
-            "critical",
-            str(item.get("Description") or "A secret is committed"),
-            f"{str(item.get('File') or '').replace(chr(92), '/')}:{item.get('StartLine') or 0}",
-            f"commit {str(item.get('Commit') or '')[:12]}" if item.get("Commit") else "",
-            "Revoke it where it was issued, then remove it from the code and its history.",
-            "OWASP Top 10 A07 Identification and Authentication Failures",
-            "gitleaks",
+    return gitleaks_findings(data)
+
+
+def gitleaks_findings(data: Sequence[Any]) -> list[Finding]:
+    found = []
+    for item in data:
+        where = str(item.get("File") or "").replace("\\", "/")
+        # As with PRAT's own scan: a key in a test file is nearly always a made-up one.
+        fixture = TEST_FILE.search(where) is not None
+        rule = str(item.get("RuleID") or "generic").lower()
+        said = str(item.get("Description") or "A secret is committed").split(",")[0].rstrip(".")
+        found.append(
+            Finding(
+                "security",
+                f"secret-{rule}" + ("-in-tests" if fixture else ""),
+                "low" if fixture else "critical",
+                said + (" (in a test file; check it is not a real one)" if fixture else ""),
+                f"{where}:{item.get('StartLine') or 0}",
+                f"commit {str(item.get('Commit') or '')[:12]}" if item.get("Commit") else "",
+                "Revoke it where it was issued, then remove it from the code and its history.",
+                "OWASP Top 10 A07 Identification and Authentication Failures",
+                "gitleaks",
+            )
         )
-        for item in data
-    ]
+    return found
 
 
 # Dependencies with known vulnerabilities -----------------------------------------------------

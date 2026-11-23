@@ -309,3 +309,26 @@ def test_an_evaluation_reports_what_it_could_not_look_at(
     assert seen == ["design /", "design /about"]
     notes = {t.tool: t for t in paged.tools}
     assert "no code to read" in notes["code scanners"].note and notes["prat headers"].ran
+
+
+def test_gitleaks_answers_are_read_and_test_files_are_not_critical() -> None:
+    leaks = [
+        {
+            "RuleID": "aws-access-token",
+            "Description": "Identified a pattern that may indicate AWS credentials, risking it.",
+            "File": r"app\settings.py",
+            "StartLine": 3,
+            "Commit": "f1510388e0571234",
+        },
+        {"RuleID": "generic-api-key", "File": "tests/unit/test_errors.py", "StartLine": 49},
+    ]
+    real, fixture = tools.gitleaks_findings(leaks)
+    assert (real.where, real.severity, real.rule) == (
+        "app/settings.py:3",
+        "critical",
+        "secret-aws-access-token",
+    )
+    assert real.title == "Identified a pattern that may indicate AWS credentials"
+    assert real.detail == "commit f1510388e057"
+    assert (fixture.severity, fixture.rule) == ("low", "secret-generic-api-key-in-tests")
+    assert "in a test file" in fixture.title
