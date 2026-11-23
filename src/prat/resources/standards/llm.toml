@@ -1,0 +1,639 @@
+# Rubric for making a public website readable, citable and correctly represented by
+# large language model assistants and AI search.
+# Every source page and example URL was fetched in November 2026.
+# basis: "standard" = formal standard; "vendor" = first-party provider documentation;
+# "research" = a paper with measured results; "proposal" = community proposal with no confirmed provider adoption.
+# No provider guarantees inclusion in an AI answer. Rules marked "vendor" record what a provider says, not a measured effect.
+
+# -------------------------------------------------------------------- access
+
+[[rule]]
+id = "robots-txt-served-correctly"
+area = "access"
+basis = "standard"
+rule = "The site serves /robots.txt at the top level of each host as plain text, with a success status. It never answers with a server error."
+measure = "Status 200, text/plain, UTF-8, under 500 kibibytes. A 5xx response makes a compliant crawler assume complete disallow; a 4xx response means it may crawl everything. Crawlers may cache the file for up to 24 hours."
+check = "mechanical"
+probe = "Fetch /robots.txt on the page's host and pass if the status is 200, the content type is text/plain and the body is under 500 kibibytes."
+source = "IETF RFC 9309, Robots Exclusion Protocol, sections 2.3 to 2.5"
+source_url = "https://www.rfc-editor.org/rfc/rfc9309.html"
+do_not = "Do not let /robots.txt return a 5xx error or an HTML error page, and do not treat it as access control. The standard says the rules are not a form of access authorisation."
+[[rule.example]]
+name = "IETF RFC 9309: Robots Exclusion Protocol"
+url = "https://www.rfc-editor.org/rfc/rfc9309.html"
+shows = "Defines the file location, case-insensitive user agent matching, the 500 kibibyte parsing limit and the handling of unavailable and unreachable files."
+[[rule.example]]
+name = "GitHub robots.txt"
+url = "https://github.com/robots.txt"
+shows = "A plain text file that opens with a contact comment and a Sitemap line, then lists rules by user agent group."
+[[rule.example]]
+name = "GOV.UK robots.txt"
+url = "https://www.gov.uk/robots.txt"
+shows = "A short plain text file with a Sitemap line pointing to the sitemap index."
+
+[[rule]]
+id = "training-agents-declared"
+area = "access"
+basis = "vendor"
+rule = "The robots.txt file names each documented AI training agent in its own group and states allow or disallow for it. The choice is made on purpose and is separate from the choice for search agents."
+measure = "Training tokens documented by their owners: GPTBot (OpenAI), ClaudeBot (Anthropic), Google-Extended (Google; Gemini training and grounding; no effect on Google Search inclusion or ranking), Applebot-Extended (Apple; does not crawl; pages that disallow it can still appear in search results), CCBot (Common Crawl)"
+check = "mechanical"
+probe = "Fetch /robots.txt and pass if a User-agent line exists for each of GPTBot, ClaudeBot, Google-Extended, Applebot-Extended and CCBot, each in a group with at least one Allow or Disallow rule."
+source = "OpenAI, Overview of OpenAI crawlers"
+source_url = "https://developers.openai.com/api/docs/bots"
+do_not = "Do not leave the training decision to the wildcard group, and do not block a training agent in the belief that it removes the site from search. Google and Apple both state that their Extended tokens do not affect search."
+[[rule.example]]
+name = "Anthropic: Does Anthropic crawl data from the web, and how can site owners block the crawler?"
+url = "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+shows = "Describes ClaudeBot as the agent that collects content that may contribute to model training, and says blocking it signals that future material should be left out of training data."
+[[rule.example]]
+name = "Google: Google-Extended in the common crawlers list"
+url = "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers"
+shows = "States that Google-Extended is a product token with no separate HTTP user agent string, and that it does not affect inclusion or ranking in Google Search."
+[[rule.example]]
+name = "The Economist robots.txt"
+url = "https://www.economist.com/robots.txt"
+shows = "Comment headings separate user-facing LLM bots from training bots, and each agent has its own group with explicit rules."
+
+[[rule]]
+id = "search-and-user-agents-allowed"
+area = "access"
+basis = "vendor"
+rule = "Pages meant to be found and cited are allowed for the documented AI search agents and user-triggered fetch agents. Any block on them is a stated decision, not a side effect of a wildcard rule or a training opt-out."
+measure = "Search agents: OAI-SearchBot (ChatGPT search; opted-out sites are not shown in search answers; changes take about 24 hours), Claude-SearchBot, PerplexityBot (not used for training). User-triggered agents: ChatGPT-User, Claude-User, Perplexity-User. OpenAI says robots.txt rules may not apply to ChatGPT-User and Perplexity says Perplexity-User generally ignores them; Anthropic says blocking Claude-User prevents retrieval for a user query. Applebot also feeds Apple's search features."
+check = "mechanical"
+probe = "Fetch /robots.txt, evaluate it by the RFC 9309 matching rules for OAI-SearchBot, Claude-SearchBot, PerplexityBot, ChatGPT-User, Claude-User and Perplexity-User, and pass if the page URL is allowed for each one or the project's declared policy lists that agent as blocked."
+source = "OpenAI, Overview of OpenAI crawlers"
+source_url = "https://developers.openai.com/api/docs/bots"
+do_not = "Do not copy a block list that disallows OAI-SearchBot, Claude-SearchBot or PerplexityBot when the aim was only to opt out of training. Do not rely on robots.txt alone to stop user-triggered fetches."
+[[rule.example]]
+name = "Perplexity: Perplexity crawlers"
+url = "https://docs.perplexity.ai/guides/bots"
+shows = "Describes PerplexityBot as the agent that surfaces and links sites in Perplexity results, recommends allowing it, and explains that Perplexity-User fetches pages on a user's request."
+[[rule.example]]
+name = "Anthropic: Does Anthropic crawl data from the web, and how can site owners block the crawler?"
+url = "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+shows = "Lists ClaudeBot, Claude-User and Claude-SearchBot with the purpose of each and the effect of blocking each."
+[[rule.example]]
+name = "GitHub robots.txt"
+url = "https://github.com/robots.txt"
+shows = "One group names GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-SearchBot, Claude-User, PerplexityBot and Perplexity-User and gives them explicit Allow and Disallow rules."
+
+[[rule]]
+id = "edge-does-not-block-allowed-agents"
+area = "access"
+basis = "vendor"
+rule = "The firewall, CDN and bot protection let through every agent that robots.txt allows. Agents are verified against the provider's published IP ranges, not by user agent string alone."
+measure = "OpenAI and Perplexity publish JSON lists of IP ranges for each agent. Anthropic says IP blocking can stop its bots reading robots.txt, so an opt-out may not hold. Google lists allowing crawling at the CDN or hosting layer among its practices for AI features."
+check = "judgment"
+source = "Perplexity, Perplexity crawlers"
+source_url = "https://docs.perplexity.ai/guides/bots"
+do_not = "Do not allow an agent in robots.txt and then challenge or block it at the CDN. Do not block provider IP ranges as a substitute for a robots.txt rule."
+[[rule.example]]
+name = "OpenAI: Overview of OpenAI crawlers"
+url = "https://developers.openai.com/api/docs/bots"
+shows = "Gives a published IP address file for each agent and recommends allowing requests from those ranges so that the site can appear in search results."
+[[rule.example]]
+name = "Google: AI features and your website"
+url = "https://developers.google.com/search/docs/appearance/ai-features"
+shows = "Lists making sure crawling is allowed in robots.txt and by any CDN or hosting infrastructure as a practice that applies to AI features."
+
+[[rule]]
+id = "indexable-with-snippet"
+area = "access"
+basis = "vendor"
+rule = "Every page meant to be cited returns status 200, carries no noindex, and is eligible to show a snippet. Google states this is the whole technical requirement for appearing as a supporting link in AI Overviews and AI Mode."
+measure = "Google: a page must be indexed and eligible to be shown in Google Search with a snippet. Google also states there are no additional requirements, no special optimisations, and no need for new machine readable files, AI text files or special schema.org markup."
+check = "mechanical"
+probe = "Fetch the raw HTML and response headers and pass if the status is 200 and neither the robots meta tag nor the X-Robots-Tag header contains noindex."
+source = "Google Search Central, AI features and your website"
+source_url = "https://developers.google.com/search/docs/appearance/ai-features"
+do_not = "Do not ship a public page with a noindex left over from staging, and do not add AI-only files or markup in the belief that Google's AI features require them."
+[[rule.example]]
+name = "Google Search Central blog: Top ways to ensure your content performs well in Google's AI experiences on Search"
+url = "https://developers.google.com/search/blog/2025/05/succeeding-in-ai-search"
+shows = "Says that Googlebot not being blocked, a 200 status code and indexable content cover a page for Search generally, including AI formats."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "Returns 200 with no robots meta restriction and a self-referencing canonical link in the head."
+
+[[rule]]
+id = "llms-txt-optional"
+area = "access"
+basis = "proposal"
+rule = "An llms.txt file is optional. If the site publishes one, it follows the proposed format and its facts match the site. It is not a substitute for any other rule in this file."
+measure = "Community proposal by Jeremy Howard, first published September 2024. Format: a Markdown file whose only required part is an H1 with the site name, followed by an optional blockquote summary and H2 sections of links. The proposal page names no crawler or answer product that reads the file. Google states that no new machine readable files or AI text files are needed for its AI features."
+check = "mechanical"
+probe = "Fetch /llms.txt and pass if it returns 404, or if it returns 200 as text whose first non-empty line is a single Markdown H1 and every link in it returns 200."
+source = "llmstxt.org, The /llms.txt file (proposal)"
+source_url = "https://llmstxt.org/"
+do_not = "Do not present llms.txt as a ranking or citation factor, and do not put content in it that is missing from the HTML pages."
+[[rule.example]]
+name = "llmstxt.org: llms.txt"
+url = "https://llmstxt.org/llms.txt"
+shows = "The proposal's own file: an H1, a blockquote summary and a Docs section of Markdown links."
+[[rule.example]]
+name = "OpenAI Developers: llms.txt"
+url = "https://developers.openai.com/llms.txt"
+shows = "A documentation index in the proposed format, with an H1, a blockquote summary and links to product indexes. This shows a provider publishing the file for its own docs, not a statement that its crawlers read the file on other sites."
+[[rule.example]]
+name = "Google: AI features and your website"
+url = "https://developers.google.com/search/docs/appearance/ai-features"
+shows = "States that site owners do not need to create new machine readable files, AI text files or markup to appear in AI Overviews or AI Mode."
+
+# ----------------------------------------------------------------- rendering
+
+[[rule]]
+id = "content-in-server-html"
+area = "rendering"
+basis = "vendor"
+rule = "The primary content of a page is present in the HTML the server sends: the title, the main heading, body text, key facts, internal links and structured data. It does not depend on client-side JavaScript to appear."
+measure = "Google states that not all bots can run JavaScript and that server-side or pre-rendering is still a good idea. Apple says Applebot may render content in a browser. An industry log study by Vercel and MERJ (December 2024, not peer reviewed) reported that GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot and PerplexityBot did not execute JavaScript."
+check = "mechanical"
+probe = "Fetch the raw HTML without running JavaScript and pass if the title, the h1, each paragraph of the main content as seen in the rendered DOM, and any JSON-LD blocks are present in it."
+source = "Google Search Central, Understand the JavaScript SEO basics"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+do_not = "Do not ship an app shell whose initial HTML holds no content, and do not inject the main text, prices or JSON-LD only after hydration."
+[[rule.example]]
+name = "Vercel: The rise of the AI crawler"
+url = "https://vercel.com/blog/the-rise-of-the-ai-crawler"
+shows = "Reports from network logs that the main AI crawlers fetched JavaScript files without executing them, and recommends server-side rendering for critical content."
+[[rule.example]]
+name = "Next.js docs: Server and Client Components"
+url = "https://nextjs.org/docs/app/getting-started/server-and-client-components"
+shows = "The raw HTML already contains the h1, the section headings, a main element and TechArticle JSON-LD before any script runs."
+[[rule.example]]
+name = "NHS: Flu"
+url = "https://www.nhs.uk/conditions/flu/"
+shows = "A 42 kilobyte server-rendered page whose full text, headings and JSON-LD are in the first response."
+
+[[rule]]
+id = "no-answers-behind-interaction"
+area = "rendering"
+basis = "vendor"
+rule = "Key answers and facts are in the page as loaded. They are not held back until a user opens a tab, expands an accordion or clicks a button that fetches them."
+measure = "Microsoft states that AI systems may not render hidden content, so key details can be skipped. No measured effect is published."
+check = "judgment"
+source = "Microsoft Advertising blog, Optimizing your content for inclusion in AI search answers (Krishna Madhavan, Bing, October 2025)"
+source_url = "https://about.ads.microsoft.com/en/blog/post/october-2025/optimizing-your-content-for-inclusion-in-ai-search-answers"
+do_not = "Do not put pricing, eligibility, opening hours or the direct answer to the page's question in a panel that is fetched only on click."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "The rates table is in the page body as loaded, with no tab or expander in front of it."
+[[rule.example]]
+name = "Microsoft Advertising blog: Optimizing your content for inclusion in AI search answers"
+url = "https://about.ads.microsoft.com/en/blog/post/october-2025/optimizing-your-content-for-inclusion-in-ai-search-answers"
+shows = "Lists hiding important answers in tabs or expandable menus among the mistakes to avoid, and gives the reason."
+
+[[rule]]
+id = "key-facts-as-text"
+area = "rendering"
+basis = "vendor"
+rule = "Important information is HTML text. Facts that matter are not locked inside images, video or PDF files, and every meaningful image has a text alternative."
+measure = "Google lists making important content available in textual form among its practices for AI features. Microsoft says to use HTML for critical details instead of PDF, and to give alt text or repeat the detail in HTML. WCAG 2.2, 1.1.1 (Level A) requires a text alternative for non-text content."
+check = "judgment"
+source = "Google Search Central, AI features and your website"
+source_url = "https://developers.google.com/search/docs/appearance/ai-features"
+do_not = "Do not publish a price list, timetable or specification only as an image or a PDF download."
+[[rule.example]]
+name = "WCAG 2.2: 1.1.1 Non-text content"
+url = "https://www.w3.org/TR/WCAG22/#non-text-content"
+shows = "Requires that all non-text content presented to the user has a text alternative that serves the equivalent purpose."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "The rates are given as an HTML table with header cells, not as a picture or a download."
+
+# ----------------------------------------------------------------- structure
+
+[[rule]]
+id = "heading-outline"
+area = "structure"
+basis = "standard"
+rule = "Each page has one level 1 heading that names its subject, and headings below it step down one level at a time."
+measure = "At least one heading of level 1 where the page has headings; each heading is at most one level deeper than the heading before it (HTML Standard). This rubric asks for exactly one h1."
+check = "mechanical"
+probe = "Read the DOM, list h1 to h6 in document order, and pass if there is exactly one h1 and no heading is more than one level deeper than the heading before it."
+source = "WHATWG HTML Standard, 4.3.11 Headings and outlines"
+source_url = "https://html.spec.whatwg.org/multipage/sections.html#headings-and-outlines"
+do_not = "Do not choose heading levels for their size, skip from h2 to h4, or style a div to look like a heading."
+[[rule.example]]
+name = "MDN: the main element reference page"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/main"
+shows = "One h1 with the element name and eleven h2 sections beneath it in the server-delivered HTML."
+[[rule.example]]
+name = "Wikipedia: robots.txt"
+url = "https://en.wikipedia.org/wiki/Robots.txt"
+shows = "One h1 for the article title and h2 headings for each section."
+
+[[rule]]
+id = "descriptive-headings"
+area = "structure"
+basis = "standard"
+rule = "The page title and each heading say plainly what the content beneath covers. A reader, or a system that splits the page at its headings, can tell the topic of a section from the heading alone."
+measure = "WCAG 2.2: headings and labels describe topic or purpose (2.4.6, Level AA); pages have titles that describe topic or purpose (2.4.2, Level A). Microsoft says headings act like chapter titles that define content slices for AI systems. No measured effect on citation is published."
+check = "judgment"
+source = "WCAG 2.2, 2.4.6 Headings and Labels, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#headings-and-labels"
+do_not = "Do not use headings such as Overview, Learn more or More information where a specific heading is possible."
+[[rule.example]]
+name = "Microsoft Advertising blog: Optimizing your content for inclusion in AI search answers"
+url = "https://about.ads.microsoft.com/en/blog/post/october-2025/optimizing-your-content-for-inclusion-in-ai-search-answers"
+shows = "Says page titles should clearly summarise what the content delivers and that headings define clear content slices."
+[[rule.example]]
+name = "Google Search Central: Creating helpful, reliable, people-first content"
+url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+shows = "Asks whether the main heading or page title gives a descriptive, helpful summary of the content."
+[[rule.example]]
+name = "NHS: Flu"
+url = "https://www.nhs.uk/conditions/flu/"
+shows = "Section headings name their topic in full, such as Symptoms of flu, How to treat flu yourself and How to avoid spreading the flu."
+
+[[rule]]
+id = "main-landmark"
+area = "structure"
+basis = "standard"
+rule = "The primary content sits inside one main element. Navigation, headers and footers sit outside it in their own elements, so a parser can separate the content from the page furniture."
+measure = "HTML Standard: the main element represents the dominant contents of the document; article represents a complete, self-contained composition; nav represents a section with navigation links. WCAG 2.2, 1.3.1 (Level A): structure conveyed through presentation can be programmatically determined."
+check = "mechanical"
+probe = "Read the raw HTML and pass if there is exactly one main element that is not hidden and it contains the h1."
+source = "WHATWG HTML Standard, 4.4.14 The main element"
+source_url = "https://html.spec.whatwg.org/multipage/grouping-content.html#the-main-element"
+do_not = "Do not build the page from unlabelled div elements, and do not put the site navigation or cookie notice inside main."
+[[rule.example]]
+name = "WCAG 2.2: 1.3.1 Info and relationships"
+url = "https://www.w3.org/TR/WCAG22/#info-and-relationships"
+shows = "The requirement that information, structure and relationships can be programmatically determined."
+[[rule.example]]
+name = "MDN: the main element reference page"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/main"
+shows = "Documents the element and uses a single main element around its own article content."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "One main element holds the h1 and the guidance; the header and footer sit outside it."
+
+[[rule]]
+id = "self-contained-passages"
+area = "structure"
+basis = "vendor"
+rule = "Each passage that states a key fact makes sense when lifted out of the page. It names its subject in full and gives the answer in the first sentence, with detail after."
+measure = "Microsoft says to write sentences that make sense when pulled out of context, and that direct questions with clear answers mirror how people search. Google says AI Overviews and AI Mode may use a query fan-out technique that runs several related searches. No measured effect is published."
+check = "judgment"
+source = "Microsoft Advertising blog, Optimizing your content for inclusion in AI search answers (Krishna Madhavan, Bing, October 2025)"
+source_url = "https://about.ads.microsoft.com/en/blog/post/october-2025/optimizing-your-content-for-inclusion-in-ai-search-answers"
+do_not = "Do not open a key passage with it, this or as mentioned above, and do not make the reader scroll through a long preamble to reach the answer."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "Opens with the sentence that the standard VAT rate is 20%, then the table of rates, before any background."
+[[rule.example]]
+name = "Google: AI features and your website"
+url = "https://developers.google.com/search/docs/appearance/ai-features"
+shows = "Describes query fan-out, where related searches across subtopics are issued to build a response."
+
+[[rule]]
+id = "lists-and-tables"
+area = "structure"
+basis = "vendor"
+rule = "Steps are marked up as ordered lists, sets of items as unordered lists, and comparisons or figures with more than one dimension as tables with header cells. Long unbroken blocks of text are split."
+measure = "Microsoft says bulleted lists, numbered steps and comparison tables break detail into clean, reusable segments, and that long walls of text make it harder to separate content into usable chunks. The HTML Standard defines table for data with more than one dimension and says tables must not be used as layout aids. No measured effect is published."
+check = "judgment"
+source = "Microsoft Advertising blog, Optimizing your content for inclusion in AI search answers (Krishna Madhavan, Bing, October 2025)"
+source_url = "https://about.ads.microsoft.com/en/blog/post/october-2025/optimizing-your-content-for-inclusion-in-ai-search-answers"
+do_not = "Do not lay out a comparison with div grids or line breaks, and do not use a table for page layout."
+[[rule.example]]
+name = "WHATWG HTML Standard: Tabular data"
+url = "https://html.spec.whatwg.org/multipage/tables.html"
+shows = "Defines table, th and caption and states that tables must not be used as layout aids."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "A rates table with column header cells for the percentage and what the rate applies to, and a row header cell for each rate."
+[[rule.example]]
+name = "Bing Webmaster blog: Introducing AI Performance in Bing Webmaster Tools"
+url = "https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview"
+shows = "Advises clear headings, tables and FAQ sections so that AI systems can find and accurately reference key information."
+
+# ------------------------------------------------------------------ evidence
+
+[[rule]]
+id = "cite-sources"
+area = "evidence"
+basis = "research"
+rule = "Factual claims name and link the source they rest on. Claims are backed by a reference a reader can follow."
+measure = "Aggarwal et al. (KDD 2024): Cite Sources, Quotation Addition and Statistics Addition gave a relative improvement of 30 to 40 percent on position-adjusted word count and 15 to 30 percent on subjective impression, on a 10,000 query benchmark with a GPT-3.5 engine fed the top five Google results. Cite Sources raised visibility by 115.1 percent for sources ranked fifth and lowered it by 30.3 percent for sources ranked first. On Perplexity.ai it gained up to 9 percent on subjective impression."
+check = "judgment"
+source = "Aggarwal et al., GEO: Generative Engine Optimization, KDD 2024, arXiv 2311.09735"
+source_url = "https://arxiv.org/abs/2311.09735"
+do_not = "Do not state figures, rankings or research findings with no named source, and do not invent citations."
+[[rule.example]]
+name = "arXiv: GEO: Generative Engine Optimization (full text, version 3)"
+url = "https://arxiv.org/html/2311.09735v3"
+shows = "The results tables for all nine methods, the rank breakdown and the Perplexity.ai experiment."
+[[rule.example]]
+name = "Bing Webmaster blog: Introducing AI Performance in Bing Webmaster Tools"
+url = "https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview"
+shows = "Advises supporting claims with examples, data and sources so that content is more trustworthy when reused in AI answers."
+[[rule.example]]
+name = "Wikipedia: robots.txt"
+url = "https://en.wikipedia.org/wiki/Robots.txt"
+shows = "Statements carry numbered references that link to the source of each claim."
+
+[[rule]]
+id = "statistics-and-quotations"
+area = "evidence"
+basis = "research"
+rule = "Where real figures exist, give the number in place of a vague description. Where a named expert or primary source has said something relevant, quote it with attribution."
+measure = "Aggarwal et al. (KDD 2024): Quotation Addition scored highest on position-adjusted word count (27.8 against a baseline of 19.5). On Perplexity.ai, Quotation Addition gained 22 percent on position-adjusted word count and Statistics Addition gained up to 37 percent on subjective impression. The headline claim is a visibility gain of up to 40 percent. Effects varied by domain."
+check = "judgment"
+source = "Aggarwal et al., GEO: Generative Engine Optimization, KDD 2024, arXiv 2311.09735"
+source_url = "https://arxiv.org/abs/2311.09735"
+do_not = "Do not make up statistics or quotations, and do not add numbers that the source does not support."
+[[rule.example]]
+name = "arXiv: GEO: Generative Engine Optimization (full text, version 3)"
+url = "https://arxiv.org/html/2311.09735v3"
+shows = "Table 1 gives the scores for Statistics Addition and Quotation Addition against the unmodified baseline."
+[[rule.example]]
+name = "GEO project page"
+url = "https://generative-engines.com/GEO/"
+shows = "The authors' summary of the benchmark of 10,000 queries and the reported gain of up to 40 percent."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "States the standard rate as an exact percentage in the opening sentence and every rate as a figure in the table."
+
+[[rule]]
+id = "no-keyword-stuffing"
+area = "evidence"
+basis = "research"
+rule = "Write naturally. Do not repeat query keywords to attract generative engines."
+measure = "Aggarwal et al. (KDD 2024): keyword stuffing gave little to no improvement; its position-adjusted word count was 17.8 against a baseline of 19.5, and it scored about 10 percent below baseline on Perplexity.ai. An authoritative tone showed no significant overall improvement. Fluency and plain-language rewrites gave 15 to 30 percent."
+check = "judgment"
+source = "Aggarwal et al., GEO: Generative Engine Optimization, KDD 2024, arXiv 2311.09735"
+source_url = "https://arxiv.org/abs/2311.09735"
+do_not = "Do not pad a page with repeated search phrases, lists of synonyms or a more forceful tone in place of evidence."
+[[rule.example]]
+name = "arXiv: GEO: Generative Engine Optimization (full text, version 3)"
+url = "https://arxiv.org/html/2311.09735v3"
+shows = "Reports that keyword stuffing, a classic search technique, scored below the unmodified baseline."
+[[rule.example]]
+name = "Google Search Central: Creating helpful, reliable, people-first content"
+url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+shows = "Sets out the people-first questions Google asks site owners to apply, including clear sourcing and evidence of expertise."
+
+[[rule]]
+id = "search-fundamentals-first"
+area = "evidence"
+basis = "research"
+rule = "Treat ordinary search visibility as the base. Text rewrites aimed at generative engines come second, and their reported gains are not guaranteed to carry over."
+measure = "Puerto et al. (C-SEO Bench, NeurIPS Datasets and Benchmarks 2025) found that most conversational SEO methods were largely ineffective and often lowered a document's ranking, that traditional SEO which raises a source's position in the model's context was significantly more effective, and that gains shrink as more sites adopt the methods. Chen et al. (arXiv 2509.08919) report that AI search favours third-party earned media over brand-owned content."
+check = "judgment"
+source = "Puerto et al., C-SEO Bench: Does Conversational SEO Work?, NeurIPS Datasets and Benchmarks 2025, arXiv 2506.11097"
+source_url = "https://arxiv.org/abs/2506.11097"
+do_not = "Do not promise a citation uplift from content rewrites, and do not trade away crawlability, indexing or ranking basics for them."
+[[rule.example]]
+name = "arXiv: C-SEO Bench: Does Conversational SEO Work?"
+url = "https://arxiv.org/abs/2506.11097"
+shows = "The abstract states the negative finding for current methods and the stronger effect of traditional SEO."
+[[rule.example]]
+name = "arXiv: Generative Engine Optimization: How to Dominate AI Search"
+url = "https://arxiv.org/abs/2509.08919"
+shows = "The abstract reports a systematic bias towards earned media over brand-owned and social content."
+[[rule.example]]
+name = "Google: AI features and your website"
+url = "https://developers.google.com/search/docs/appearance/ai-features"
+shows = "States that existing SEO fundamentals continue to apply and that no special optimisation is necessary for AI Overviews or AI Mode."
+
+# ------------------------------------------------------------------ identity
+
+[[rule]]
+id = "organisation-json-ld"
+area = "identity"
+basis = "vendor"
+rule = "The home page carries valid schema.org JSON-LD that names the organisation and the site: name, URL, logo, and sameAs links to its official public profiles."
+measure = "Google recommends JSON-LD, says Organization markup helps it disambiguate the organisation, has no required properties, and recommends name, url, logo, address, contactPoint and sameAs. Google also says no special schema.org markup is needed for AI features. Microsoft says schema helps search engines and AI systems understand content. No provider documents a measured effect on AI citation."
+check = "mechanical"
+probe = "Read the JSON-LD blocks in the raw HTML of the home page and pass if every block parses as JSON and one has a type of Organization or a subtype with name, url, logo and a non-empty sameAs."
+source = "Google Search Central, Organization structured data"
+source_url = "https://developers.google.com/search/docs/appearance/structured-data/organization"
+do_not = "Do not ship JSON-LD that fails to parse, and do not claim that structured data guarantees inclusion in AI answers."
+[[rule.example]]
+name = "Apple home page"
+url = "https://www.apple.com/"
+shows = "Organization JSON-LD with name, contact points and sameAs links to Wikidata, YouTube, LinkedIn, Facebook and Twitter, plus WebSite markup."
+[[rule.example]]
+name = "schema.org: Organization"
+url = "https://schema.org/Organization"
+shows = "The type definition and its properties, including legalName, address, logo and sameAs."
+[[rule.example]]
+name = "GOV.UK: HM Revenue and Customs"
+url = "https://www.gov.uk/government/organisations/hm-revenue-customs"
+shows = "GovernmentOrganization JSON-LD in the server-delivered HTML of the organisation's page."
+
+[[rule]]
+id = "structured-data-matches-page"
+area = "identity"
+basis = "vendor"
+rule = "Everything stated in structured data is also visible on the page and says the same thing: names, prices, dates, ratings and authors."
+measure = "Google lists making sure structured data matches the visible text among its practices for AI features, and its structured data guidance says not to mark up information that is not visible to the user."
+check = "judgment"
+source = "Google Search Central, AI features and your website"
+source_url = "https://developers.google.com/search/docs/appearance/ai-features"
+do_not = "Do not put a price, review score or date in JSON-LD that differs from, or is missing from, the visible page."
+[[rule.example]]
+name = "Google Search Central: Introduction to structured data markup"
+url = "https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data"
+shows = "Recommends JSON-LD and says not to add structured data about information that is not visible to the user."
+[[rule.example]]
+name = "web.dev: Web Vitals"
+url = "https://web.dev/articles/vitals"
+shows = "The Article JSON-LD gives dateModified as 2024-10-31 and the visible page says last updated October 31, 2024."
+
+[[rule]]
+id = "consistent-names-and-facts"
+area = "identity"
+basis = "vendor"
+rule = "The organisation name, site name, address, contact details, opening hours and prices are the same on every page, in the structured data, and on the organisation's public business profiles."
+measure = "Google: use the site name consistently across the home page (WebSite name, title, headings, og:site_name) and keep Merchant Center and Business Profile information up to date. Bing: make text, images and video represent the same entities consistently, and keep address, hours and contact details current in Bing Places."
+check = "judgment"
+source = "Google Search Central, Provide a site name to Google Search"
+source_url = "https://developers.google.com/search/docs/appearance/site-names"
+do_not = "Do not show one price or address on the home page and another on the pricing page, in JSON-LD or on a business listing."
+[[rule.example]]
+name = "Bing Webmaster blog: Introducing AI Performance in Bing Webmaster Tools"
+url = "https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview"
+shows = "Advises consistent representation of entities across formats and registering with Bing Places so that address, hours and contact details stay current."
+[[rule.example]]
+name = "Google: AI features and your website"
+url = "https://developers.google.com/search/docs/appearance/ai-features"
+shows = "Lists keeping Merchant Center and Business Profile information up to date among the practices that apply to AI features."
+[[rule.example]]
+name = "GOV.UK: VAT rates"
+url = "https://www.gov.uk/vat-rates"
+shows = "The og:site_name meta tag and the Organization JSON-LD both give the site name as GOV.UK."
+
+[[rule]]
+id = "authorship-stated"
+area = "identity"
+basis = "vendor"
+rule = "Articles and guidance show who wrote or is responsible for them. The byline is visible, and Article structured data names the same author with a link to a page about them."
+measure = "Google strongly encourages accurate authorship information such as bylines where readers expect them. Article markup: author.name holds only the name; author.url links to a page that uniquely identifies the author; use the Person or Organization type."
+check = "mechanical"
+probe = "Read the JSON-LD on an article page and pass if an Article type has an author with a type of Person or Organization and a name, and that name also appears in the visible text of the page."
+source = "Google Search Central, Article structured data"
+source_url = "https://developers.google.com/search/docs/appearance/structured-data/article"
+do_not = "Do not publish advice or analysis with no named author or responsible organisation, and do not put job titles or extra text in author.name."
+[[rule.example]]
+name = "Nature: Is AI leading to a reproducibility crisis in science?"
+url = "https://www.nature.com/articles/d41586-023-03817-6"
+shows = "NewsArticle JSON-LD names the author as a Person, alongside datePublished and dateModified."
+[[rule.example]]
+name = "Google Search Central: Creating helpful, reliable, people-first content"
+url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+shows = "The section on who created the content asks whether pages carry a byline that leads to more information about the author."
+
+[[rule]]
+id = "canonical-url"
+area = "identity"
+basis = "vendor"
+rule = "Each page declares one canonical URL as an absolute link in the head, so that a citation points to a single stable address."
+measure = "Google: a link element with rel canonical is accepted only in the head and should use an absolute URL. RFC 6596 (informational) defines the relation and says to give only one, and not to point it at a redirect or an error page. Perplexity and Anthropic both document that answers link to their source pages."
+check = "mechanical"
+probe = "Read the head of the raw HTML and pass if there is exactly one link with rel canonical, its href is an absolute https URL, and that URL returns 200 without redirecting."
+source = "Google Search Central, How to specify a canonical URL with rel canonical and other methods"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+do_not = "Do not serve the same content at several URLs with no canonical, and do not point the canonical at a redirect or an error page."
+[[rule.example]]
+name = "IETF RFC 6596: The canonical link relation"
+url = "https://www.rfc-editor.org/rfc/rfc6596.html"
+shows = "Defines the relation as designating the preferred version of a resource and lists what the target must not be."
+[[rule.example]]
+name = "Perplexity help centre: How does Perplexity work?"
+url = "https://www.perplexity.ai/help-center/en/articles/10352895-how-does-perplexity-work"
+shows = "States that each answer includes numbered citations linking to the original sources."
+[[rule.example]]
+name = "Anthropic help centre: Enabling and using web search"
+url = "https://support.claude.com/en/articles/10684626-enabling-and-using-web-search"
+shows = "States that every response that uses web search includes citations and source links."
+
+# ----------------------------------------------------------------- freshness
+
+[[rule]]
+id = "dates-visible-and-machine-readable"
+area = "freshness"
+basis = "vendor"
+rule = "Pages whose content can go out of date show a visible publication or last-updated date. The same date is given in machine-readable form, and the two agree."
+measure = "Google: add a prominent user-visible date; give datePublished and dateModified in structured data in ISO 8601 format; visible and structured values must match; the date describes the page, not the events in it. The HTML time element carries a machine-readable datetime value."
+check = "mechanical"
+probe = "Read the raw HTML and pass if the JSON-LD has datePublished or dateModified in ISO 8601 format, or a time element has a datetime attribute, and the same calendar date appears in the visible text."
+source = "Google Search Central, Help Google Search know the best date for your web page"
+source_url = "https://developers.google.com/search/docs/appearance/publication-dates"
+do_not = "Do not change the date to make a page look fresh when the content has not substantially changed. Google lists this as a warning sign."
+[[rule.example]]
+name = "web.dev: Web Vitals"
+url = "https://web.dev/articles/vitals"
+shows = "Shows published and last updated dates in the page text and gives the same last updated date as dateModified in JSON-LD."
+[[rule.example]]
+name = "Nature: Is AI leading to a reproducibility crisis in science?"
+url = "https://www.nature.com/articles/d41586-023-03817-6"
+shows = "A visible date of 05 December 2023 inside a time element with datetime 2023-12-05, matching datePublished in the JSON-LD."
+[[rule.example]]
+name = "WHATWG HTML Standard: the time element"
+url = "https://html.spec.whatwg.org/multipage/text-level-semantics.html#the-time-element"
+shows = "Defines time as its contents together with a machine-readable form in the datetime attribute."
+
+[[rule]]
+id = "sitemap-lastmod"
+area = "freshness"
+basis = "standard"
+rule = "The site publishes an XML sitemap, names it in robots.txt, and gives each URL a lastmod value that is the true time the page content last changed."
+measure = "Sitemaps protocol: lastmod in W3C Datetime format; at most 50,000 URLs and 50 MB per file; a Sitemap line in robots.txt. Google uses lastmod only if it is consistently and verifiably accurate and ignores priority and changefreq. Bing asks for full ISO 8601 date and time, ignores changefreq and priority, and says not to set lastmod to the time the sitemap was generated."
+check = "mechanical"
+probe = "Fetch /robots.txt, follow its Sitemap line, and pass if the sitemap parses as XML, every url or sitemap entry has a lastmod in W3C Datetime format, and the lastmod values are not all identical across more than ten page URLs."
+source = "sitemaps.org, Sitemaps XML format (protocol 0.9)"
+source_url = "https://www.sitemaps.org/protocol.html"
+do_not = "Do not stamp every URL with the build time, and do not omit lastmod."
+[[rule.example]]
+name = "Bing Webmaster blog: Keeping content discoverable with sitemaps in AI powered search"
+url = "https://blogs.bing.com/webmaster/2025/7/Keeping-Content-Discoverable-with-Sitemaps-in-AI-Powered-Search/"
+shows = "Says lastmod should reflect the true last modification time of the page content, and that no tool can guarantee how content appears in AI-generated results."
+[[rule.example]]
+name = "Google Search Central: Build and submit a sitemap"
+url = "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap"
+shows = "States when Google uses lastmod and that it ignores priority and changefreq."
+[[rule.example]]
+name = "GOV.UK sitemap index"
+url = "https://www.gov.uk/sitemap.xml"
+shows = "A sitemap index, named in robots.txt, where every child sitemap carries a lastmod with date, time and offset."
+
+[[rule]]
+id = "indexnow-on-change"
+area = "freshness"
+basis = "vendor"
+rule = "When a page is added, updated or removed, the site notifies participating search engines through IndexNow, so that answers draw on the current version."
+measure = "IndexNow: submit the changed URL with a key of 8 to 128 hexadecimal characters and host a matching key file. Participants named on indexnow.org: Microsoft Bing, Naver, Seznam.cz, Yandex and Yep. A 200 response means only that the URL was received. Bing recommends it alongside an accurate sitemap for its AI experiences. Google is not listed as a participant."
+check = "judgment"
+source = "Bing Webmaster blog, Keeping content discoverable with sitemaps in AI powered search (July 2025)"
+source_url = "https://blogs.bing.com/webmaster/2025/7/Keeping-Content-Discoverable-with-Sitemaps-in-AI-Powered-Search/"
+do_not = "Do not submit URLs that have not changed, and do not treat a 200 response as proof of indexing."
+[[rule.example]]
+name = "IndexNow: Documentation"
+url = "https://www.indexnow.org/documentation"
+shows = "The submission URL format, the key file requirement and the meaning of the 200, 202, 403, 422 and 429 responses."
+[[rule.example]]
+name = "IndexNow: home page"
+url = "https://www.indexnow.org/"
+shows = "Describes the protocol and lists the participating search engines."
+[[rule.example]]
+name = "Bing Webmaster blog: Introducing AI Performance in Bing Webmaster Tools"
+url = "https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview"
+shows = "Recommends IndexNow so that AI systems pick up added, updated or removed content, and describes the report of citations in Microsoft Copilot and Bing AI summaries."
+
+# ------------------------------------------------------------------ controls
+
+[[rule]]
+id = "snippet-controls-deliberate"
+area = "controls"
+basis = "vendor"
+rule = "Preview controls are used only where the owner means to limit reuse. Pages meant to be cited carry no nosnippet and no max-snippet of zero, and data-nosnippet wraps only the parts that must stay out of answers."
+measure = "Google: nosnippet stops content being used as a direct input for AI Overviews and AI Mode; max-snippet limits how much may be used; data-nosnippet is valid on span, div and section elements; noindex removes the page from results. Bing: content marked data-nosnippet is still indexed but left out of snippets and AI-generated answers."
+check = "mechanical"
+probe = "Read the robots meta tag and X-Robots-Tag header in the raw response and pass if neither contains nosnippet or max-snippet:0, and every data-nosnippet attribute sits on a span, div or section element."
+source = "Google Search Central, Robots meta tag, data-nosnippet and X-Robots-Tag specifications"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+do_not = "Do not copy a restrictive robots meta tag from a template onto public pages, and do not wrap the main content in data-nosnippet."
+[[rule.example]]
+name = "Google: AI features and your website"
+url = "https://developers.google.com/search/docs/appearance/ai-features"
+shows = "Names nosnippet, data-nosnippet, max-snippet and noindex as the controls that limit what is shown from a page in AI features."
+[[rule.example]]
+name = "Bing Webmaster blog: Bing introduces support for the data-nosnippet HTML attribute"
+url = "https://blogs.bing.com/webmaster/2025/10/Bing-Introduces-Support-for-the-data-nosnippet-HTML-Attribute/"
+shows = "Explains that marked sections stay indexed but are left out of Bing snippets and AI-generated answers, and compares the attribute with nosnippet and max-snippet."
+[[rule.example]]
+name = "Google Search Central blog: Top ways to ensure your content performs well in Google's AI experiences on Search"
+url = "https://developers.google.com/search/blog/2025/05/succeeding-in-ai-search"
+shows = "Notes that more restrictive preview permissions limit how content is featured in AI experiences."
+
+[[rule]]
+id = "controls-need-crawl-access"
+area = "controls"
+basis = "vendor"
+rule = "A page that uses noindex, nosnippet or max-snippet stays crawlable, so the instruction can be read. Robots.txt is used to manage crawling, not to keep a page out of results."
+measure = "Google: robots meta rules are read and followed only if crawlers are allowed to access the page; robots.txt is not a mechanism for keeping a page out of Google, and a blocked URL can still appear in results with no description. OpenAI: sites opted out of OAI-SearchBot can still appear as navigational links."
+check = "mechanical"
+probe = "Fetch the raw HTML, headers and /robots.txt and pass unless the page carries noindex, nosnippet or max-snippet while robots.txt disallows its URL for the wildcard group or for Googlebot."
+source = "Google Search Central, Robots meta tag, data-nosnippet and X-Robots-Tag specifications"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+do_not = "Do not disallow a URL in robots.txt and also expect its noindex or nosnippet tag to be honoured."
+[[rule.example]]
+name = "Google Search Central: Introduction to robots.txt"
+url = "https://developers.google.com/search/docs/crawling-indexing/robots/intro"
+shows = "States that robots.txt is mainly for managing crawler load, is not a way to keep a page out of Google, and that noindex is the method for that."
+[[rule.example]]
+name = "OpenAI: Overview of OpenAI crawlers"
+url = "https://developers.openai.com/api/docs/bots"
+shows = "States that sites opted out of OAI-SearchBot will not be shown in ChatGPT search answers, though they can still appear as navigational links."

@@ -1,0 +1,702 @@
+# Web performance standards rubric for websites and web applications.
+# Every number was checked against its source page and every source and example URL was fetched in November 2026.
+# Field numbers come from real users at the 75th percentile. A headless run gives lab numbers only. Each measure says which kind it is.
+# basis: "standard" = formal web standard or the published Core Web Vitals thresholds; "vendor" = browser or platform vendor guidance;
+# "research" = published measurement research; "proposal" = not yet adopted.
+
+# -------------------------------------------------------------------- vitals
+
+[[rule]]
+id = "lcp"
+area = "vitals"
+rule = "The largest image or text block in the viewport finishes rendering within 2.5 seconds of the page starting to load."
+measure = "Core Web Vital. Field: 2.5 s or less is good and over 4.0 s is poor, at the 75th percentile of page loads, split by mobile and desktop. Lab: Lighthouse scores 0 to 2.5 s as fast and over 4 s as slow on mobile, and 0 to 1.2 s as fast and over 2.4 s as slow on desktop. A headless run gives the lab number only."
+check = "mechanical"
+basis = "standard"
+probe = "Observe entries of type largest-contentful-paint with a buffered PerformanceObserver and read the start time of the last entry once the page has loaded."
+source = "web.dev, Largest Contentful Paint (LCP)"
+source_url = "https://web.dev/articles/lcp"
+do_not = "Do not treat one fast lab run as proof that real users at the 75th percentile get an LCP of 2.5 seconds or less."
+[[rule.example]]
+name = "web.dev: The research and methodology behind Core Web Vitals thresholds"
+url = "https://web.dev/articles/defining-core-web-vitals-thresholds"
+shows = "Tabulates the good and poor boundaries for LCP, INP and CLS and states that the 75th percentile of page views is used."
+[[rule.example]]
+name = "web.dev: Optimise Largest Contentful Paint"
+url = "https://web.dev/articles/optimize-lcp"
+shows = "Breaks LCP into four parts and gives a target share for each: about 40% time to first byte, under 10% resource load delay, about 40% resource load duration, under 10% element render delay."
+[[rule.example]]
+name = "web.dev case study: Vodafone"
+url = "https://web.dev/case-studies/vodafone"
+shows = "Reports an A/B test in which a 31% improvement in LCP led to 8% more sales."
+
+[[rule]]
+id = "inp"
+area = "vitals"
+rule = "The page responds to clicks, taps and key presses quickly. The slowest interactions still paint a visible response within 200 milliseconds."
+measure = "Core Web Vital. Field only: 200 ms or less is good and over 500 ms is poor, at the 75th percentile of page loads recorded in the field. Tools that load a page with no user cannot measure INP. Use Total Blocking Time as the lab stand-in."
+check = "judgment"
+basis = "standard"
+source = "web.dev, Interaction to Next Paint (INP)"
+source_url = "https://web.dev/articles/inp"
+do_not = "Do not report a pass for INP from a page load with no interactions."
+[[rule.example]]
+name = "web.dev: Optimise Interaction to Next Paint"
+url = "https://web.dev/articles/optimize-inp"
+shows = "Repeats the 200 ms and 500 ms boundaries and splits an interaction into input delay, processing duration and presentation delay."
+[[rule.example]]
+name = "web.dev case study: redBus"
+url = "https://web.dev/case-studies/redbus-inp"
+shows = "Reports INP falling from the 870 to 900 ms range to 350 to 370 ms after one change, and a 7% overall increase in sales."
+[[rule.example]]
+name = "web.dev: Web Vitals"
+url = "https://web.dev/articles/vitals"
+shows = "States that tools which load pages in a simulated environment without a user cannot measure INP, and that TBT is the lab proxy."
+
+[[rule]]
+id = "cls"
+area = "vitals"
+rule = "Visible content does not move unexpectedly. The cumulative layout shift score stays at 0.1 or less."
+measure = "Core Web Vital. Field: 0.1 or less is good and over 0.25 is poor, at the 75th percentile of page loads, split by mobile and desktop. The score is the largest burst of shifts, where shifts are less than 1 second apart and the burst lasts at most 5 seconds. Shifts within 500 ms of user input are excluded. A headless run captures shifts during load only, so it can understate the field value."
+check = "mechanical"
+basis = "standard"
+probe = "Observe entries of type layout-shift with a buffered PerformanceObserver, drop entries where hadRecentInput is true, group the rest into session windows and take the largest window total."
+source = "web.dev, Cumulative Layout Shift (CLS)"
+source_url = "https://web.dev/articles/cls"
+do_not = "Do not let images, adverts, embeds or late-loading fonts push content that is already on screen."
+[[rule.example]]
+name = "web.dev: Optimise Cumulative Layout Shift"
+url = "https://web.dev/articles/optimize-cls"
+shows = "Lists the common causes of layout shift and the fix for each: sized images, reserved space for late content, transform animations and early font loading."
+[[rule.example]]
+name = "web.dev: The research and methodology behind Core Web Vitals thresholds"
+url = "https://web.dev/articles/defining-core-web-vitals-thresholds"
+shows = "Gives the CLS boundaries of 0.1 and 0.25 at the 75th percentile next to those for LCP and INP."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Performance"
+url = "https://almanac.httparchive.org/en/2024/performance"
+shows = "Measures how many sites pass each Core Web Vital, including the share with good CLS, from real user data."
+
+[[rule]]
+id = "ttfb"
+area = "vitals"
+rule = "The server starts sending the page quickly. The first byte of the document arrives within 0.8 seconds."
+measure = "Not a Core Web Vital. Field: 0.8 s or less is good and over 1.8 s is poor, given by web.dev as a rough guide for the 75th percentile of users. Lab: the Lighthouse server response audit fails when the browser waits more than 600 ms for the main document. A headless run against a local or staging server gives a lab number only."
+check = "mechanical"
+basis = "vendor"
+probe = "Read responseStart from the PerformanceNavigationTiming entry of type navigation."
+source = "web.dev, Time to First Byte (TTFB)"
+source_url = "https://web.dev/articles/ttfb"
+do_not = "Do not chain redirects or run slow uncached server work before the first byte of the document is sent."
+[[rule.example]]
+name = "web.dev: Optimise Time to First Byte"
+url = "https://web.dev/articles/optimize-ttfb"
+shows = "Repeats the 0.8 second target and covers the main fixes: a CDN, edge caching, fewer redirects, streaming markup and 103 Early Hints."
+[[rule.example]]
+name = "Chrome for Developers: Reduce server response times"
+url = "https://developer.chrome.com/docs/lighthouse/performance/server-response-time"
+shows = "States that the audit fails when the browser waits more than 600 ms for the server to respond to the main document request."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Performance"
+url = "https://almanac.httparchive.org/en/2024/performance"
+shows = "Reports that 42% of mobile pages had good TTFB in 2024, measured from real users."
+
+[[rule]]
+id = "fcp"
+area = "vitals"
+rule = "The first text or image appears within 1.8 seconds of the page starting to load."
+measure = "Not a Core Web Vital. Field: 1.8 s or less is good and over 3.0 s is poor, at the 75th percentile of page loads. Lab: Lighthouse scores 0 to 1.8 s as fast and over 3 s as slow on mobile, and 0 to 0.9 s as fast and over 1.6 s as slow on desktop. A headless run gives the lab number only."
+check = "mechanical"
+basis = "vendor"
+probe = "Observe entries of type paint with a buffered PerformanceObserver and read the start time of the entry named first-contentful-paint."
+source = "web.dev, First Contentful Paint (FCP)"
+source_url = "https://web.dev/articles/fcp"
+do_not = "Do not leave the screen blank while large stylesheets, scripts or fonts load in the head."
+[[rule.example]]
+name = "Chrome for Developers: First Contentful Paint"
+url = "https://developer.chrome.com/docs/lighthouse/performance/first-contentful-paint"
+shows = "Gives the Lighthouse scoring tables for FCP on mobile and on desktop."
+[[rule.example]]
+name = "web.dev: Web Vitals"
+url = "https://web.dev/articles/vitals"
+shows = "Names TTFB and FCP as vital parts of the loading experience that help diagnose a slow LCP."
+
+[[rule]]
+id = "tbt"
+area = "vitals"
+rule = "The main thread is blocked for less than 200 milliseconds in total during load. This is the lab stand-in for INP."
+measure = "Lab only. Less than 200 ms when tested on average mobile hardware. Lighthouse scores 0 to 200 ms as fast and over 600 ms as slow on mobile, and 0 to 150 ms as fast and over 350 ms as slow on desktop. TBT is the sum, after First Contentful Paint, of the part of each main-thread task beyond 50 ms."
+check = "mechanical"
+basis = "vendor"
+probe = "Observe entries of type longtask with a buffered PerformanceObserver and, for tasks after First Contentful Paint, add up each duration minus 50 ms. Lighthouse reports the same figure under mobile throttling."
+source = "web.dev, Total Blocking Time (TBT)"
+source_url = "https://web.dev/articles/tbt"
+do_not = "Do not present TBT as an INP result. It is a proxy for the lab and not a substitute."
+[[rule.example]]
+name = "Chrome for Developers: Total Blocking Time"
+url = "https://developer.chrome.com/docs/lighthouse/performance/lighthouse-total-blocking-time"
+shows = "Gives the Lighthouse scoring tables for TBT on mobile and on desktop."
+[[rule.example]]
+name = "web.dev: Web Vitals"
+url = "https://web.dev/articles/vitals"
+shows = "States that TBT is lab-measurable and is a proxy for INP."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Page weight"
+url = "https://almanac.httparchive.org/en/2024/page-weight"
+shows = "Cites a total blocking time of 200 ms or less as a good target when relating page weight to responsiveness."
+
+[[rule]]
+id = "long-tasks"
+area = "vitals"
+rule = "Break work into small pieces so that no single task holds the main thread for more than 50 milliseconds."
+measure = "Lab. A long task is any main-thread task that runs for more than 50 ms. The target is no long tasks during load. No source publishes an allowed count, so report the count and the longest duration, and use Total Blocking Time for the pass mark."
+check = "mechanical"
+basis = "vendor"
+probe = "Observe entries of type longtask with a buffered PerformanceObserver during load and count them. Each entry is a task that exceeded 50 ms."
+source = "web.dev, Optimise long tasks"
+source_url = "https://web.dev/articles/optimize-long-tasks"
+do_not = "Do not run one large block of script at start-up when it can yield to the main thread between steps."
+[[rule.example]]
+name = "web.dev: Optimise long tasks"
+url = "https://web.dev/articles/optimize-long-tasks"
+shows = "Defines a long task as any task over 50 milliseconds and shows how to yield with scheduler.yield and setTimeout."
+[[rule.example]]
+name = "W3C Web Performance: Long Tasks API"
+url = "https://wicg.github.io/longtasks/"
+shows = "The draft specification that defines a long task as work whose duration exceeds 50 ms and the longtask entry type."
+[[rule.example]]
+name = "MDN: PerformanceLongTaskTiming"
+url = "https://developer.mozilla.org/en-US/docs/Web/API/PerformanceLongTaskTiming"
+shows = "Shows the PerformanceObserver code that reports long tasks, including buffered ones from page construction."
+
+# ------------------------------------------------------------------- loading
+
+[[rule]]
+id = "lcp-discoverable"
+area = "loading"
+rule = "The LCP image can be found in the first HTML response. If it is only referenced from CSS or JavaScript, preload it."
+measure = "The LCP resource URL appears in the initial HTML document as an img src or srcset, or as a link rel=preload with as=image. A preloaded responsive image uses imagesrcset and imagesizes."
+check = "mechanical"
+basis = "vendor"
+probe = "Take the url of the last largest-contentful-paint entry and check that it appears in the raw HTML of the document response, before any script runs, in an img or a link rel=preload element."
+source = "web.dev, Optimise Largest Contentful Paint"
+source_url = "https://web.dev/articles/optimize-lcp"
+do_not = "Do not load the main image only through a CSS background, a data-src attribute or client-side rendering with no preload."
+[[rule.example]]
+name = "Chrome for Developers: LCP request discovery"
+url = "https://developer.chrome.com/docs/performance/insights/lcp-discovery"
+shows = "Lists the three conditions to pass: fetchpriority=high, an image discoverable from the main document, and no loading=lazy."
+[[rule.example]]
+name = "web.dev: Preload responsive images"
+url = "https://web.dev/articles/preload-responsive-images"
+shows = "Shows link rel=preload with imagesrcset and imagesizes, and says to avoid preload when the image is already quick to discover in the HTML."
+[[rule.example]]
+name = "web.dev: Optimise Largest Contentful Paint"
+url = "https://web.dev/articles/optimize-lcp"
+shows = "States that the LCP resource must be discoverable in the initial HTML document response, or be preloaded with a high fetch priority."
+
+[[rule]]
+id = "lcp-fetchpriority"
+area = "loading"
+rule = "Mark the LCP image as high priority so the browser fetches it ahead of other images."
+measure = "The LCP img element has fetchpriority=high. If the image is preloaded, the preload link has fetchpriority=high as well."
+check = "mechanical"
+basis = "vendor"
+probe = "Read the element of the last largest-contentful-paint entry and check its fetchpriority attribute, and that of any matching link rel=preload."
+source = "web.dev, Optimise resource loading with the Fetch Priority API"
+source_url = "https://web.dev/articles/fetch-priority"
+do_not = "Do not leave the hero image at the default priority, and do not mark many images as high."
+[[rule.example]]
+name = "web.dev: Fetch Priority API"
+url = "https://web.dev/articles/fetch-priority"
+shows = "Reports a Google Flights experiment in which LCP improved from 2.6 s to 1.9 s with Fetch Priority."
+[[rule.example]]
+name = "Chrome for Developers: LCP request discovery"
+url = "https://developer.chrome.com/docs/performance/insights/lcp-discovery"
+shows = "Says to use fetchpriority=high on the image element or on its preload directive, and on both when preloading."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Performance"
+url = "https://almanac.httparchive.org/en/2024/performance"
+shows = "Reports that LCP image prioritisation reached 15% of mobile websites in 2024."
+
+[[rule]]
+id = "lcp-not-lazy"
+area = "loading"
+rule = "Never lazy-load the LCP image or any image that is in the viewport when the page loads."
+measure = "The LCP element and every image inside the initial viewport have no loading=lazy attribute"
+check = "mechanical"
+basis = "vendor"
+probe = "Read the element of the last largest-contentful-paint entry and every img whose bounding box intersects the initial viewport, and fail if any has loading=lazy."
+source = "web.dev, Optimise Largest Contentful Paint"
+source_url = "https://web.dev/articles/optimize-lcp"
+do_not = "Do not apply loading=lazy to every image on the page by default."
+[[rule.example]]
+name = "web.dev: The performance effects of too much lazy loading"
+url = "https://web.dev/articles/lcp-lazy-loading"
+shows = "Finds a median 75th percentile LCP of 2,922 ms for pages without lazy loading against 3,546 ms with it, and that lazy loading only below the fold reverses the regression."
+[[rule.example]]
+name = "web.dev: Browser-level image lazy loading"
+url = "https://web.dev/articles/browser-level-image-lazy-loading"
+shows = "Advises against lazy-loading images likely to be in the viewport at load, especially LCP images."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Performance"
+url = "https://almanac.httparchive.org/en/2024/performance"
+shows = "Reports that 16% of mobile pages still lazy-loaded their LCP image in 2024."
+
+[[rule]]
+id = "lazy-offscreen"
+area = "loading"
+rule = "Defer images and iframes that start below the fold until the user scrolls near them."
+measure = "img and iframe elements outside the initial viewport carry loading=lazy. Chrome starts fetching a lazy image 1,250 px from the viewport on fast connections and 2,500 px on slow ones (values from July 2020 that may change)."
+check = "mechanical"
+basis = "vendor"
+probe = "After load and before any scroll, list img and iframe elements whose bounding box lies wholly below the viewport and check each for loading=lazy."
+source = "web.dev, Browser-level image lazy loading"
+source_url = "https://web.dev/articles/browser-level-image-lazy-loading"
+do_not = "Do not download every image on a long page during the first load."
+[[rule.example]]
+name = "MDN: Lazy loading"
+url = "https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Lazy_loading"
+shows = "Shows the loading=lazy attribute on img and iframe elements and explains that off-screen resources load only when needed."
+[[rule.example]]
+name = "Chrome for Developers: Defer offscreen images"
+url = "https://developer.chrome.com/docs/lighthouse/performance/offscreen-images"
+shows = "Describes the Lighthouse audit that lists offscreen and hidden images with the potential saving in KiB."
+[[rule.example]]
+name = "MDN: The img element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img"
+shows = "Defines the lazy and eager values and notes that width and height matter most on lazy-loaded images."
+
+[[rule]]
+id = "render-blocking"
+area = "loading"
+rule = "Keep render-blocking scripts and stylesheets out of the head. Defer or async scripts, inline the critical CSS and load the rest without blocking."
+measure = "No script in the head without defer, async or type=module. No link rel=stylesheet for non-critical CSS without a media attribute that excludes the current device. Lighthouse flags exactly these, and treats media=all as blocking."
+check = "mechanical"
+basis = "vendor"
+probe = "Query the head for script elements with a src and no defer, async or type=module attribute, and for link rel=stylesheet elements with no disabled attribute and no non-matching media attribute. Resource Timing entries also expose renderBlockingStatus."
+source = "Chrome for Developers, Lighthouse: Eliminate render-blocking resources"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/render-blocking-resources"
+do_not = "Do not add synchronous script tags to the head."
+[[rule.example]]
+name = "MDN: The script element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script"
+shows = "Explains that scripts without async, defer or type=module block parsing, and that module scripts defer by default."
+[[rule.example]]
+name = "web.dev: Defer non-critical CSS"
+url = "https://web.dev/articles/defer-non-critical-css"
+shows = "Shows critical styles inlined in the head and the rest loaded with a preload link that switches to a stylesheet on load."
+[[rule.example]]
+name = "web.dev: Optimise Largest Contentful Paint"
+url = "https://web.dev/articles/optimize-lcp"
+shows = "States that it is almost never necessary to add synchronous scripts to the head."
+
+[[rule]]
+id = "preconnect"
+area = "loading"
+rule = "Preconnect only to the few third-party origins that serve critical resources early in the load."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "Chrome for Developers, Lighthouse: Preconnect to required origins"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect"
+do_not = "Do not preconnect to every third-party origin. A connection not used within 10 seconds is closed and the work is wasted."
+[[rule.example]]
+name = "web.dev: Establish network connections early"
+url = "https://web.dev/articles/preconnect-and-dns-prefetch"
+shows = "Says to preconnect only to critical domains used soon, to add crossorigin for fonts, and to use dns-prefetch for the rest."
+[[rule.example]]
+name = "Chrome for Developers: Preconnect to required origins"
+url = "https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect"
+shows = "Shows the link rel=preconnect markup and the dns-prefetch fallback."
+
+[[rule]]
+id = "unused-css"
+area = "loading"
+rule = "Ship only the CSS a page uses. Remove dead rules or load them separately."
+measure = "Lab. Lighthouse flags any stylesheet with 2 KiB or more of unused CSS."
+check = "mechanical"
+basis = "vendor"
+probe = "Start CSS rule usage tracking through the DevTools protocol before navigation, stop it after load, and total the unused bytes for each stylesheet."
+source = "Chrome for Developers, Lighthouse: Remove unused CSS"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/unused-css-rules"
+do_not = "Do not ship a whole framework stylesheet to a page that uses a small part of it."
+[[rule.example]]
+name = "Chrome for Developers: Remove unused CSS"
+url = "https://developer.chrome.com/docs/lighthouse/performance/unused-css-rules"
+shows = "States the 2 KiB threshold and shows how the DevTools Coverage tab separates critical from uncritical CSS."
+[[rule.example]]
+name = "web.dev: Defer non-critical CSS"
+url = "https://web.dev/articles/defer-non-critical-css"
+shows = "Walks through finding unused styles and moving them out of the critical path."
+
+# -------------------------------------------------------------------- images
+
+[[rule]]
+id = "image-dimensions"
+area = "images"
+rule = "Every image and video has width and height attributes, or a CSS aspect-ratio, so the browser reserves its space before it loads."
+measure = "Each img and video element has both width and height attributes, or a computed aspect-ratio other than auto"
+check = "mechanical"
+basis = "vendor"
+probe = "For every img and video element, check for width and height attributes, or a computed aspect-ratio style that is not auto."
+source = "web.dev, Optimise Cumulative Layout Shift"
+source_url = "https://web.dev/articles/optimize-cls"
+do_not = "Do not leave images unsized and let the page reflow when they arrive."
+[[rule.example]]
+name = "MDN: The img element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img"
+shows = "Explains that width and height let the browser work out the aspect ratio and reserve space before the image loads."
+[[rule.example]]
+name = "MDN: aspect-ratio"
+url = "https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio"
+shows = "Live examples of a preferred aspect ratio, including one held on an img until its content loads."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Performance"
+url = "https://almanac.httparchive.org/en/2024/performance"
+shows = "Reports that 66% of mobile pages have at least one unsized image."
+
+[[rule]]
+id = "image-formats"
+area = "images"
+rule = "Serve photographs and other raster images as AVIF or WebP, with a JPEG or PNG fallback only where older browsers need one."
+measure = "Lab. Lighthouse converts each BMP, JPEG and PNG to WebP, estimates the AVIF size and reports the image when the saving is 8 KiB or more."
+check = "mechanical"
+basis = "vendor"
+probe = "From the image responses in Resource Timing and their Content-Type headers, list the images served as JPEG, PNG or BMP, with their transfer sizes."
+source = "Chrome for Developers, Lighthouse: Serve images in modern formats"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/uses-webp-images"
+do_not = "Do not serve large photographs as PNG or unoptimised JPEG."
+[[rule.example]]
+name = "MDN: Image file type and format guide"
+url = "https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Image_types"
+shows = "Recommends WebP or AVIF for raster images and shows a picture element with fallback sources."
+[[rule.example]]
+name = "Chrome for Developers: Image delivery insight"
+url = "https://developer.chrome.com/docs/performance/insights/image-delivery"
+shows = "Describes the checks on format, compression and size, and that images with estimated savings under 4 KiB are not flagged."
+[[rule.example]]
+name = "Chrome for Developers: Serve images in modern formats"
+url = "https://developer.chrome.com/docs/lighthouse/performance/uses-webp-images"
+shows = "Explains how the saving is estimated and gives the 8 KiB reporting threshold."
+
+[[rule]]
+id = "image-responsive"
+area = "images"
+rule = "Serve each image at about the size it is displayed. Offer several widths with srcset and sizes so the browser picks the right one."
+measure = "Lab. Lighthouse compares the rendered size, allowing for device pixel ratio, with the actual size and fails an image when the rendered size is at least 4 KiB smaller."
+check = "mechanical"
+basis = "vendor"
+probe = "For every img, compare naturalWidth and naturalHeight with the rendered width and height multiplied by devicePixelRatio, and check content images for a srcset attribute."
+source = "Chrome for Developers, Lighthouse: Properly size images"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/uses-responsive-images"
+do_not = "Do not send one desktop-sized image to every screen and shrink it in CSS."
+[[rule.example]]
+name = "MDN: Using responsive images in HTML"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Responsive_images"
+shows = "Worked examples of srcset with width descriptors, sizes, and the picture element for art direction."
+[[rule.example]]
+name = "Chrome for Developers: Properly size images"
+url = "https://developer.chrome.com/docs/lighthouse/performance/uses-responsive-images"
+shows = "States the 4 KiB rule and points to srcset, sizes and image CDNs as fixes."
+[[rule.example]]
+name = "web.dev: Preload responsive images"
+url = "https://web.dev/articles/preload-responsive-images"
+shows = "Shows the same srcset and sizes syntax carried onto a preload link."
+
+# --------------------------------------------------------------------- fonts
+
+[[rule]]
+id = "font-display"
+area = "fonts"
+rule = "Text stays visible while web fonts load. Every font face sets font-display to swap, fallback or optional."
+measure = "Every @font-face rule has font-display set to swap, fallback or optional. These are the values that pass the Lighthouse audit."
+check = "mechanical"
+basis = "vendor"
+probe = "Walk document.styleSheets, fetching cross-origin sheets where needed, and read the font-display descriptor of every @font-face rule for a font the page uses."
+source = "Chrome for Developers, Lighthouse: Ensure text remains visible during webfont load"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/font-display"
+do_not = "Do not leave font-display at auto or set it to block for body text."
+[[rule.example]]
+name = "MDN: font-display"
+url = "https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display"
+shows = "Defines the block and swap periods for auto, block, swap, fallback and optional."
+[[rule.example]]
+name = "web.dev: Best practices for fonts"
+url = "https://web.dev/articles/font-best-practices"
+shows = "Compares the font-display values and shows how size-adjust on a fallback font reduces layout shift when the web font swaps in."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Fonts"
+url = "https://almanac.httparchive.org/en/2024/fonts"
+shows = "Reports font-display: swap on 44% of desktop and 45% of mobile pages."
+
+[[rule]]
+id = "font-loading"
+area = "fonts"
+rule = "Serve fonts as WOFF2 and make the critical ones load early. Preload only the most important font files, with the crossorigin attribute."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "web.dev, Best practices for fonts"
+source_url = "https://web.dev/articles/font-best-practices"
+do_not = "Do not preload every weight and style, and do not preload a font without crossorigin."
+[[rule.example]]
+name = "web.dev: Best practices for fonts"
+url = "https://web.dev/articles/font-best-practices"
+shows = "Covers preloading, inlined font declarations, preconnect, self-hosting, WOFF2 only and subsetting."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Fonts"
+url = "https://almanac.httparchive.org/en/2024/fonts"
+shows = "Reports WOFF2 on 81% of desktop and 78% of mobile websites and font preload hints on 11% of pages."
+[[rule.example]]
+name = "web.dev: Optimise Cumulative Layout Shift"
+url = "https://web.dev/articles/optimize-cls"
+shows = "Advises loading critical web fonts as early as possible with link rel=preload to limit font-driven layout shift."
+
+# ------------------------------------------------------------------- scripts
+
+[[rule]]
+id = "unused-javascript"
+area = "scripts"
+rule = "Send only the JavaScript the current page needs. Split bundles by route and load the rest on demand."
+measure = "Lab. Lighthouse flags every JavaScript file with more than 20 KiB of unused code."
+check = "mechanical"
+basis = "vendor"
+probe = "Start precise JavaScript coverage through the DevTools protocol before navigation, stop it after load, and total the unused bytes for each script."
+source = "Chrome for Developers, Lighthouse: Remove unused JavaScript"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/unused-javascript"
+do_not = "Do not ship one bundle that holds the code for every route."
+[[rule.example]]
+name = "web.dev: Reduce JavaScript payloads with code splitting"
+url = "https://web.dev/articles/reduce-javascript-payloads-with-code-splitting"
+shows = "Shows how to split a bundle so that only the code for the initial route is sent."
+[[rule.example]]
+name = "Chrome for Developers: Remove unused JavaScript"
+url = "https://developer.chrome.com/docs/lighthouse/performance/unused-javascript"
+shows = "States the 20 KiB threshold and shows the DevTools Coverage tab giving a line-by-line view of unused code."
+
+[[rule]]
+id = "main-thread-work"
+area = "scripts"
+rule = "Keep main-thread work during load short. Cut script evaluation, style and layout work, and move heavy work off the main thread."
+measure = "Lab, under Lighthouse test conditions. Lighthouse flags pages that keep the main thread busy for longer than 4 seconds during load. It warns when JavaScript execution takes longer than 2 seconds and fails when it takes longer than 3.5 seconds."
+check = "mechanical"
+basis = "vendor"
+probe = "Run Lighthouse, or record a DevTools protocol trace during load, and total main-thread time by category and script execution time by URL."
+source = "Chrome for Developers, Lighthouse: Minimise main thread work"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/mainthread-work-breakdown"
+do_not = "Do not parse, compile and run several seconds of script before the page is usable."
+[[rule.example]]
+name = "Chrome for Developers: Reduce JavaScript execution time"
+url = "https://developer.chrome.com/docs/lighthouse/performance/bootup-time"
+shows = "States the 2 second warning and 3.5 second failure thresholds and lists code splitting, minifying and removing unused code as fixes."
+[[rule.example]]
+name = "web.dev: Use web workers to run JavaScript off the main thread"
+url = "https://web.dev/articles/off-main-thread"
+shows = "Explains how moving code to a worker frees the main thread for work that must be there."
+[[rule.example]]
+name = "Chrome for Developers: Minimise main thread work"
+url = "https://developer.chrome.com/docs/lighthouse/performance/mainthread-work-breakdown"
+shows = "Breaks main-thread time into script evaluation, style and layout, rendering, parsing and garbage collection, with a fix for each."
+
+[[rule]]
+id = "third-party-cost"
+area = "scripts"
+rule = "Limit what third-party scripts cost. Load them with async or defer, and replace heavy embeds with a light facade until the user asks for them."
+measure = "Lab. The Lighthouse audit fails when third-party code blocks the main thread for 250 ms or longer in total."
+check = "mechanical"
+basis = "vendor"
+probe = "Run Lighthouse, or record a DevTools protocol trace, and total the blocking time of tasks attributed to scripts from origins other than the page's own."
+source = "Chrome for Developers, Lighthouse: Reduce the impact of third-party code"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/third-party-summary"
+do_not = "Do not load chat widgets, video players and tag managers synchronously in the head."
+[[rule.example]]
+name = "Chrome for Developers: Lazy load third-party resources with facades"
+url = "https://developer.chrome.com/docs/lighthouse/performance/third-party-facades"
+shows = "Defines a facade as a static element that looks like the embed, and lists ready-made ones for YouTube, Vimeo and live chat."
+[[rule.example]]
+name = "web.dev: Efficiently load third-party JavaScript"
+url = "https://web.dev/articles/efficiently-load-third-party-javascript"
+shows = "Covers async and defer, preconnect, lazy loading and self-hosting for third-party scripts."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Third parties"
+url = "https://almanac.httparchive.org/en/2024/third-parties"
+shows = "Reports that 92% of pages use at least one third party and breaks third-party requests down by content type."
+
+[[rule]]
+id = "dom-size"
+area = "scripts"
+rule = "Keep the DOM small. Render only what the current view needs and add the rest on demand."
+measure = "Lab. Lighthouse warns when the body element has more than about 800 nodes and errors at more than about 1,400 nodes."
+check = "mechanical"
+basis = "vendor"
+probe = "After load, count document.body.querySelectorAll('*').length."
+source = "Chrome for Developers, Lighthouse: Avoid an excessive DOM size"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/dom-size"
+do_not = "Do not render thousands of hidden rows, menu items or wrapper elements up front."
+[[rule.example]]
+name = "web.dev: How large DOM sizes affect interactivity"
+url = "https://web.dev/articles/dom-size-and-interactivity"
+shows = "Repeats the 800 and 1,400 node levels and shows how to flatten markup, add content on demand and use content-visibility."
+[[rule.example]]
+name = "Chrome for Developers: Avoid an excessive DOM size"
+url = "https://developer.chrome.com/docs/lighthouse/performance/dom-size"
+shows = "States the warning and error thresholds used by the audit."
+
+# ------------------------------------------------------------------- network
+
+[[rule]]
+id = "text-compression"
+area = "network"
+rule = "Compress every text response. Use Brotli where the browser supports it and gzip as the fallback."
+measure = "Text responses carry a content-encoding header of br, gzip or deflate. Lighthouse ignores responses under 1.4 KiB and those where compression would save less than 10% of the original size."
+check = "mechanical"
+basis = "vendor"
+probe = "For each HTML, CSS, JavaScript, JSON and SVG response over 1.4 KiB, read the content-encoding response header and check that it is br, gzip or deflate."
+source = "Chrome for Developers, Lighthouse: Enable text compression"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/uses-text-compression"
+do_not = "Do not serve HTML, CSS or JavaScript uncompressed."
+[[rule.example]]
+name = "MDN: Compression in HTTP"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Compression"
+shows = "Explains Accept-Encoding and Content-Encoding negotiation for gzip and br, and the Vary header that must go with it."
+[[rule.example]]
+name = "Chrome for Developers: Enable text compression"
+url = "https://developer.chrome.com/docs/lighthouse/performance/uses-text-compression"
+shows = "States the 1.4 KiB and 10% conditions and recommends Brotli first with gzip as the fallback."
+
+[[rule]]
+id = "cache-static-assets"
+area = "network"
+rule = "Give static assets a long cache lifetime. Version their URLs and cache them for a year. Revalidate the HTML that points to them."
+measure = "Fonts, images, media, scripts and stylesheets returned with status 200, 203 or 206 have a caching policy. Versioned URLs use Cache-Control: max-age=31536000 (one year), optionally with immutable. Unversioned URLs and HTML use Cache-Control: no-cache."
+check = "mechanical"
+basis = "vendor"
+probe = "For each font, image, media, script and stylesheet response, read the Cache-Control header and fail when max-age is missing or zero, or when the header is absent."
+source = "Chrome for Developers, Lighthouse: Serve static assets with an efficient cache policy"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/uses-long-cache-ttl"
+do_not = "Do not serve fingerprinted scripts, stylesheets, fonts or images with no Cache-Control header or a short lifetime."
+[[rule.example]]
+name = "web.dev: Prevent unnecessary network requests with the HTTP cache"
+url = "https://web.dev/articles/http-cache"
+shows = "Recommends max-age=31536000 for versioned URLs and no-cache for unversioned ones, with ETag for revalidation."
+[[rule.example]]
+name = "MDN: Cache-Control"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control"
+shows = "Shows the cache-busting pattern: max-age=31536000, immutable on assets and no-cache on the HTML entry point."
+[[rule.example]]
+name = "Chrome for Developers: Serve static assets with an efficient cache policy"
+url = "https://developer.chrome.com/docs/lighthouse/performance/uses-long-cache-ttl"
+shows = "Lists which responses Lighthouse treats as cacheable and suggests max-age=31536000."
+
+[[rule]]
+id = "http2"
+area = "network"
+rule = "Serve the page and its resources over HTTP/2 or later."
+measure = "No resource from the page's own origin is served over HTTP/1.1. Lighthouse lists every resource not served over HTTP/2."
+check = "mechanical"
+basis = "vendor"
+probe = "Read nextHopProtocol from the navigation entry and every Resource Timing entry and fail on http/1.1. Run this against staging behind the production server or CDN, because local development servers often speak HTTP/1.1 only."
+source = "Chrome for Developers, Lighthouse: Use HTTP/2"
+source_url = "https://developer.chrome.com/docs/lighthouse/best-practices/uses-http2"
+do_not = "Do not leave a production origin on HTTP/1.1."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: HTTP"
+url = "https://almanac.httparchive.org/en/2024/http"
+shows = "Reports about 85% of requests on HTTP/2 or later and about 15% on HTTP/1.1, with HTTP/3 support under-reported at 7 to 9% of home pages."
+[[rule.example]]
+name = "Chrome for Developers: Use HTTP/2"
+url = "https://developer.chrome.com/docs/lighthouse/best-practices/uses-http2"
+shows = "Describes the audit that checks the protocol of every requested resource."
+
+[[rule]]
+id = "page-weight"
+area = "network"
+rule = "Keep the total bytes a page downloads low."
+measure = "Lab, Lighthouse only. Lighthouse flags pages whose total network requests exceed 5,000 KiB and advises a total below 1,600 KiB, the amount that can in theory be downloaded on a 3G connection while reaching Time to Interactive in 10 seconds or less. No recognised source publishes a request count limit. For context, the Web Almanac 2025 median home page was 2.86 MB on desktop and 2.56 MB on mobile, with 77 and 72 requests."
+check = "mechanical"
+basis = "vendor"
+probe = "Sum transferSize over the navigation entry and all Resource Timing entries after load. Cross-origin resources without Timing-Allow-Origin report zero, so take those sizes from the network log instead."
+source = "Chrome for Developers, Lighthouse: Avoid enormous network payloads"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/total-byte-weight"
+do_not = "Do not treat the web median as a target. It is a description of the web and it is well above the 1,600 KiB advice."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2025: Page weight"
+url = "https://almanac.httparchive.org/en/2025/page-weight"
+shows = "Measures median page weight and request counts across the web in July 2025."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Page weight"
+url = "https://almanac.httparchive.org/en/2024/page-weight"
+shows = "Reports a median of 2,652 KB on desktop and 2,311 KB on mobile in October 2024, with 71 and 66 requests."
+[[rule.example]]
+name = "Chrome for Developers: Avoid enormous network payloads"
+url = "https://developer.chrome.com/docs/lighthouse/performance/total-byte-weight"
+shows = "States the 5,000 KiB flag and the 1,600 KiB target with its reasoning."
+
+# ----------------------------------------------------------------- stability
+
+[[rule]]
+id = "reserve-space-late-content"
+area = "stability"
+rule = "Reserve space for anything that arrives late: adverts, embeds, iframes, banners and content fetched after load. Do not insert content above what the user is reading unless they asked for it."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "web.dev, Optimise Cumulative Layout Shift"
+source_url = "https://web.dev/articles/optimize-cls"
+do_not = "Do not inject a cookie banner, promotion or advert at the top of the page that pushes existing content down."
+[[rule.example]]
+name = "web.dev: Optimise Cumulative Layout Shift"
+url = "https://web.dev/articles/optimize-cls"
+shows = "Shows reserving space in the initial layout, for example with a min-height rule, and says to avoid inserting new content without a user interaction."
+[[rule.example]]
+name = "web.dev: Cumulative Layout Shift (CLS)"
+url = "https://web.dev/articles/cls"
+shows = "Explains that shifts within 500 ms of user input are flagged as expected and left out of the score."
+
+[[rule]]
+id = "animations-composited"
+area = "stability"
+rule = "Animate with transform and opacity. Do not animate properties that trigger layout or paint."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "Chrome for Developers, Lighthouse: Avoid non-composited animations"
+source_url = "https://developer.chrome.com/docs/lighthouse/performance/non-composited-animations"
+do_not = "Do not move elements by animating top, left, width, height or margin."
+[[rule.example]]
+name = "web.dev: How to create high-performance CSS animations"
+url = "https://web.dev/articles/animations-guide"
+shows = "Says to restrict animations to opacity and transform where possible and to avoid properties that trigger layout or paint."
+[[rule.example]]
+name = "web.dev: Optimise Cumulative Layout Shift"
+url = "https://web.dev/articles/optimize-cls"
+shows = "Notes that animating top and left causes layout shifts even on a separate layer, and that transform animations do not."
+[[rule.example]]
+name = "Chrome for Developers: Avoid non-composited animations"
+url = "https://developer.chrome.com/docs/lighthouse/performance/non-composited-animations"
+shows = "Defines a non-composited animation as one that triggers the style, layout or paint steps of the rendering pipeline."
+
+[[rule]]
+id = "bfcache"
+area = "stability"
+rule = "Keep pages eligible for the back/forward cache so that back and forward navigations are instant."
+measure = "The page restores from the back/forward cache. It registers no unload event listener, does not send Cache-Control: no-store unless it holds sensitive data, and closes open connections on pagehide. The Lighthouse audit fails if the page cannot be restored for any reason."
+check = "mechanical"
+basis = "vendor"
+probe = "Navigate away and back, then check that the pageshow event has persisted set to true. On failure, read notRestoredReasons from the navigation entry, or run the Lighthouse bf-cache audit."
+source = "web.dev, Back/forward cache"
+source_url = "https://web.dev/articles/bfcache"
+do_not = "Do not use the unload event. Use pagehide instead."
+[[rule.example]]
+name = "web.dev: Back/forward cache"
+url = "https://web.dev/articles/bfcache"
+shows = "Explains the eligibility rules and how to test them, and reports that 1 in 10 desktop and 1 in 5 mobile navigations are back or forward."
+[[rule.example]]
+name = "Chrome for Developers: Page prevented back/forward cache restoration"
+url = "https://developer.chrome.com/docs/lighthouse/performance/bf-cache"
+shows = "Describes the audit and its three kinds of failure: actionable, pending browser support and not actionable."
+[[rule.example]]
+name = "HTTP Archive Web Almanac 2024: Performance"
+url = "https://almanac.httparchive.org/en/2024/performance"
+shows = "Reports that 21% of sites use Cache-Control: no-store and 15 to 16% of pages use the unload event, two common blockers."

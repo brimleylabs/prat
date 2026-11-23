@@ -524,19 +524,53 @@ or corner radius on a page that is not among them is reported as outside the bra
 value. Black, white, square corners and pills are always allowed; a list left out is not
 checked.
 
-## Design standards
+## Standards
 
-`design.py` gives builders and reviewers one standard, and it is not PRAT's own taste.
-`resources/design/standards.toml` holds published, generally accepted rules for interfaces
-(WCAG 2.2, the public design systems of governments and large products, Nielsen's heuristics).
-Each rule has its source and link, the number to check where there is one, the same rule as a
-plain "do not", and two or three real pages that show it done well. A builder of a card whose
-own words say it is interface work, in a project with `[screens]`, gets the rules with their
-examples before it writes anything (`execute.design_standards`). The rules a machine can
-measure are the ones `screens.py` measures; the rest become a fixed checklist the reviewer
-answers about the pictures, yes or no with the element named, instead of an opinion. What is a
-project's own (its brand values) and what is one person's preference (the project's notes) are
-kept apart from the standard. `design_standards = false` turns the section off.
+`standards.py` gives builders and reviewers published standards, and none of them is PRAT's
+own taste. `resources/standards/` holds one file per subject:
+
+| Set | What it holds | Applies to |
+|---|---|---|
+| `design` | Layout, legibility, forms, feedback, navigation (WCAG 2.2, public design systems, Nielsen's heuristics) | every project with `[screens]` |
+| `accessibility` | WCAG 2.2 A and AA beyond what `design` covers, and the accepted ARIA patterns | every project with `[screens]` |
+| `performance` | The Core Web Vitals and the practices that move them | every project with `[screens]` |
+| `seo` | What search engines document about crawling, indexing and page metadata | `website = true` |
+| `llm` | What AI search products (ChatGPT search, Perplexity, Google AI answers and the like) are documented to crawl, read and cite | `website = true` |
+
+Each rule has its source and link, how firm that source is (`basis`: a formal standard, one
+vendor's guidance, a research finding, or a proposal nobody has adopted), the number to check
+where there is one, the same rule as a plain "do not", and two or three real pages that show
+it done well. A builder of a card whose own words say it is interface work, in a project with
+`[screens]`, gets the sets that apply with their examples before it writes anything
+(`execute.design_standards`). `[screens] website = true` says the project is a site the public
+and its crawlers read; `checks = [...]` names the sets outright.
+
+`pagecheck.py` measures what a page is, as `screens.py` measures where its elements are. One
+script is installed before the page loads (the observers for Largest Contentful Paint, layout
+shift and long tasks), one runs after it (the title, language, headings, landmarks, the names of
+controls, images, links, fields, structured data, what loaded and how), and the browser's own
+record gives the status, the headers, the HTML as the server sent it and `robots.txt`. Judging
+is plain Python over that. Every check stands for one rule of one set, and only rules with a
+check are marked `(measured)` for a builder; every other rule becomes a fixed question the
+reviewer answers about the pictures and the change, yes or no with the element named.
+
+Three things keep a measurement honest:
+
+- One load on this machine is a lab measurement. A slow timing (LCP, blocking time, first
+  paint, first byte) goes back to a builder only when it is past its published limit and also a
+  quarter worse than the same page on the default branch; otherwise the reviewer just sees the
+  numbers, before and after.
+- Weights do not vary between loads, so a page that became heavier than it was on the default
+  branch (JavaScript, CSS, images, fonts, requests, elements, by a tenth and a floor) is the
+  card's fault. That is the project compared with itself, and is not presented as a standard.
+- What a production server decides (compression, cache lifetimes, the protocol, HTTPS) is
+  judged only on an address that is not this machine: `prat screens check https://... --sets
+  all` audits a live site with every set.
+
+When a measured fault goes back, the builder is given the rule it broke in full, with what
+each of its example pages shows. What is a project's own (its brand values) and what is one
+person's preference (the project's notes) are kept apart from the standards.
+`design_standards = false` turns the builder's section off.
 
 ## Rejections backed by something that runs
 

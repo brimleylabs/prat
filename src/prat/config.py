@@ -139,7 +139,7 @@ class Settings(BaseSettings):
     # A card that changes interface code has its pages opened and measured as its builder
     # ends its turn, in a project whose file says where they are (prat.engine.screencheck).
     screen_checks: bool = True
-    # Builders of interface cards are given the published design standards (prat.design).
+    # Builders of interface cards are given the published standards that apply (prat.standards).
     design_standards: bool = True
     # What sends a card back to its builder without a person. "evidence": a reviewer's
     # rejection counts only with a command that fails on the work; without one the card goes
@@ -381,7 +381,8 @@ auth_mode = "api_key"
 # coach = "on"
 
 # Screens: a card that changes interface code has its pages opened and measured, in a project
-# whose file has a [screens] table; its builder gets the published design standards.
+# whose file has a [screens] table; its builder gets the published standards (design,
+# accessibility, performance; search and AI search too for a website).
 # screen_checks = true
 # design_standards = true
 # What sends a rejected card back to its builder without a person: "second" (a first rejection

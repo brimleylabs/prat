@@ -1,0 +1,833 @@
+# Technical and on-page search engine optimisation standards rubric for public websites.
+# Every rule comes from a published standard or from search engine documentation. Every source and example URL was fetched in November 2026.
+# basis: "standard" is a formal standard, "vendor" is search engine documentation, "research" is published measurement research, "proposal" is an open protocol that no standards body has ratified.
+# probe: present on mechanical rules only. It says how to decide the rule from a page load in a headless browser.
+
+# ------------------------------------------------------------------ crawling
+
+[[rule]]
+id = "robots-txt-valid"
+area = "crawling"
+rule = "The site serves one robots.txt file at the root of the host. It is plain text in UTF-8 and every rule line is a valid field and value pair."
+measure = "Served at /robots.txt (all lowercase) as UTF-8 text/plain (RFC 9309); Google ignores content after 500 KiB; the file must not return a 5xx status"
+check = "mechanical"
+basis = "standard"
+probe = "Fetch /robots.txt on the page's host; pass if the status is 200, the content type is text/plain, the body decodes as UTF-8, is under 500 KiB, and every line that is not blank or a comment has the form field: value."
+source = "RFC 9309, Robots Exclusion Protocol, section 2.3 Access Method"
+source_url = "https://www.rfc-editor.org/rfc/rfc9309.html#name-access-method"
+do_not = "Do not put robots.txt in a subdirectory, serve it as HTML, or let it return a server error."
+[[rule.example]]
+name = "Google: How Google interprets the robots.txt specification"
+url = "https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec"
+shows = "Gives the file location rules, the 500 KiB size limit, the valid fields and how 4xx and 5xx responses for the file are treated."
+[[rule.example]]
+name = "Chrome Lighthouse: robots.txt is not valid"
+url = "https://developer.chrome.com/docs/lighthouse/seo/invalid-robots-txt"
+shows = "Lists the syntax errors the audit flags and says to avoid a 5XX status and to keep the file under 500 KiB."
+[[rule.example]]
+name = "MDN Web Docs: robots.txt"
+url = "https://developer.mozilla.org/robots.txt"
+shows = "A short live file at the host root with a user-agent group, disallow lines and a Sitemap line."
+
+[[rule]]
+id = "robots-txt-allows-rendering"
+area = "crawling"
+rule = "robots.txt does not block the CSS, JavaScript or image files a page needs in order to render. It is used to manage crawling, not to keep pages out of search results."
+measure = "No resource needed to render the page is disallowed for Googlebot or for all user agents"
+check = "mechanical"
+basis = "vendor"
+probe = "Load the page, collect the URL of every stylesheet and script it requests from the same site, and test each one against the robots.txt rules for Googlebot and for *; fail if any is disallowed."
+source = "Google Search Central, Introduction to robots.txt"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/robots/intro"
+do_not = "Do not disallow asset directories such as /assets/, /static/ or /js/, and do not use robots.txt to hide a page from search results."
+[[rule.example]]
+name = "Google: Introduction to robots.txt"
+url = "https://developers.google.com/search/docs/crawling-indexing/robots/intro"
+shows = "Says not to block resource files if their absence makes the page harder for the crawler to understand, and that robots.txt is not a mechanism for keeping a page out of Google."
+[[rule.example]]
+name = "Google: How Google interprets the robots.txt specification"
+url = "https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec"
+shows = "An example file that disallows an includes directory for all crawlers but allows it for Googlebot, because the CSS and JavaScript in it are needed for rendering."
+[[rule.example]]
+name = "Google: Understand JavaScript SEO basics"
+url = "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+shows = "States that Google Search will not render JavaScript from blocked files or on blocked pages."
+
+[[rule]]
+id = "xml-sitemap"
+area = "crawling"
+rule = "The site has an XML sitemap that follows the sitemaps.org protocol, lists the canonical URLs it wants in search results, and is named in robots.txt with a Sitemap line."
+measure = "UTF-8 XML in the sitemaps.org 0.9 namespace; every loc is an absolute URL under 2,048 characters; at most 50,000 URLs and 50 MB uncompressed per file; robots.txt contains Sitemap: followed by the full sitemap URL"
+check = "mechanical"
+basis = "standard"
+probe = "Read the Sitemap lines in /robots.txt and fetch each URL; pass if at least one exists, each returns 200 and parses as XML with a urlset or sitemapindex root in the sitemaps.org namespace, every loc is absolute, and no file exceeds 50,000 entries or 50 MB."
+source = "sitemaps.org, Sitemaps XML format (protocol)"
+source_url = "https://www.sitemaps.org/protocol.html"
+do_not = "Do not list relative URLs, redirecting URLs or duplicate URLs in the sitemap, and do not leave the sitemap out of robots.txt."
+[[rule.example]]
+name = "sitemaps.org: Specifying the Sitemap location in your robots.txt file"
+url = "https://www.sitemaps.org/protocol.html#submit_robots"
+shows = "The exact Sitemap line to add to robots.txt, and the note that a sitemap index file can be listed in place of each sitemap."
+[[rule.example]]
+name = "Google: Build and submit a sitemap"
+url = "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap"
+shows = "Repeats the 50 MB and 50,000 URL limits, requires UTF-8 and fully qualified absolute URLs, and says to list the URLs you want shown in search results."
+[[rule.example]]
+name = "GOV.UK: sitemap index"
+url = "https://www.gov.uk/sitemap.xml"
+shows = "A live sitemap index in the sitemaps.org namespace that splits a large site across numbered sitemap files, each with a lastmod date."
+
+[[rule]]
+id = "http-status-codes"
+area = "crawling"
+rule = "Every URL answers with the status code that matches its state. A page that exists returns 200, a page that has moved for good returns 301 or 308, and a page that is gone returns 404 or 410."
+measure = "200 for live pages; 301 or 308 for permanent moves; 404 or 410 for removed pages (RFC 9110 prefers 410 when the removal is known to be permanent); no 5xx"
+check = "mechanical"
+basis = "standard"
+probe = "Request the page URL and record the status of each response in the chain; pass if the final status is 200 and any redirect on the way is a 301 or 308."
+source = "RFC 9110, HTTP Semantics, section 15 Status Codes (301, 404 and 410)"
+source_url = "https://www.rfc-editor.org/rfc/rfc9110.html#name-301-moved-permanently"
+do_not = "Do not use a 302 or a JavaScript redirect for a permanent move, and do not answer a removed page with 200."
+[[rule.example]]
+name = "Google: How HTTP status codes affect Google's crawlers"
+url = "https://developers.google.com/crawling/docs/troubleshooting/http-status-codes"
+shows = "A table of status codes and how Google treats each one, including 301 as a strong signal and 302 as a weak one, and removal from the index on 404 and 410."
+[[rule.example]]
+name = "Google: Redirects and Google Search"
+url = "https://developers.google.com/search/docs/crawling-indexing/301-redirects"
+shows = "A table of redirect types ordered by how reliably Google interprets them, with server-side 301 and 308 first and JavaScript redirects as a last resort."
+[[rule.example]]
+name = "MDN: 410 Gone"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/410"
+shows = "Explains that 410 means the resource is permanently gone and that 404 should be used when it is not known whether the condition is permanent."
+
+[[rule]]
+id = "no-soft-404"
+area = "crawling"
+rule = "A URL with no content returns a real 404 or 410 status. It never returns 200 with an error message, an empty page or a redirect to the home page."
+measure = "A URL that does not exist returns 404 or 410"
+check = "mechanical"
+basis = "vendor"
+probe = "Request a made-up path on the same host, such as a long random slug; pass if the final status is 404 or 410, and fail if it is 200 or a redirect to another page."
+source = "Google Search Central, How HTTP status codes affect Google's crawlers"
+source_url = "https://developers.google.com/crawling/docs/troubleshooting/http-status-codes"
+do_not = "Do not let a single-page app answer every unknown route with 200 and a not found message drawn by JavaScript."
+[[rule.example]]
+name = "Google: Understand JavaScript SEO basics"
+url = "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+shows = "The section Avoid soft 404 errors in single-page apps, with sample code that redirects to a URL returning 404 or adds a noindex robots meta tag to the error view."
+[[rule.example]]
+name = "Google: How HTTP status codes affect Google's crawlers"
+url = "https://developers.google.com/crawling/docs/troubleshooting/http-status-codes"
+shows = "States that a 2xx response whose content suggests an error, such as an empty page or an error message, is reported as a soft 404."
+[[rule.example]]
+name = "MDN: 404 Not Found"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404"
+shows = "Defines the status and shows how to configure a custom page for 404 responses."
+
+[[rule]]
+id = "redirect-chains"
+area = "crawling"
+rule = "A redirect goes straight to the final URL in one hop. Internal links point at the final URL, not at a URL that redirects."
+measure = "Google advises redirecting to the final destination directly; if that is not possible, ideally no more than 3 and fewer than 5 hops. Google's crawlers follow up to 10 hops"
+check = "mechanical"
+basis = "vendor"
+probe = "Request the page URL and each internal link target without following redirects, then walk each chain; pass if no chain has more than one redirect before a 200 response."
+source = "Google Search Central, Site moves with URL changes: Avoid chaining redirects"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/site-move-with-url-changes"
+do_not = "Do not stack redirects such as http to https, then to www, then to a trailing slash, then to a new path."
+[[rule.example]]
+name = "Google: Site moves with URL changes"
+url = "https://developers.google.com/search/docs/crawling-indexing/site-move-with-url-changes"
+shows = "The advice to avoid chaining redirects, with the 10 hop limit and the recommendation to keep any chain to no more than 3 and fewer than 5."
+[[rule.example]]
+name = "Chrome Lighthouse: Avoid multiple page redirects"
+url = "https://developer.chrome.com/docs/lighthouse/performance/redirects"
+shows = "States that redirects slow down page load and that a page fails the audit when it has two or more redirects."
+[[rule.example]]
+name = "MDN: Redirections in HTTP"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Redirections"
+shows = "Explains permanent and temporary redirects, how crawlers treat each, and how redirect loops arise."
+
+[[rule]]
+id = "https"
+area = "crawling"
+rule = "Every page and every resource it loads is served over HTTPS, and the HTTP version of each URL redirects to the HTTPS version."
+measure = "Final URL scheme is https; http:// requests redirect to https://; no subresource is requested over http"
+check = "mechanical"
+basis = "vendor"
+probe = "Load the page and pass if the final document URL and every subresource request use https, and a request for the same URL with the http scheme ends on the https URL."
+source = "Google Search Central, Understanding page experience in Google Search results"
+source_url = "https://developers.google.com/search/docs/appearance/page-experience"
+do_not = "Do not serve any page over plain HTTP or load scripts, styles or images from http:// URLs."
+[[rule.example]]
+name = "Chrome Lighthouse: Does not use HTTPS"
+url = "https://developer.chrome.com/docs/lighthouse/best-practices/is-on-https"
+shows = "Says all sites should be protected with HTTPS, including avoiding mixed content, and that the audit flags pages that are not on HTTPS."
+[[rule.example]]
+name = "Google: How to specify a canonical URL"
+url = "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+shows = "States that Google prefers HTTPS pages over equivalent HTTP pages as canonical and lists the conflicting signals that prevent it."
+[[rule.example]]
+name = "Google Search Central Blog: HTTPS as a ranking signal"
+url = "https://developers.google.com/search/blog/2014/08/https-as-ranking-signal"
+shows = "The announcement that Google uses HTTPS as a lightweight ranking signal and encourages all site owners to switch from HTTP."
+
+# ------------------------------------------------------------------ indexing
+
+[[rule]]
+id = "no-accidental-noindex"
+area = "indexing"
+rule = "A page meant to appear in search results carries no noindex rule, in either a robots meta tag or an X-Robots-Tag response header. A page that does carry noindex is not blocked in robots.txt, or the rule will never be seen."
+measure = "No noindex or none value in meta name=robots, meta name=googlebot or the X-Robots-Tag header on indexable pages"
+check = "mechanical"
+basis = "vendor"
+probe = "Read the content of every meta element named robots or googlebot in the rendered DOM and the X-Robots-Tag response header; fail if any contains noindex or none on a page that is meant to be indexed."
+source = "Google Search Central, Robots meta tag, data-nosnippet, and X-Robots-Tag specifications"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+do_not = "Do not ship a staging noindex tag or header to production, and do not disallow a URL in robots.txt when you rely on its noindex rule."
+[[rule.example]]
+name = "Google: Block Search indexing with noindex"
+url = "https://developers.google.com/search/docs/crawling-indexing/block-indexing"
+shows = "Shows the meta tag and the response header forms, and warns that the page must not be blocked by robots.txt for noindex to work."
+[[rule.example]]
+name = "MDN: X-Robots-Tag header"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Robots-Tag"
+shows = "Documents the header and its rules, and notes it is the way to set indexing rules on non-HTML files such as PDFs and images."
+[[rule.example]]
+name = "Chrome Lighthouse: Page is blocked from indexing"
+url = "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable"
+shows = "Lists the meta tag and header values that make the audit fail."
+
+[[rule]]
+id = "canonical-link"
+area = "indexing"
+rule = "Each indexable page has exactly one canonical link in the head. It is an absolute URL that points to the page itself, or to the preferred page when this one is a duplicate."
+measure = "Exactly 1 link rel=canonical, inside head, with an absolute https URL that returns 200; self-referencing unless the page is a known duplicate"
+check = "mechanical"
+basis = "vendor"
+probe = "Count link elements with rel=canonical in the head of both the raw HTML and the rendered DOM; pass if there is exactly one in each, both have the same absolute https href, the href returns 200 without redirecting, and it equals the page URL unless a different target is declared for the page."
+source = "Google Search Central, How to specify a canonical URL with rel=canonical and other methods"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+do_not = "Do not use a relative canonical URL, add more than one canonical link, place it in the body, or point every page at the home page."
+[[rule.example]]
+name = "Chrome Lighthouse: Document does not have a valid rel=canonical"
+url = "https://developer.chrome.com/docs/lighthouse/seo/canonical"
+shows = "Lists the failing cases: more than one canonical link, an invalid URL, a target in another language or domain, or a target that is the site root."
+[[rule.example]]
+name = "RFC 6596: The Canonical Link Relation"
+url = "https://www.rfc-editor.org/rfc/rfc6596.html"
+shows = "Defines the relation, with an example of parameter URLs pointing to the preferred URL, and says page 2 of a series should not name page 1 as canonical."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "View the source: one canonical link in the head, with an absolute https URL that is the page's own address."
+
+[[rule]]
+id = "duplicate-urls-and-parameters"
+area = "indexing"
+rule = "Each piece of content lives at one URL. Where filters, sort orders, tracking or session parameters create extra URLs for the same content, the duplicates point to the preferred URL with a canonical link or a redirect, and internal links use the preferred URL."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, How to specify a canonical URL with rel=canonical and other methods"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+do_not = "Do not let filter and sort combinations create unlimited crawlable URLs, do not use URL fragments to change page content, and do not use robots.txt or noindex to choose the canonical page."
+[[rule.example]]
+name = "Google: What is canonicalization"
+url = "https://developers.google.com/search/docs/crawling-indexing/canonicalization"
+shows = "Lists the common causes of duplicate URLs, such as protocol variants and region or device variants, and how Google picks one canonical URL."
+[[rule.example]]
+name = "Google: URL structure best practices"
+url = "https://developers.google.com/search/docs/crawling-indexing/url-structure"
+shows = "The section on common URL issues, with worked examples of additive filtering and irrelevant parameters multiplying URLs for the same content."
+[[rule.example]]
+name = "Google: Managing crawling of faceted navigation URLs"
+url = "https://developers.google.com/crawling/docs/faceted-navigation"
+shows = "Options for filtered listing URLs, including disallowing them in robots.txt, using fragments for filters, and a canonical link to the unfiltered page."
+
+[[rule]]
+id = "content-without-interaction"
+area = "indexing"
+rule = "The main content and links of a page are in the rendered page as soon as it loads. Nothing a search engine needs waits for a click, a swipe, typing or scrolling."
+measure = "Primary content is present in the rendered DOM with no user input; lazy-loaded content loads when it enters the viewport"
+check = "mechanical"
+basis = "vendor"
+probe = "Load the page in a tall viewport, wait for the network to go idle without scrolling or clicking, and save the text of the main element; then scroll to the bottom and click nothing, and fail if the main text gained content that was absent from the first snapshot."
+source = "Google Search Central, Fix lazy-loaded content"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/javascript/lazy-loading"
+do_not = "Do not load primary content only after a click on a tab, a load more button or a scroll event."
+[[rule.example]]
+name = "Google: Fix lazy-loaded content"
+url = "https://developers.google.com/search/docs/crawling-indexing/javascript/lazy-loading"
+shows = "States that Google Search does not interact with the page and lists loading methods that do not rely on scrolling or clicking."
+[[rule.example]]
+name = "Google: Mobile site and mobile-first indexing best practices"
+url = "https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing"
+shows = "The instruction not to lazy-load primary content upon user interaction such as swiping, clicking or typing."
+[[rule.example]]
+name = "Google: Pagination, incremental page loading, and their impact on Google Search"
+url = "https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading"
+shows = "States that Google's crawlers do not click buttons and generally do not trigger JavaScript that needs a user action."
+
+[[rule]]
+id = "javascript-rendering"
+area = "indexing"
+rule = "Prefer server-side rendering or pre-rendering so the HTML response already holds the content. Where JavaScript builds the page, each view has its own URL through the History API, its own title and description, and a real HTTP status code."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Understand JavaScript SEO basics"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+do_not = "Do not route views with URL fragments, change the canonical URL with JavaScript to something other than the one in the HTML, or rely on dynamic rendering as a long-term fix."
+[[rule.example]]
+name = "Google: Understand JavaScript SEO basics"
+url = "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+shows = "Explains crawling, rendering and indexing of JavaScript pages, says server-side or pre-rendering is still a great idea because not all bots run JavaScript, and gives History API routing code."
+[[rule.example]]
+name = "Google: Dynamic rendering as a workaround"
+url = "https://developers.google.com/search/docs/crawling-indexing/javascript/dynamic-rendering"
+shows = "Says dynamic rendering was a workaround and recommends server-side rendering, static rendering or hydration instead."
+[[rule.example]]
+name = "web.dev: Rendering on the web"
+url = "https://web.dev/articles/rendering-on-the-web"
+shows = "Compares server-side, static and client-side rendering, with a section on what each means for crawlers."
+
+# ------------------------------------------------------------------ metadata
+
+[[rule]]
+id = "title-element"
+area = "metadata"
+rule = "Every page has exactly one title element in the head, and it is not empty."
+measure = "Exactly 1 non-empty title element per document"
+check = "mechanical"
+basis = "standard"
+probe = "Count title elements in the head of the rendered DOM; pass if there is exactly one and its trimmed text is not empty."
+source = "HTML Standard, 4.2.2 The title element (see also WCAG 2.2, 2.4.2 Page Titled, Level A)"
+source_url = "https://html.spec.whatwg.org/multipage/semantics.html#the-title-element"
+do_not = "Do not ship a page with no title, an empty title, or a second title element added by a template or script."
+[[rule.example]]
+name = "Google: Influencing your title links in search results"
+url = "https://developers.google.com/search/docs/appearance/title-link"
+shows = "The first best practice: make sure every page on your site has a title specified in the title element."
+[[rule.example]]
+name = "MDN: The title element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/title"
+shows = "Reference for the element, with the advice that titles should be unique to every page and put the purpose of the page first."
+[[rule.example]]
+name = "W3C: Understanding 2.4.2 Page Titled"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/page-titled.html"
+shows = "Explains that titles let users identify and distinguish pages, with example titles for a set of related pages."
+
+[[rule]]
+id = "title-descriptive"
+area = "metadata"
+rule = "The title describes this page in a few plain words, is different from the title of every other page on the site, and matches the topic of the main heading."
+measure = "Google sets no length limit for the title element; it truncates title links as needed, typically to fit the device width"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Influencing your title links in search results"
+source_url = "https://developers.google.com/search/docs/appearance/title-link"
+do_not = "Do not use vague titles such as Home or Untitled, repeat the same boilerplate title across pages, or stuff the title with keywords."
+[[rule.example]]
+name = "Google: Influencing your title links in search results"
+url = "https://developers.google.com/search/docs/appearance/title-link"
+shows = "Best practices with examples: descriptive and concise text, no keyword stuffing, no repeated or boilerplate titles, and concise site branding."
+[[rule.example]]
+name = "GOV.UK: Tax your vehicle"
+url = "https://www.gov.uk/vehicle-tax"
+shows = "The browser tab title is Tax your vehicle - GOV.UK: the page topic first, then the site name, and the same words as the page heading."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "The title is Back pain - NHS, which matches the single main heading Back pain."
+
+[[rule]]
+id = "meta-description"
+area = "metadata"
+rule = "Each page has one meta description that summarises that page in a sentence or two. It is written for the page, not shared across the site."
+measure = "Exactly 1 meta name=description with non-empty content. Google sets no length limit; it truncates snippets as needed, typically to fit the device width"
+check = "mechanical"
+basis = "vendor"
+probe = "Count meta elements with name=description in the head of the rendered DOM; pass if there is exactly one and its content attribute is not empty."
+source = "Google Search Central, Control your snippets in search results"
+source_url = "https://developers.google.com/search/docs/appearance/snippet"
+do_not = "Do not leave the description out, reuse one description on every page, or fill it with a list of keywords."
+[[rule.example]]
+name = "Google: Control your snippets in search results"
+url = "https://developers.google.com/search/docs/appearance/snippet"
+shows = "Best practices with good and bad examples: a unique description for each page, real summaries instead of keyword lists, and no fixed length."
+[[rule.example]]
+name = "Chrome Lighthouse: Document does not have a meta description"
+url = "https://developer.chrome.com/docs/lighthouse/seo/meta-description"
+shows = "States that the audit flags a page that has no meta description element."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "View the source: one description that says what the page covers, how to relieve back pain, its causes and when to get medical advice."
+
+[[rule]]
+id = "open-graph-tags"
+area = "metadata"
+rule = "Pages that may be shared carry the four required Open Graph properties, so that link previews show the right title, image and address."
+measure = "og:title, og:type, og:image and og:url are present; og:url is the canonical URL; og:description is recommended"
+check = "mechanical"
+basis = "proposal"
+probe = "Read meta elements with a property attribute in the head; pass if og:title, og:type, og:image and og:url are all present with non-empty content, og:image is an absolute URL that returns 200, and og:url equals the canonical URL."
+source = "The Open Graph protocol, Basic metadata"
+source_url = "https://ogp.me/"
+do_not = "Do not leave out og:image, use a relative image URL, or copy the home page values onto every page."
+[[rule.example]]
+name = "The Open Graph protocol"
+url = "https://ogp.me/"
+shows = "Names the four required properties and the optional ones, with a full head example for a film page."
+[[rule.example]]
+name = "web.dev: Learn HTML, Metadata"
+url = "https://web.dev/learn/html/metadata"
+shows = "The Open Graph section explains how social sites use the tags for link previews, with sample meta elements."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "View the source: og:title, og:type, og:url, og:image, og:description and an image alt text, next to a twitter:card tag."
+
+[[rule]]
+id = "favicon"
+area = "metadata"
+rule = "The home page declares a site icon with a link rel=icon element. The icon is square and its file can be crawled."
+measure = "Square, 1:1 aspect ratio, at least 8 by 8 px; Google recommends larger than 48 by 48 px; one favicon per hostname; stable URL"
+check = "mechanical"
+basis = "vendor"
+probe = "On the home page, read link elements whose rel includes icon; pass if at least one exists, its href returns 200 with an image content type, the image is square and at least 48 px wide, and robots.txt does not disallow it."
+source = "Google Search Central, Define a favicon to show in search results"
+source_url = "https://developers.google.com/search/docs/appearance/favicon-in-search"
+do_not = "Do not use a non-square image, change the favicon URL often, or block the icon file in robots.txt."
+[[rule.example]]
+name = "Google: Define a favicon to show in search results"
+url = "https://developers.google.com/search/docs/appearance/favicon-in-search"
+shows = "The link element syntax, the accepted rel values and file formats, and the size and crawling requirements."
+[[rule.example]]
+name = "MDN: HTML attribute rel"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel"
+shows = "Defines the icon link type and shows its most common use, the favicon link element."
+[[rule.example]]
+name = "GOV.UK: home page"
+url = "https://www.gov.uk/"
+shows = "View the source: an icon link sized 48x48 for the .ico file and a second icon link for an SVG version."
+
+# ----------------------------------------------------------------- structure
+
+[[rule]]
+id = "single-h1"
+area = "structure"
+rule = "Each page has one h1 that states what the page is about. It is the most prominent heading on the page."
+measure = "Exactly 1 non-empty h1. The HTML Standard permits more than one; MDN advises a single h1, and Google asks for one main title that clearly stands out"
+check = "mechanical"
+basis = "vendor"
+probe = "Count h1 elements in the rendered DOM; pass if there is exactly one, it is visible, and its text is not empty."
+source = "Google Search Central, Influencing your title links: Make it clear which text is the main title for the page"
+source_url = "https://developers.google.com/search/docs/appearance/title-link"
+do_not = "Do not use several h1 elements of equal weight, wrap the logo in the h1 on every page, or leave the page with no h1."
+[[rule.example]]
+name = "MDN: The HTML section heading elements"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/Heading_Elements"
+shows = "The note Avoid using multiple h1 elements on one page: a page should generally have a single h1 that describes its content."
+[[rule.example]]
+name = "W3C WAI Tutorials: Headings"
+url = "https://www.w3.org/WAI/tutorials/page-structure/headings/"
+shows = "Example page outlines in which the rank 1 heading is the content heading, not the site name."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "One h1, Back pain, that matches the page title and the topic of the content beneath it."
+
+[[rule]]
+id = "descriptive-urls"
+area = "structure"
+rule = "URLs use readable words that describe the page, in the audience's language, with hyphens between words."
+measure = "Hyphens, not underscores, between words; readable words instead of long ID numbers"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, URL structure best practices for Google Search"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/url-structure"
+do_not = "Do not use long numeric IDs, underscores, words run together, or session IDs in the URLs of public pages."
+[[rule.example]]
+name = "Google: URL structure best practices"
+url = "https://developers.google.com/search/docs/crawling-indexing/url-structure"
+shows = "Tables of recommended and not recommended URLs for descriptive words, hyphens, audience language and percent encoding."
+[[rule.example]]
+name = "GOV.UK: Driving licences"
+url = "https://www.gov.uk/browse/driving/driving-licences"
+shows = "The address itself: short lower-case words joined by hyphens, with the path following the section hierarchy."
+[[rule.example]]
+name = "Google: SEO starter guide"
+url = "https://developers.google.com/search/docs/fundamentals/seo-starter-guide"
+shows = "The Use descriptive URLs section, which contrasts a readable path with a path of random identifiers."
+
+[[rule]]
+id = "pagination"
+area = "structure"
+rule = "Each page of a paginated list has its own URL, its own canonical link, and anchor links to the next and previous pages. Infinite scroll and load more buttons sit on top of the same paginated URLs."
+measure = "A distinct URL per page, for example ?page=2; each page links onward with an a element; each page is its own canonical"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Pagination, incremental page loading, and their impact on Google Search"
+source_url = "https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading"
+do_not = "Do not make page 1 the canonical for every page, use URL fragments for page numbers, or rely on rel=next and rel=prev link elements, which Google no longer uses."
+[[rule.example]]
+name = "Google: Pagination, incremental page loading, and their impact on Google Search"
+url = "https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading"
+shows = "Best practices: link pages sequentially, give each page a unique URL, and do not use the first page as the canonical."
+[[rule.example]]
+name = "Google: Fix lazy-loaded content"
+url = "https://developers.google.com/search/docs/crawling-indexing/javascript/lazy-loading"
+shows = "The section Support paginated loading for infinite scroll: link to each chunk's URL and update the address with the History API as chunks load."
+[[rule.example]]
+name = "GOV.UK: News and communications, page 2"
+url = "https://www.gov.uk/search/news-and-communications?page=2"
+shows = "Previous and Next controls at the foot of the list are plain anchor links to ?page=1 and ?page=3."
+
+# --------------------------------------------------------------------- links
+
+[[rule]]
+id = "crawlable-links"
+area = "links"
+rule = "Every link is an a element with an href attribute that holds a real URL."
+measure = "Every navigation control is an a element with a resolvable href"
+check = "mechanical"
+basis = "vendor"
+probe = "List every a element and every element with role=link or a click handler that changes the location; fail if an a element has no href, an empty href or a javascript: href, or if navigation is attached to a span, div or button instead of an anchor."
+source = "Google Search Central, Link best practices for Google: Make your links crawlable"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/links-crawlable"
+do_not = "Do not build navigation from span or div elements with click handlers, or from anchors with no href."
+[[rule.example]]
+name = "Google: Link best practices for Google"
+url = "https://developers.google.com/search/docs/crawling-indexing/links-crawlable"
+shows = "Code samples of links Google can parse and links it cannot, such as an anchor with a routerLink or an onclick handler but no href."
+[[rule.example]]
+name = "web.dev: Learn HTML, Links"
+url = "https://web.dev/learn/html/links"
+shows = "Explains that the href attribute is what turns an a element into a link, with the kinds of target it can hold."
+[[rule.example]]
+name = "GOV.UK: Driving and transport"
+url = "https://www.gov.uk/browse/driving"
+shows = "Every topic in the list is a plain anchor with a path in its href, so the page can be followed with JavaScript switched off."
+
+[[rule]]
+id = "anchor-text"
+area = "links"
+rule = "Link text describes the page it leads to and makes sense when read on its own. An image used as a link has alt text that does the same job."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Link best practices for Google: Write good anchor text"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/links-crawlable"
+do_not = "Do not use click here, read more, learn more or a bare URL as link text, and do not cram keywords into it."
+[[rule.example]]
+name = "Google: Link best practices for Google"
+url = "https://developers.google.com/search/docs/crawling-indexing/links-crawlable"
+shows = "Bad and better examples of anchor text, with the tip to read the anchor text out of context and check it still makes sense."
+[[rule.example]]
+name = "Chrome Lighthouse: Links do not have descriptive text"
+url = "https://developer.chrome.com/docs/lighthouse/seo/link-text"
+shows = "The list of generic phrases the audit flags, such as click here."
+[[rule.example]]
+name = "MDN: The anchor element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/a"
+shows = "The Strong link text section, with weak and strong versions of the same link."
+
+[[rule]]
+id = "internal-linking"
+area = "links"
+rule = "Every page that matters is linked from at least one other page on the site. Pages link to related pages in context, and internal links use the canonical URL."
+measure = "At least 1 internal link to every page you want found. Google gives no ideal number of links per page"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Link best practices for Google: Internal links"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/links-crawlable"
+do_not = "Do not leave pages reachable only through the sitemap or site search, and do not link internally to redirecting or duplicate URLs."
+[[rule.example]]
+name = "Google: Link best practices for Google"
+url = "https://developers.google.com/search/docs/crawling-indexing/links-crawlable"
+shows = "States that every page you care about should have a link from at least one other page on your site, and that there is no magical ideal number of links."
+[[rule.example]]
+name = "Google: How to specify a canonical URL"
+url = "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+shows = "The instruction to link to the canonical URL, not a duplicate, when linking within your site."
+[[rule.example]]
+name = "GOV.UK: Driving and transport"
+url = "https://www.gov.uk/browse/driving"
+shows = "A section page whose job is to link down to each sub-topic, with a breadcrumb link back up to the home page."
+
+# ------------------------------------------------------------------- content
+
+[[rule]]
+id = "image-alt-text"
+area = "content"
+rule = "Every img element has an alt attribute. Images that carry meaning get a short description, decorative images get an empty alt, and an image inside a link always gets alt text."
+measure = "Every img has an alt attribute; an img that is the only content of a link has non-empty alt text"
+check = "mechanical"
+basis = "standard"
+probe = "List every img element in the rendered DOM; fail if any lacks an alt attribute, or if an img that is the sole content of an a element has an empty alt."
+source = "WCAG 2.2, 1.1.1 Non-text Content, Level A (see also Google Search Central, Google image SEO best practices)"
+source_url = "https://www.w3.org/TR/WCAG22/#non-text-content"
+do_not = "Do not omit the alt attribute, fill it with keywords, or repeat the file name in it."
+[[rule.example]]
+name = "Google: Google image SEO best practices"
+url = "https://developers.google.com/search/docs/appearance/google-images"
+shows = "Calls alt text the most important attribute for image metadata, and says Google uses the alt text of a linked image as its anchor text."
+[[rule.example]]
+name = "W3C WAI Tutorials: An alt decision tree"
+url = "https://www.w3.org/WAI/tutorials/images/decision-tree/"
+shows = "A sequence of questions that leads to the right alt text for each kind of image, including an empty alt for decorative ones."
+[[rule.example]]
+name = "MDN: The image embed element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img"
+shows = "Explains what the alt attribute should say, what an empty alt means, and what happens when the attribute is missing."
+
+[[rule]]
+id = "image-elements-and-file-names"
+area = "content"
+rule = "Content images are placed with img elements, not CSS backgrounds, and have short file names that describe what they show."
+measure = "Content images use img with a src attribute. Google does not index CSS images"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Google image SEO best practices"
+source_url = "https://developers.google.com/search/docs/appearance/google-images"
+do_not = "Do not name image files IMG00023.JPG, image1.jpg or pic.gif, and do not deliver a content image as a CSS background."
+[[rule.example]]
+name = "Google: Google image SEO best practices"
+url = "https://developers.google.com/search/docs/appearance/google-images"
+shows = "Says my-new-black-kitten.jpg is better than IMG00023.JPG, that Google finds images in the src of img elements, and that it does not index CSS images."
+[[rule.example]]
+name = "Google: Mobile site and mobile-first indexing best practices"
+url = "https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing"
+shows = "Says to use the same titles, captions, file names and alt text for images on the mobile site as on the desktop site."
+
+[[rule]]
+id = "no-intrusive-interstitials"
+area = "content"
+rule = "Visitors and crawlers reach the content as soon as the page loads. Promotions and prompts use a banner that takes a small part of the screen, not an overlay that covers the page."
+measure = "No overlay hides the whole page on arrival, apart from legally required ones such as consent or age checks"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Avoid intrusive interstitials and dialogs"
+source_url = "https://developers.google.com/search/docs/appearance/avoid-intrusive-interstitials"
+do_not = "Do not cover the whole page with a newsletter, app install or promotional overlay, and do not redirect every URL to a separate consent page."
+[[rule.example]]
+name = "Google: Avoid intrusive interstitials and dialogs"
+url = "https://developers.google.com/search/docs/appearance/avoid-intrusive-interstitials"
+shows = "Says to use banners that take up only a small fraction of the screen, not to obscure the entire page, and how to handle mandatory consent and age gates."
+[[rule.example]]
+name = "Google: Understanding page experience in Google Search results"
+url = "https://developers.google.com/search/docs/appearance/page-experience"
+shows = "Lists avoiding intrusive interstitials among the questions used to assess page experience."
+
+[[rule]]
+id = "people-first-content"
+area = "content"
+rule = "Content is written to help the people it is for. It is original, complete enough to answer the reader's need, accurate and easy to read."
+measure = "Google states that it has no preferred word count"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Creating helpful, reliable, people-first content"
+source_url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+do_not = "Do not write to a word count, cover a topic only because it might bring search traffic, or mass-produce pages with automation on many topics."
+[[rule.example]]
+name = "Google: Creating helpful, reliable, people-first content"
+url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+shows = "Self-assessment questions on content quality, plus the warning signs of content made for search engines first."
+[[rule.example]]
+name = "Google: SEO starter guide"
+url = "https://developers.google.com/search/docs/fundamentals/seo-starter-guide"
+shows = "Describes helpful content as easy to read, well organised, unique and up to date, and says Google Search does not use the keywords meta tag."
+[[rule.example]]
+name = "GOV.UK: Tax your vehicle"
+url = "https://www.gov.uk/vehicle-tax"
+shows = "A short page that answers one task in plain words under a heading that names the task."
+
+[[rule]]
+id = "experience-expertise-trust"
+area = "content"
+rule = "The page makes clear who wrote or published it, how it was produced and why. Its claims are sourced, and trust matters most on topics that affect health, money or safety."
+measure = "Google states that E-E-A-T is not itself a specific ranking factor and that trust is its most important part"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Creating helpful, reliable, people-first content: E-E-A-T and Who, How, and Why"
+source_url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+do_not = "Do not publish advice with no named author or publisher, no sources and no date, and do not invent author credentials."
+[[rule.example]]
+name = "Google: Creating helpful, reliable, people-first content"
+url = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
+shows = "Defines experience, expertise, authoritativeness and trustworthiness, and encourages accurate authorship information such as bylines."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "A health page from a named authority that states the date it was last reviewed and the date the next review is due at the foot of the page."
+
+[[rule]]
+id = "page-experience-pointer"
+area = "content"
+rule = "Pages meet the Core Web Vitals targets and the other page experience checks. This rule is a pointer only: the performance rubric holds the measurements."
+measure = "LCP within 2.5 s, INP under 200 ms and CLS under 0.1, as measured by the performance rubric"
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, Understanding Core Web Vitals and Google search results"
+source_url = "https://developers.google.com/search/docs/appearance/core-web-vitals"
+do_not = "Do not sign off a page for search without a passing result from the performance rubric."
+[[rule.example]]
+name = "web.dev: Web Vitals"
+url = "https://web.dev/articles/vitals"
+shows = "Defines the three Core Web Vitals and gives the good threshold for each."
+[[rule.example]]
+name = "Google: Understanding page experience in Google Search results"
+url = "https://developers.google.com/search/docs/appearance/page-experience"
+shows = "The self-assessment list: Core Web Vitals, secure serving, mobile display and no intrusive interstitials."
+
+# ------------------------------------------------------------ structured-data
+
+[[rule]]
+id = "structured-data-json-ld"
+area = "structured-data"
+rule = "Structured data is written as JSON-LD using schema.org types, and it is valid. Use the type that fits the page: Organization on the home page, Article on articles, Product on product pages, BreadcrumbList for the page's place in the site, LocalBusiness for a physical location, FAQPage for a page of questions and answers."
+measure = "Each script type=application/ld+json block parses as JSON, has a schema.org @context and an @type, and includes every property Google lists as required for that type. Google no longer shows the FAQ rich result, so FAQPage markup brings no Google feature"
+check = "mechanical"
+basis = "vendor"
+probe = "Extract every script element of type application/ld+json from the rendered DOM; pass if each parses as JSON, declares a schema.org @context and an @type, and contains the properties Google's documentation marks as required for that type."
+source = "Google Search Central, Introduction to structured data markup in Google Search"
+source_url = "https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data"
+do_not = "Do not ship JSON-LD that fails to parse, omits required properties, or uses a type that does not describe the page."
+[[rule.example]]
+name = "Google: Breadcrumb (BreadcrumbList) structured data"
+url = "https://developers.google.com/search/docs/appearance/structured-data/breadcrumb"
+shows = "A complete JSON-LD BreadcrumbList inside a page head, with a name and URL for each step of the trail."
+[[rule.example]]
+name = "schema.org: Product"
+url = "https://schema.org/Product"
+shows = "The type definition with its properties and worked examples, each available in a JSON-LD tab."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "View the source: JSON-LD blocks that parse cleanly and describe the page, its publishing Organization and a BreadcrumbList."
+
+[[rule]]
+id = "structured-data-matches-page"
+area = "structured-data"
+rule = "Structured data describes only what a visitor can see on the page, and describes it truthfully and completely."
+measure = ""
+check = "judgment"
+basis = "vendor"
+source = "Google Search Central, General structured data guidelines"
+source_url = "https://developers.google.com/search/docs/appearance/structured-data/sd-policies"
+do_not = "Do not mark up content that is not visible to readers, such as hidden reviews, prices or questions, and do not mark up content unrelated to the focus of the page."
+[[rule.example]]
+name = "Google: General structured data guidelines"
+url = "https://developers.google.com/search/docs/appearance/structured-data/sd-policies"
+shows = "The quality guidelines: do not mark up content that is not visible, keep data a true representation of the page, and keep it up to date."
+[[rule.example]]
+name = "Google: Organization structured data"
+url = "https://developers.google.com/search/docs/appearance/structured-data/organization"
+shows = "Says to add Organization markup to the home page with the properties that really apply, and that none are required."
+[[rule.example]]
+name = "Google: Local business (LocalBusiness) structured data"
+url = "https://developers.google.com/search/docs/appearance/structured-data/local-business"
+shows = "Sample markup for a business with its address and opening hours, the same facts a visitor expects to read on the page."
+
+# -------------------------------------------------------------------- mobile
+
+[[rule]]
+id = "viewport-meta"
+area = "mobile"
+rule = "Every page has a viewport meta tag that sets the width to the device width, so the layout fits a phone screen."
+measure = "meta name=viewport with content that includes width=device-width, normally width=device-width, initial-scale=1"
+check = "mechanical"
+basis = "vendor"
+probe = "Read the meta element named viewport in the head; pass if exactly one exists and its content includes width=device-width."
+source = "web.dev, Responsive web design basics: Set the viewport"
+source_url = "https://web.dev/articles/responsive-web-design-basics"
+do_not = "Do not leave the viewport tag out or set a fixed pixel width such as width=1024."
+[[rule.example]]
+name = "web.dev: Responsive web design basics"
+url = "https://web.dev/articles/responsive-web-design-basics"
+shows = "The viewport tag with width=device-width and initial-scale=1, and what each value does."
+[[rule.example]]
+name = "MDN: meta name=viewport"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/meta/name/viewport"
+shows = "Reference for each viewport value, including device-width and the zoom controls."
+[[rule.example]]
+name = "Chrome Lighthouse: Does not have a viewport tag with width or initial-scale"
+url = "https://developer.chrome.com/docs/lighthouse/best-practices/viewport"
+shows = "States that the audit flags pages without a viewport meta tag."
+
+[[rule]]
+id = "mobile-content-parity"
+area = "mobile"
+rule = "The mobile version of a page has the same primary content, title, meta description, robots rules, structured data and image alt text as the desktop version."
+measure = "Title, meta description, robots meta, headings, main text, image alt text and JSON-LD are equivalent on mobile and desktop"
+check = "mechanical"
+basis = "vendor"
+probe = "Load the page once with a phone user agent and viewport and once with a desktop one; pass if the title, meta description, robots meta, canonical, h1, JSON-LD types, image alt texts and the text of the main element are the same in both."
+source = "Google Search Central, Mobile site and mobile-first indexing best practices"
+source_url = "https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing"
+do_not = "Do not remove sections, structured data or alt text from the mobile layout, and do not serve a different robots meta tag on mobile."
+[[rule.example]]
+name = "Google: Mobile site and mobile-first indexing best practices"
+url = "https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing"
+shows = "The checklist: same content, same robots meta tags, same structured data, equivalent title and description, same image alt text."
+[[rule.example]]
+name = "web.dev: Responsive web design basics"
+url = "https://web.dev/articles/responsive-web-design-basics"
+shows = "How one HTML document reflows to every screen width, which keeps the content the same on all devices."
+[[rule.example]]
+name = "NHS: Back pain"
+url = "https://www.nhs.uk/conditions/back-pain/"
+shows = "Returns the same HTML, with the same title, description, canonical and heading, to a phone user agent as to a desktop one."
+
+# ------------------------------------------------------------- international
+
+[[rule]]
+id = "html-lang"
+area = "international"
+rule = "The html element has a lang attribute with a valid language tag for the page's main language. Each page keeps its content and navigation in one language."
+measure = "html lang is present and is a valid BCP 47 tag, such as en-GB. Google states that it detects language from visible content and does not use the lang attribute"
+check = "mechanical"
+basis = "standard"
+probe = "Read the lang attribute of the html element; pass if it is present, not empty, and a well-formed BCP 47 language tag."
+source = "HTML Standard, 3.2.6.2 The lang and xml:lang attributes (see also WCAG 2.2, 3.1.1 Language of Page, Level A)"
+source_url = "https://html.spec.whatwg.org/multipage/dom.html#the-lang-and-xml:lang-attributes"
+do_not = "Do not leave lang off the html element, set it to a language the page is not written in, or declare the language with a meta element instead."
+[[rule.example]]
+name = "W3C Internationalization: Declaring language in HTML"
+url = "https://www.w3.org/International/questions/qa-html-language-declarations"
+shows = "Says to always use a language attribute on the html tag and not to use a meta element to declare the page language."
+[[rule.example]]
+name = "W3C: Understanding 3.1.1 Language of Page"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html"
+shows = "The success criterion and the technique of setting lang on the html element."
+[[rule.example]]
+name = "BBC News"
+url = "https://www.bbc.co.uk/news"
+shows = "View the source: the html element carries lang set to en-GB."
+
+[[rule]]
+id = "hreflang"
+area = "international"
+rule = "When a page exists in more than one language or region, every version lists itself and all the other versions with hreflang annotations. Each version has its own URL."
+measure = "Each version lists itself and every other version; URLs are fully qualified; language codes are valid; x-default names the fallback page"
+check = "mechanical"
+basis = "vendor"
+probe = "Read link rel=alternate hreflang elements in the head and Link response headers; if any exist, pass when each code is valid, each href is an absolute URL, one entry points to the page itself, and every listed alternate lists this page back."
+source = "Google Search Central, Tell Google about localized versions of your page"
+source_url = "https://developers.google.com/search/docs/specialty/international/localized-versions"
+do_not = "Do not list alternates that fail to link back, use relative URLs, or redirect visitors automatically to another language version."
+[[rule.example]]
+name = "Chrome Lighthouse: Document does not have a valid hreflang"
+url = "https://developer.chrome.com/docs/lighthouse/seo/hreflang"
+shows = "Explains what the audit checks, with a three-language example that includes an x-default entry."
+[[rule.example]]
+name = "Firefox: en-GB home page"
+url = "https://www.firefox.com/en-GB/"
+shows = "View the source: a block of alternate links with absolute URLs, one per locale, including en-GB itself and an x-default entry."
+[[rule.example]]
+name = "Google: Managing multi-regional and multilingual sites"
+url = "https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites"
+shows = "Says to use a different URL for each language version, to avoid automatic redirects by language, and that Google reads language from visible content."

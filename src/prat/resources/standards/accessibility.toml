@@ -1,0 +1,815 @@
+# Accessibility standards rubric for websites and web applications.
+# Scope: WCAG 2.2 Level A and AA as it applies to web pages, plus WAI-ARIA and the ARIA Authoring Practices Guide where they give the accepted pattern.
+# Every number was checked against its source page and every source and example URL was fetched in November 2026.
+# Rules already in standards.toml (contrast, target size, reflow, focus visible, labels, headings, link text, status messages, reduced motion) are not repeated here.
+
+# --------------------------------------------------------------- perceivable
+
+[[rule]]
+id = "image-alt-present"
+area = "perceivable"
+rule = "Every image has a text alternative in code. An img element always carries an alt attribute, even when the value is empty."
+measure = "Every img element has an alt attribute, or a name from aria-label or aria-labelledby, or role none or presentation"
+check = "mechanical"
+basis = "standard"
+probe = "For each img element in the DOM, pass if it has an alt attribute (the value may be empty), or an aria-label or aria-labelledby that resolves to text, or a role of none or presentation."
+source = "WCAG 2.2, 1.1.1 Non-text Content, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#non-text-content"
+do_not = "Do not leave the alt attribute off an img element. Some screen readers then read out the file name."
+[[rule.example]]
+name = "Deque University: axe rule image-alt"
+url = "https://dequeuniversity.com/rules/axe/4.10/image-alt"
+shows = "Describes the automated check that every img element has alternative text or a presentation role, with the three ways to add it."
+[[rule.example]]
+name = "MDN: The img element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img"
+shows = "Explains the alt attribute, including that an empty alt marks an image as decoration, with a live example."
+[[rule.example]]
+name = "W3C WAI Tutorials: An alt decision tree"
+url = "https://www.w3.org/WAI/tutorials/images/decision-tree/"
+shows = "A step by step tree that ends in either an empty alt attribute or a described one for every kind of image."
+
+[[rule]]
+id = "image-alt-meaningful"
+area = "perceivable"
+rule = "The text alternative says what the image means or does in its context. Decorative images get an empty alt attribute so assistive technology skips them."
+measure = ""
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 1.1.1 Non-text Content, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#non-text-content"
+do_not = "Do not use a file name, the word image, or a description of decoration as alt text."
+[[rule.example]]
+name = "W3C WAI Tutorials: Informative images"
+url = "https://www.w3.org/WAI/tutorials/images/informative/"
+shows = "Five worked examples where the text alternative conveys the meaning or content that is shown visually."
+[[rule.example]]
+name = "W3C WAI Tutorials: Decorative images"
+url = "https://www.w3.org/WAI/tutorials/images/decorative/"
+shows = "Four worked examples of images given an empty alt attribute so that assistive technology ignores them."
+[[rule.example]]
+name = "GOV.UK Design System: Images"
+url = "https://design-system.service.gov.uk/styles/images/"
+shows = "Says when to write alt text and lists the cases where an empty alt attribute is the better choice."
+
+[[rule]]
+id = "media-captions"
+area = "perceivable"
+rule = "Prerecorded video with speech has accurate captions that include speech and the sounds needed to follow it. Audio-only content has a transcript, and video whose pictures carry information has audio description."
+measure = "Captions on all prerecorded video with audio (1.2.2, Level A); a text alternative for audio-only content (1.2.1, Level A); audio description for prerecorded video (1.2.5, Level AA)"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 1.2.2 Captions (Prerecorded), Level A (with 1.2.1 Audio-only and Video-only and 1.2.5 Audio Description)"
+source_url = "https://www.w3.org/TR/WCAG22/#captions-prerecorded"
+do_not = "Do not publish video with unedited automatic captions or with no captions at all."
+[[rule.example]]
+name = "W3C WAI: Making audio and video media accessible, Captions"
+url = "https://www.w3.org/WAI/media/av/captions/"
+shows = "Defines captions as text for speech and non-speech audio, and shows an automatic caption error that reverses the meaning of a recipe."
+[[rule.example]]
+name = "web.dev: Learn accessibility, Video and audio"
+url = "https://web.dev/learn/accessibility/video-audio"
+shows = "Explains captions, transcripts and audio descriptions, with screenshots of a video with and without captions."
+[[rule.example]]
+name = "WebAIM: Captions, transcripts and audio descriptions"
+url = "https://webaim.org/techniques/captions/"
+shows = "States that synchronised media must include captions and explains when transcripts and audio descriptions are needed."
+
+[[rule]]
+id = "audio-autoplay"
+area = "perceivable"
+rule = "Sound does not start on its own. If audio plays automatically for more than 3 seconds, the page gives a control to pause or stop it or to change its volume."
+measure = "No audio that plays automatically for more than 3 seconds without a pause, stop or volume control"
+check = "mechanical"
+basis = "standard"
+probe = "After page load with no user input, pass if no audio or video element is playing unmuted sound for more than 3 seconds, or if the playing element exposes a working pause or mute control."
+source = "WCAG 2.2, 1.4.2 Audio Control, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#audio-control"
+do_not = "Do not autoplay a video or background track with sound."
+[[rule.example]]
+name = "W3C: Understanding 1.4.2 Audio Control"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html"
+shows = "Explains the 3 second limit and lists the techniques, such as playing sounds only when the user asks for them."
+[[rule.example]]
+name = "W3C ACT Rules: Audio or video element avoids automatically playing audio"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/80f0bf/"
+shows = "A test rule for autoplaying media longer than 3 seconds, with passed and failed code examples."
+[[rule.example]]
+name = "Deque University: axe rule no-autoplay-audio"
+url = "https://dequeuniversity.com/rules/axe/4.10/no-autoplay-audio"
+shows = "Lists the fixes: start audio only on a user action, stop it within three seconds, or give a control to stop, pause or mute it."
+
+[[rule]]
+id = "zoom-not-blocked"
+area = "perceivable"
+rule = "The page never switches off pinch zoom or browser zoom."
+measure = "The viewport meta tag has no user-scalable=no and no maximum-scale below 2"
+check = "mechanical"
+basis = "standard"
+probe = "Read the content attribute of the meta viewport element; pass if user-scalable is not no or 0 and maximum-scale is absent or at least 2."
+source = "WCAG 2.2, 1.4.4 Resize Text, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#resize-text"
+do_not = "Do not set user-scalable=no or maximum-scale=1 in the viewport meta tag."
+[[rule.example]]
+name = "W3C ACT Rules: Meta viewport allows for zoom"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/b4f0c3/"
+shows = "The two expectations, no user-scalable set to no and no maximum-scale below 2, with passed and failed viewport tags."
+[[rule.example]]
+name = "Deque University: axe rule meta-viewport"
+url = "https://dequeuniversity.com/rules/axe/4.10/meta-viewport"
+shows = "Says to remove user-scalable=no and to keep maximum-scale at 2 or more so that users can zoom."
+[[rule.example]]
+name = "MDN: The viewport meta tag"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/meta/name/viewport"
+shows = "Warns that disabling zoom harms people with low vision and notes that WCAG requires at least 2 times scaling."
+
+[[rule]]
+id = "orientation-not-locked"
+area = "perceivable"
+rule = "The page works in both portrait and landscape. It does not lock itself to one orientation unless that orientation is essential."
+measure = "Content is shown and usable in portrait and in landscape"
+check = "mechanical"
+basis = "standard"
+probe = "Load the page in a portrait viewport and in a landscape viewport; pass if the content renders in both, no element is rotated a quarter turn by a CSS transform inside an orientation media query, and no message asks the user to rotate the device."
+source = "WCAG 2.2, 1.3.4 Orientation, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#orientation"
+do_not = "Do not show a rotate your device message or rotate the layout with CSS to force one orientation."
+[[rule.example]]
+name = "W3C: Understanding 1.3.4 Orientation"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html"
+shows = "Examples of sites that work in both orientations, the essential exceptions, and the two failures of locking or asking users to rotate."
+[[rule.example]]
+name = "W3C ACT Rules: Orientation of the page is not restricted using CSS transforms"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/b33eff/"
+shows = "A test rule for rotation applied through orientation media queries, with passed and failed code examples."
+[[rule.example]]
+name = "Deque University: axe rule css-orientation-lock"
+url = "https://dequeuniversity.com/rules/axe/4.10/css-orientation-lock"
+shows = "Describes the automated check that CSS media queries do not lock the display orientation. Deque marks the rule experimental."
+
+[[rule]]
+id = "data-table-headers"
+area = "perceivable"
+rule = "Data tables mark header cells with th and tie them to their data cells. Simple tables use scope, and complex tables use id and headers. Give the table a caption."
+measure = "Every data table has th header cells; each th has scope or is referenced by headers; every headers value points to a cell in the same table"
+check = "mechanical"
+basis = "standard"
+probe = "For each table element without role none or presentation, pass if it has at least one th or cell with role columnheader or rowheader, every header cell has at least one data cell assigned to it, and every id in a headers attribute belongs to a cell in the same table."
+source = "WCAG 2.2, 1.3.1 Info and Relationships, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#info-and-relationships"
+do_not = "Do not build a data table from td cells with bold text for headers, or lay data out in a grid of div elements with no table roles."
+[[rule.example]]
+name = "W3C WAI Tutorials: Tables"
+url = "https://www.w3.org/WAI/tutorials/tables/"
+shows = "States that header cells must use th and data cells td, and links to worked tables with one header, two headers and irregular headers."
+[[rule.example]]
+name = "GOV.UK Design System: Table"
+url = "https://design-system.service.gov.uk/components/table/"
+shows = "Live tables coded with a caption and with th cells that carry scope col or scope row."
+[[rule.example]]
+name = "US Web Design System: Table"
+url = "https://designsystem.digital.gov/components/table/"
+shows = "Table previews with component code that uses a caption and scope on column and row headers."
+
+[[rule]]
+id = "group-related-controls"
+area = "perceivable"
+rule = "Group related form controls in code and name the group. Radio buttons that answer one question sit in a fieldset with a legend that holds the question."
+measure = "Every radio group is inside a fieldset with a non-empty legend, or inside an element with role group or radiogroup that has an accessible name"
+check = "mechanical"
+basis = "standard"
+probe = "For each set of radio inputs that share a name, pass if they have a common ancestor that is a fieldset with a non-empty legend, or that has role group or radiogroup with a non-empty accessible name."
+source = "WCAG 2.2, 1.3.1 Info and Relationships, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#info-and-relationships"
+do_not = "Do not put the question for a set of radio buttons in a plain paragraph or heading that is not tied to the group."
+[[rule.example]]
+name = "W3C WAI Tutorials: Grouping controls"
+url = "https://www.w3.org/WAI/tutorials/forms/grouping/"
+shows = "Says radio button groups should always use fieldset, with worked radio, checkbox and address examples and a role group alternative."
+[[rule.example]]
+name = "GOV.UK Design System: Fieldset"
+url = "https://design-system.service.gov.uk/components/fieldset/"
+shows = "A live address group in a fieldset, and how to make the legend the page heading."
+[[rule.example]]
+name = "MDN: The fieldset element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset"
+shows = "A live radio group wrapped in a fieldset with a legend that asks the question."
+
+[[rule]]
+id = "landmarks"
+area = "perceivable"
+rule = "Mark the regions of the page with landmark elements: header, nav, main, footer and aside. Each page has one main landmark, and landmarks of the same type that appear more than once each get a unique label."
+measure = "Exactly 1 visible main element; repeated landmark types each have a distinct accessible name"
+check = "mechanical"
+basis = "standard"
+probe = "Read the accessibility tree; pass if there is exactly one main landmark, and every landmark role that occurs more than once has a non-empty accessible name that differs from the others of that role."
+source = "WCAG 2.2, 1.3.1 Info and Relationships, Level A (the HTML Standard allows only one visible main element; the ARIA Authoring Practices Guide gives the landmark pattern)"
+source_url = "https://www.w3.org/TR/WCAG22/#info-and-relationships"
+do_not = "Do not build the page shell from div elements only, and do not use more than one visible main element."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Landmark regions"
+url = "https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/"
+shows = "Says each page should have one main landmark, that repeated landmark roles need unique labels, and maps HTML elements to landmark roles."
+[[rule.example]]
+name = "W3C WAI Tutorials: Page regions"
+url = "https://www.w3.org/WAI/tutorials/page-structure/regions/"
+shows = "Code examples of header, footer, nav, main and aside, including two nav elements that are each labelled."
+[[rule.example]]
+name = "Deque University: axe rule landmark-one-main"
+url = "https://dequeuniversity.com/rules/axe/4.10/landmark-one-main"
+shows = "Describes the automated check that a document has one main landmark. Deque lists it as a best practice."
+
+# ------------------------------------------------------------------ operable
+
+[[rule]]
+id = "keyboard-operable"
+area = "operable"
+rule = "Everything a mouse or touch user can do can also be done with the keyboard alone. Every interactive element can be reached with Tab or arrow keys and activated with Enter or Space."
+measure = ""
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.1.1 Keyboard, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#keyboard"
+do_not = "Do not attach click handlers to div or span elements that cannot take focus or respond to keys."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Developing a keyboard interface"
+url = "https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/"
+shows = "States that all interactive elements must be operable by keyboard and explains tab sequence and roving tabindex with code."
+[[rule.example]]
+name = "WebAIM: Keyboard accessibility"
+url = "https://webaim.org/techniques/keyboard/"
+shows = "Sections on potential problems and on keyboard testing, for checking that a page works without a mouse."
+[[rule.example]]
+name = "MDN: Keyboard accessible"
+url = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Keyboard"
+shows = "Sections stating that clickable elements must be focusable and that interactive elements must be activated by keyboard, with code."
+
+[[rule]]
+id = "no-keyboard-trap"
+area = "operable"
+rule = "Keyboard focus can always move away from any component using the keyboard alone. A modal dialog holds focus only while it is open and closes with Escape."
+measure = "Focus can leave every component with Tab, Shift+Tab, arrow keys or Escape"
+check = "mechanical"
+basis = "standard"
+probe = "Press Tab repeatedly from the top of the page; pass if focus reaches every focusable element and leaves the last one, without cycling inside a subset of the page, except inside an open modal dialog that closes when Escape is pressed."
+source = "WCAG 2.2, 2.1.2 No Keyboard Trap, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#no-keyboard-trap"
+do_not = "Do not let an embedded widget, editor or overlay capture Tab with no keyboard way out."
+[[rule.example]]
+name = "W3C: Understanding 2.1.2 No Keyboard Trap"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/no-keyboard-trap.html"
+shows = "Examples of a calendar widget, a modal dialog and a rich text editor that each let keyboard users move focus away."
+[[rule.example]]
+name = "W3C Technique G21: Ensuring that users are not trapped in content"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/general/G21"
+shows = "A test procedure: tab through the content from start to finish and check that focus is never trapped."
+[[rule.example]]
+name = "WebAIM: Keyboard accessibility"
+url = "https://webaim.org/techniques/keyboard/"
+shows = "A keyboard traps section saying that pressing Escape should release focus from scoped areas such as modal dialogs."
+
+[[rule]]
+id = "focus-order"
+area = "operable"
+rule = "Tab moves through the page in an order that matches the visual and reading order. Keep the DOM order the same as the layout order instead of patching it with tabindex."
+measure = "No tabindex value greater than 0; DOM order matches visual order"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.4.3 Focus Order, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#focus-order"
+do_not = "Do not use tabindex values greater than 0 or reorder content with CSS so that focus jumps around the screen."
+[[rule.example]]
+name = "W3C: Understanding 2.4.3 Focus Order"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html"
+shows = "Examples of dialogs and tree controls with a sensible order, and a failing form whose tab order jumps between sections."
+[[rule.example]]
+name = "web.dev: Control focus with tabindex"
+url = "https://web.dev/articles/control-focus-with-tabindex"
+shows = "Explains tabindex 0 and -1 with examples and calls any tabindex greater than 0 an anti-pattern."
+[[rule.example]]
+name = "WebAIM: Keyboard accessibility, tabindex"
+url = "https://webaim.org/techniques/keyboard/tabindex"
+shows = "Describes the three uses of tabindex and says that values of 1 or more must always be avoided."
+
+[[rule]]
+id = "skip-link"
+area = "operable"
+rule = "Pages with a repeated header or navigation start with a skip link. It is the first focusable element, becomes visible on focus, and moves focus to the main content."
+measure = "The first focusable element on the page is a link to the start of the main content"
+check = "mechanical"
+basis = "standard"
+probe = "Press Tab once after page load; pass if the focused element is a visible link whose href points to an id on or inside the main content, and activating it moves focus there."
+source = "WCAG 2.2, 2.4.1 Bypass Blocks, Level A (technique G1)"
+source_url = "https://www.w3.org/TR/WCAG22/#bypass-blocks"
+do_not = "Do not make keyboard users tab through the whole header and navigation on every page before they reach the content."
+[[rule.example]]
+name = "GOV.UK Design System: Skip link"
+url = "https://design-system.service.gov.uk/components/skip-link/"
+shows = "A live skip link that appears on focus, with the rule that it goes immediately after the opening body tag."
+[[rule.example]]
+name = "W3C Technique G1: Adding a link at the top of each page that goes directly to the main content area"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/general/G1"
+shows = "Says the first interactive item is a link to the main content, with a five step test procedure."
+[[rule.example]]
+name = "WebAIM: Skip navigation links"
+url = "https://webaim.org/techniques/skipnav/"
+shows = "Covers visible skip links and ones hidden until focused, with advice on wording and placement near the top of the page."
+
+[[rule]]
+id = "pointer-gestures"
+area = "operable"
+rule = "Any action that uses a swipe, pinch or other multi-finger or path gesture can also be done with a single tap or click, such as a button."
+measure = ""
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.5.1 Pointer Gestures, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#pointer-gestures"
+do_not = "Do not make swipe the only way to move a carousel or pinch the only way to zoom a map."
+[[rule.example]]
+name = "W3C: Understanding 2.5.1 Pointer Gestures"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/pointer-gestures.html"
+shows = "Examples of a map with plus and minus buttons beside pinch zoom, and a carousel with arrow buttons beside swipe."
+[[rule.example]]
+name = "W3C Technique G215: Providing controls to achieve the same result as path based or multipoint gestures"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/general/G215"
+shows = "Describes a content slider that keeps swipe and adds next and previous buttons, with a test procedure."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Auto-rotating image carousel example"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/carousel/examples/carousel-1-prev-next/"
+shows = "A working carousel that is moved with previous and next slide buttons."
+
+[[rule]]
+id = "dragging-alternative"
+area = "operable"
+rule = "Anything that can be done by dragging can also be done with single taps or clicks, such as move up and move down buttons or a move to menu."
+measure = "Every drag operation has a single pointer alternative that needs no dragging"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.5.7 Dragging Movements, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#dragging-movements"
+do_not = "Do not make drag and drop the only way to reorder a list, move a card or set a slider."
+[[rule.example]]
+name = "W3C: Understanding 2.5.7 Dragging Movements"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html"
+shows = "Examples of a sortable list with up and down controls, a task board with a move menu, a slider and a map with buttons."
+[[rule.example]]
+name = "Atlassian Design System: Pragmatic drag and drop, Accessibility guidelines"
+url = "https://atlassian.design/components/pragmatic-drag-and-drop/accessibility-guidelines"
+shows = "Says to always provide alternatives to dragging through visible controls such as buttons, menus and forms, with live examples."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Listboxes with rearrangeable options"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/listbox/examples/listbox-rearrangeable/"
+shows = "Working lists whose items are moved with Up, Down, Add and Remove buttons instead of dragging."
+
+[[rule]]
+id = "timeouts"
+area = "operable"
+rule = "If a session or task has a time limit, warn the user before it ends and let them extend it with one simple action. Otherwise let them turn the limit off or lengthen it."
+measure = "Warning at least 20 seconds before expiry; the limit can be extended at least 10 times, or adjusted to at least 10 times the default, or turned off; limits longer than 20 hours are exempt"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.2.1 Timing Adjustable, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#timing-adjustable"
+do_not = "Do not sign users out or clear a form on a timer with no warning and no way to ask for more time."
+[[rule.example]]
+name = "W3C: Understanding 2.2.1 Timing Adjustable"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html"
+shows = "Explains the turn off, adjust and extend options with examples such as a ticket site that offers an extend time limit button."
+[[rule.example]]
+name = "W3C Technique SCR16: Providing a script that warns the user a time limit is about to expire"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/client-side-script/SCR16"
+shows = "Code for a warning shown at least 20 seconds before the limit that asks whether the user needs more time."
+[[rule.example]]
+name = "Office for National Statistics Design System: Timeout modal"
+url = "https://service-manual.ons.gov.uk/design-system/components/timeout-modal"
+shows = "A working timeout warning with a countdown and a button to continue, shown at least 60 seconds before expiry. The component is marked experimental."
+
+[[rule]]
+id = "pause-stop-hide"
+area = "operable"
+rule = "Content that moves, blinks, scrolls or updates on its own next to other content has a control to pause, stop or hide it."
+measure = "A pause, stop or hide control for any movement that starts automatically and lasts more than 5 seconds"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.2.2 Pause, Stop, Hide, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#pause-stop-hide"
+do_not = "Do not ship an auto-rotating carousel, ticker or looping animation with no pause control."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Auto-rotating image carousel example"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/carousel/examples/carousel-1-prev-next/"
+shows = "A working carousel with a button that stops and starts rotation, which also pauses on hover and on keyboard focus."
+[[rule.example]]
+name = "W3C WAI Tutorials: Carousel animations"
+url = "https://www.w3.org/WAI/tutorials/carousels/animations/"
+shows = "Says to provide a button that stops and resumes the animation and to pause on hover and focus, with code and a working demo."
+[[rule.example]]
+name = "web.dev: Learn accessibility, Animation and motion"
+url = "https://web.dev/learn/accessibility/motion"
+shows = "Restates the five second rule and shows how to add a pause, stop or hide mechanism."
+
+[[rule]]
+id = "no-flashing"
+area = "operable"
+rule = "Nothing on the page flashes more than three times in any one second."
+measure = "At most 3 flashes in any 1 second period, unless the flash is below the general flash and red flash thresholds"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 2.3.1 Three Flashes or Below Threshold, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#three-flashes-or-below-threshold"
+do_not = "Do not use strobing, rapidly blinking or fast red flashing effects in video, animation or transitions."
+[[rule.example]]
+name = "W3C: Understanding 2.3.1 Three Flashes or Below Threshold"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold.html"
+shows = "Defines the general and red flash thresholds and gives examples of video edited to stay within three flashes a second."
+[[rule.example]]
+name = "web.dev: Learn accessibility, Animation and motion"
+url = "https://web.dev/learn/accessibility/motion"
+shows = "Explains the risk to people with photosensitive epilepsy, restates the three flashes limit and points to a testing tool."
+[[rule.example]]
+name = "MDN: Web accessibility for seizures and physical reactions"
+url = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Seizure_disorders"
+shows = "Background on flashing content, the special risk of red, and ways to avoid or control it in code."
+
+[[rule]]
+id = "page-title"
+area = "operable"
+rule = "Every page has a title element that names the page. Titles are unique within the site and put the page-specific part first."
+measure = "A non-empty title element in the head"
+check = "mechanical"
+basis = "standard"
+probe = "Read document.title; pass if it is not empty after trimming white space. Across a set of pages, flag any two pages that share the same title."
+source = "WCAG 2.2, 2.4.2 Page Titled, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#page-titled"
+do_not = "Do not ship pages with an empty title, a placeholder such as Untitled, or the same title on every page."
+[[rule.example]]
+name = "MDN: The title element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/title"
+shows = "An accessibility section saying to give an accurate, concise title that describes the page's purpose and is unique to each page."
+[[rule.example]]
+name = "web.dev: Learn accessibility, The document"
+url = "https://web.dev/learn/accessibility/more-html"
+shows = "Do and do not code examples of page titles that are accurate, unique and descriptive with the specific page first."
+[[rule.example]]
+name = "Deque University: axe rule document-title"
+url = "https://dequeuniversity.com/rules/axe/4.10/document-title"
+shows = "Describes the automated check for a title element and how to write a short, descriptive one."
+
+# ------------------------------------------------------------ understandable
+
+[[rule]]
+id = "page-language"
+area = "understandable"
+rule = "The html element states the main language of the page with a valid lang attribute. Passages in another language carry their own lang attribute."
+measure = "The html element has a lang attribute whose value is a valid BCP 47 language tag"
+check = "mechanical"
+basis = "standard"
+probe = "Read the lang attribute of the html element; pass if it is present, not empty and a well-formed BCP 47 language tag such as en or en-GB."
+source = "WCAG 2.2, 3.1.1 Language of Page, Level A (with 3.1.2 Language of Parts, Level AA)"
+source_url = "https://www.w3.org/TR/WCAG22/#language-of-page"
+do_not = "Do not leave lang off the html element or set it to a language the page is not written in."
+[[rule.example]]
+name = "W3C Technique H57: Using the language attribute on the HTML element"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/html/H57"
+shows = "An example html element with a lang attribute and a test procedure that checks the value conforms to BCP 47."
+[[rule.example]]
+name = "MDN: The lang global attribute"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/lang"
+shows = "Explains the attribute and notes that WCAG 3.1.1 and 3.1.2 are met by setting lang on the page and on parts in other languages."
+[[rule.example]]
+name = "GOV.UK Design System: Page template"
+url = "https://design-system.service.gov.uk/styles/page-template/"
+shows = "The minimum page code, which sets lang on the html element along with a title, a skip link and a main element."
+
+[[rule]]
+id = "consistent-help"
+area = "understandable"
+rule = "If pages offer help, such as contact details, a contact form, a chat or a help page link, it sits in the same place relative to other content on every page."
+measure = "Help mechanisms appear in the same relative order on every page that has them"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 3.2.6 Consistent Help, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#consistent-help"
+do_not = "Do not put the contact or help link in the header on some pages and in the footer or body on others."
+[[rule.example]]
+name = "W3C: Understanding 3.2.6 Consistent Help"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/consistent-help.html"
+shows = "Lists the four kinds of help mechanism and gives examples such as a job application with contact details in the same place on each page."
+[[rule.example]]
+name = "W3C Technique G220: Provide a contact-us link in a consistent location"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/general/G220"
+shows = "Examples of a contact link kept at the top of each page or in a repeated footer, with a test procedure."
+[[rule.example]]
+name = "GOV.UK Design System: GOV.UK footer"
+url = "https://design-system.service.gov.uk/components/footer/"
+shows = "Says to place help links consistently within the footer and make them work the same way on each page, citing WCAG 3.2.6."
+
+[[rule]]
+id = "redundant-entry"
+area = "understandable"
+rule = "Within one process, do not ask users to type the same information twice. Fill it in for them or let them select what they gave earlier."
+measure = "Information already entered in the same process is auto-populated or available to select"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 3.3.7 Redundant Entry, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#redundant-entry"
+do_not = "Do not make users retype an address, name or reference number they gave in an earlier step, or clear a form after an error."
+[[rule.example]]
+name = "W3C: Understanding 3.3.7 Redundant Entry"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/redundant-entry.html"
+shows = "Examples such as a checkout option to use the delivery address for billing, and a payment form that keeps its values after an error."
+[[rule.example]]
+name = "W3C Technique G221: Provide data from a previous step in a process"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/general/G221"
+shows = "Three examples of filling in or offering data from an earlier step, with a test procedure."
+[[rule.example]]
+name = "GOV.UK Design System: File upload"
+url = "https://design-system.service.gov.uk/components/file-upload/"
+shows = "Says to let users reuse a file they uploaded earlier in the same journey instead of uploading it again."
+
+[[rule]]
+id = "accessible-authentication"
+area = "understandable"
+rule = "Signing in never depends on memory, transcription or solving a puzzle alone. Password and code fields accept paste and password manager autofill, and any puzzle has an alternative."
+measure = "Password and one-time code fields allow paste and autofill; login fields carry autocomplete values such as email and current-password"
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 3.3.8 Accessible Authentication (Minimum), Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#accessible-authentication-minimum"
+do_not = "Do not block paste in password or code fields, split a password across separate character boxes, or require a puzzle with no other way to sign in."
+[[rule.example]]
+name = "W3C: Understanding 3.3.8 Accessible Authentication (Minimum)"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html"
+shows = "Explains that password manager support and copy and paste meet the criterion, with examples such as WebAuthn and third-party sign-in."
+[[rule.example]]
+name = "W3C Technique H100: Providing properly marked up email and password inputs"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/html/H100"
+shows = "A login form with labelled inputs and autocomplete values of email and current-password, tested for names and paste."
+[[rule.example]]
+name = "GOV.UK Design System: Password input"
+url = "https://design-system.service.gov.uk/components/password-input/"
+shows = "A live password field with a show button and the current-password autocomplete value, and the rule to always allow copy and paste."
+
+# -------------------------------------------------------------------- robust
+
+[[rule]]
+id = "control-accessible-name"
+area = "robust"
+rule = "Every button and link has an accessible name that says what it does. An icon-only control gets a text name, and the icon inside it is hidden from assistive technology."
+measure = "Every element with role button or link has a non-empty accessible name"
+check = "mechanical"
+basis = "standard"
+probe = "For each element in the accessibility tree with role button, link or menuitem, pass if its computed accessible name is not empty."
+source = "WCAG 2.2, 4.1.2 Name, Role, Value, Level A (with 1.1.1 Non-text Content and 2.4.4 Link Purpose)"
+source_url = "https://www.w3.org/TR/WCAG22/#name-role-value"
+do_not = "Do not ship a button or link that holds only an icon, an SVG or a background image with no text, aria-label or labelled-by text."
+[[rule.example]]
+name = "W3C ACT Rules: Button has non-empty accessible name"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/97a4e1/"
+shows = "The test rule for button names with passed and failed code examples."
+[[rule.example]]
+name = "Deque University: axe rule link-name"
+url = "https://dequeuniversity.com/rules/axe/4.10/link-name"
+shows = "Describes the automated check that links have discernible text that screen readers can reach."
+[[rule.example]]
+name = "W3C WAI Tutorials: Functional images"
+url = "https://www.w3.org/WAI/tutorials/images/functional/"
+shows = "Worked examples of icon links and image buttons whose text alternative states the action, not the picture."
+
+[[rule]]
+id = "form-control-name"
+area = "robust"
+rule = "Every form control has a label tied to it in code, so its name is announced. Use a label element with a for attribute, and use aria-label or aria-labelledby only when no visible label element is possible."
+measure = "Every input, select, textarea and custom form widget has a non-empty accessible name"
+check = "mechanical"
+basis = "standard"
+probe = "For each element in the accessibility tree with a form field role such as textbox, combobox, listbox, checkbox, radio, switch, slider or spinbutton, pass if its computed accessible name is not empty."
+source = "WCAG 2.2, 4.1.2 Name, Role, Value, Level A (with 1.3.1 Info and Relationships)"
+source_url = "https://www.w3.org/TR/WCAG22/#name-role-value"
+do_not = "Do not place label text next to a field without connecting the two in code."
+[[rule.example]]
+name = "W3C ACT Rules: Form field has non-empty accessible name"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/e086e5/"
+shows = "The test rule for form field names with passed and failed code examples."
+[[rule.example]]
+name = "W3C WAI Tutorials: Labeling controls"
+url = "https://www.w3.org/WAI/tutorials/forms/labels/"
+shows = "Worked examples of explicit labels with matching for and id values, and of hidden labels for a search field."
+[[rule.example]]
+name = "Deque University: axe rule label"
+url = "https://dequeuniversity.com/rules/axe/4.10/label"
+shows = "Describes the automated check that form elements have labels and the markup that passes."
+
+[[rule]]
+id = "label-in-name"
+area = "robust"
+rule = "When a control shows a text label, its accessible name contains that same text, ideally at the start. Speech input users say what they see."
+measure = "The accessible name contains the visible label text"
+check = "mechanical"
+basis = "standard"
+probe = "For each button, link or form control with visible text and an aria-label or aria-labelledby, pass if the computed accessible name contains the visible text, ignoring case and punctuation."
+source = "WCAG 2.2, 2.5.3 Label in Name, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#label-in-name"
+do_not = "Do not give a button that reads Search an aria-label such as Find products."
+[[rule.example]]
+name = "W3C: Understanding 2.5.3 Label in Name"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html"
+shows = "Passing cases where the name matches or starts with the visible label, and the failures where it does not contain it."
+[[rule.example]]
+name = "W3C ACT Rules: Visible label is part of accessible name"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/2ee8b8/"
+shows = "A proposed test rule with passed and failed code examples."
+[[rule.example]]
+name = "Deque University: axe rule label-content-name-mismatch"
+url = "https://dequeuniversity.com/rules/axe/4.10/label-content-name-mismatch"
+shows = "Describes the automated check and says the name should begin with the visible text. Deque marks the rule experimental."
+
+[[rule]]
+id = "frame-title"
+area = "robust"
+rule = "Every iframe has a title that describes what it contains."
+measure = "Every iframe element has a non-empty accessible name"
+check = "mechanical"
+basis = "standard"
+probe = "For each iframe or frame element that is not hidden from assistive technology, pass if it has a non-empty title, aria-label or aria-labelledby."
+source = "WCAG 2.2, 4.1.2 Name, Role, Value, Level A (technique H64)"
+source_url = "https://www.w3.org/TR/WCAG22/#name-role-value"
+do_not = "Do not embed a map, video or widget in an iframe with no title."
+[[rule.example]]
+name = "W3C Technique H64: Using the title attribute of the iframe element"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/html/H64"
+shows = "An iframe with a title of Advertisement and a two step test procedure."
+[[rule.example]]
+name = "MDN: The iframe element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe"
+shows = "An accessibility section saying the title should describe the embedded content, with code."
+[[rule.example]]
+name = "Deque University: axe rule frame-title"
+url = "https://dequeuniversity.com/rules/axe/4.10/frame-title"
+shows = "Describes the automated check that frames have an accessible name and how to add a title."
+
+[[rule]]
+id = "name-role-value"
+area = "robust"
+rule = "A custom control exposes its role, name and current state in code and keeps them up to date. Build it to the matching ARIA Authoring Practices pattern, including the keyboard behaviour."
+measure = ""
+check = "judgment"
+basis = "standard"
+source = "WCAG 2.2, 4.1.2 Name, Role, Value, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#name-role-value"
+do_not = "Do not build a toggle, tab set, menu or accordion from div elements with click handlers and no role, state or key handling."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Button examples"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/button/examples/button/"
+shows = "Working command and toggle buttons built from div and a elements with role button, tabindex, aria-pressed, and Enter and Space support."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Tabs with automatic activation"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/tabs/examples/tabs-automatic/"
+shows = "A working tab set with tablist, tab and tabpanel roles, aria-selected, and arrow, Home and End key support."
+[[rule.example]]
+name = "MDN: ARIA button role"
+url = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/button_role"
+shows = "Explains that a non-button element with role button needs its own key handlers for Enter and Space, with code."
+
+[[rule]]
+id = "native-html-first"
+area = "robust"
+rule = "Use the native HTML element for the job, such as button, a, input, select and dialog. Do not add ARIA that conflicts with an element's built-in meaning or repeats it."
+measure = ""
+check = "judgment"
+basis = "standard"
+source = "W3C, ARIA in HTML (W3C Recommendation), author requirements"
+source_url = "https://www.w3.org/TR/html-aria/"
+do_not = "Do not write a div with role button where a button element works, or add role button to a button element."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Read me first"
+url = "https://www.w3.org/WAI/ARIA/apg/practices/read-me-first/"
+shows = "Explains the principle that no ARIA is better than bad ARIA, and that a role is a promise to supply the matching keyboard behaviour."
+[[rule.example]]
+name = "MDN: ARIA"
+url = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA"
+shows = "Quotes the first rule of ARIA use: choose a native HTML element with the needed semantics and behaviour before adding ARIA."
+[[rule.example]]
+name = "WebAIM: Introduction to ARIA"
+url = "https://webaim.org/techniques/aria/"
+shows = "Summarises the rules of ARIA use, starting with use native HTML if you can, with examples."
+
+[[rule]]
+id = "aria-valid"
+area = "robust"
+rule = "Use only roles and aria attributes that exist in WAI-ARIA, with valid values, and include every state or property a role requires."
+measure = "Every role value and aria-* attribute is defined in WAI-ARIA 1.2; required states and properties for each role are present with non-empty values"
+check = "mechanical"
+basis = "standard"
+probe = "For each element, pass if every token in its role attribute is a non-abstract WAI-ARIA role, every aria-* attribute name is defined in WAI-ARIA, each value is allowed for that attribute, and the attributes required by the element's role are present."
+source = "W3C, Accessible Rich Internet Applications (WAI-ARIA) 1.2, W3C Recommendation"
+source_url = "https://www.w3.org/TR/wai-aria-1.2/"
+do_not = "Do not invent or misspell attributes such as aria-labelled, or use a role such as slider without its required aria-valuenow."
+[[rule.example]]
+name = "W3C ACT Rules: ARIA attribute is defined in WAI-ARIA"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/5f99a7/"
+shows = "The test rule with passed examples and failed ones such as the misspelled aria-labelled."
+[[rule.example]]
+name = "Deque University: axe rule aria-roles"
+url = "https://dequeuniversity.com/rules/axe/4.10/aria-roles"
+shows = "Describes the automated check that role values are valid and lists the available roles by type."
+[[rule.example]]
+name = "Deque University: axe rule aria-required-attr"
+url = "https://dequeuniversity.com/rules/axe/4.10/aria-required-attr"
+shows = "Describes the automated check that elements with a role carry the states and properties that role requires."
+
+[[rule]]
+id = "aria-hidden-focus"
+area = "robust"
+rule = "Content hidden from assistive technology with aria-hidden holds nothing that can take keyboard focus."
+measure = "No focusable element is inside an element with aria-hidden set to true"
+check = "mechanical"
+basis = "standard"
+probe = "For each element with aria-hidden true, pass if neither it nor any descendant is reachable with Tab."
+source = "WCAG 2.2, 4.1.2 Name, Role, Value, Level A (tested by ACT rule 6cfa84)"
+source_url = "https://www.w3.org/TR/WCAG22/#name-role-value"
+do_not = "Do not put aria-hidden on a link, a button, or a container that holds links, buttons or inputs."
+[[rule.example]]
+name = "W3C ACT Rules: Element with aria-hidden has no content in sequential focus navigation"
+url = "https://www.w3.org/WAI/standards-guidelines/act/rules/6cfa84/"
+shows = "The test rule with six passed and six failed code examples."
+[[rule.example]]
+name = "Deque University: axe rule aria-hidden-focus"
+url = "https://dequeuniversity.com/rules/axe/4.10/aria-hidden-focus"
+shows = "Describes the automated check with code examples that pass and fail."
+[[rule.example]]
+name = "MDN: aria-hidden attribute"
+url = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-hidden"
+shows = "Carries the warning not to use aria-hidden true on focusable elements or on their ancestors."
+
+[[rule]]
+id = "duplicate-ids"
+area = "robust"
+rule = "Every id value is used once per page. This matters most for ids that labels, aria-labelledby, aria-describedby and table headers point to."
+measure = "No id value appears more than once in the document"
+check = "mechanical"
+basis = "standard"
+probe = "Collect the id of every element in the document; pass if no value occurs more than once."
+source = "HTML Standard (WHATWG), the id attribute. WCAG 2.2 removed 4.1.1 Parsing, and duplicate ids that break names or relationships now fail 1.3.1 or 4.1.2"
+source_url = "https://html.spec.whatwg.org/multipage/dom.html#the-id-attribute"
+do_not = "Do not reuse an id when a component is rendered more than once on a page."
+[[rule.example]]
+name = "W3C: Understanding 4.1.1 Parsing (obsolete and removed)"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/parsing.html"
+shows = "Explains why the criterion was removed and that many of its issues now fail Info and Relationships or Name, Role, Value."
+[[rule.example]]
+name = "Deque University: axe rule duplicate-id-aria"
+url = "https://dequeuniversity.com/rules/axe/4.10/duplicate-id-aria"
+shows = "Describes the automated check for duplicate ids used by ARIA and labels, and how duplicates break form labels and table headers."
+[[rule.example]]
+name = "MDN: The id global attribute"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/id"
+shows = "States that an id must be unique within the entire document, with a live example."
+
+# ------------------------------------------------------------------- dialogs
+
+[[rule]]
+id = "dialog-name-role"
+area = "dialogs"
+rule = "A dialog is a dialog element or has role dialog. It has an accessible name, normally its visible title, and a modal one is marked as modal."
+measure = "Every dialog has a non-empty accessible name; a modal dialog has aria-modal true or is opened with showModal"
+check = "mechanical"
+basis = "standard"
+probe = "With each dialog open, pass if the element is a dialog element or has role dialog or alertdialog, and its computed accessible name is not empty."
+source = "W3C, WAI-ARIA 1.2, dialog role (authors must provide an accessible name)"
+source_url = "https://www.w3.org/TR/wai-aria-1.2/"
+do_not = "Do not build a modal from a plain div with no role and no name."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Dialog (modal) pattern"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/"
+shows = "Lists the required role dialog, aria-modal true, and a label from aria-labelledby or aria-label."
+[[rule.example]]
+name = "Deque University: axe rule aria-dialog-name"
+url = "https://dequeuniversity.com/rules/axe/4.10/aria-dialog-name"
+shows = "Describes the automated check that dialogs have an accessible name, with three markup patterns that pass."
+[[rule.example]]
+name = "MDN: aria-modal attribute"
+url = "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-modal"
+shows = "Explains aria-modal and says that all content outside an open modal should be made inert."
+
+[[rule]]
+id = "dialog-focus"
+area = "dialogs"
+rule = "When a modal dialog opens, focus moves into it. Tab and Shift+Tab stay inside it, Escape closes it, and focus then returns to the control that opened it."
+measure = "Focus is inside the dialog on open; Tab wraps within the dialog; Escape closes it; focus returns to the invoking element on close"
+check = "judgment"
+basis = "standard"
+source = "W3C ARIA Authoring Practices Guide, Dialog (modal) pattern (WAI-ARIA 1.2 says authors should manage focus of modal dialogs; see also WCAG 2.2, 2.4.3 Focus Order)"
+source_url = "https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/"
+do_not = "Do not open a modal and leave focus on the page behind it, or close it and drop focus back to the top of the page."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Modal dialog example"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/examples/dialog/"
+shows = "Working dialogs where Tab wraps inside the dialog and Escape closes it, with the roles and attributes listed."
+[[rule.example]]
+name = "IBM Carbon: Modal accessibility"
+url = "https://www.carbondesignsystem.com/building-blocks/core/components/modal/accessibility"
+shows = "States that modals take focus when they appear, keep the tab order inside until closed, and are dismissed with Esc."
+[[rule.example]]
+name = "MDN: The dialog element"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog"
+shows = "Explains that showModal makes the rest of the page inert, and where to put autofocus when a dialog opens."

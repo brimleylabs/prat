@@ -42,6 +42,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from prat import coach, design, governor, memory, onboard, packs, paths, store, swarm
+from prat import standards as standard_sets
 from prat.changes import classify_diff
 from prat.config import Settings
 from prat.db import Card, Database, Project, Run, RunStep, as_utc
@@ -2382,16 +2383,18 @@ class Engine:
             )
             # Whatever running the project wrote in the worktree is undone.
             await asyncio.to_thread(speculative.restore, worktree, commit)
-            known: list[str] | None = None
-            if found.looked and found.count and not stopped():
+            known: screencheck.Known | None = None
+            if found.looked and (found.count or found.metrics) and not stopped():
                 known = await self._known_screens(ctx, manager, variables, stopped)
-        fresh = screencheck.new_faults(found, known)
+        sets = screencheck.sets_of(spec)
+        fresh = screencheck.new_faults(found, known, sets)
         ctx.journal.append(
-            "verify.screens", screencheck.summary(found, fresh, compared=known is not None)
+            "verify.screens",
+            {**screencheck.summary(found, fresh, compared=known is not None), "sets": list(sets)},
         )
         if not found.looked:
             return None
-        note = screencheck.review_note(shots, found, fresh)
+        note = screencheck.review_note(shots, found, fresh, sets=sets, known=known)
         await asyncio.to_thread(screencheck.write_note, ctx.run_dir, note)
         return screencheck.feedback(fresh, compared=known is not None) if fresh else None
 
@@ -2401,9 +2404,10 @@ class Engine:
         manager: EnvironmentManager,
         variables: Mapping[str, str],
         stopped: Callable[[], bool],
-    ) -> list[str] | None:
-        """The faults already on the project's pages on its default branch, measured once per
-        commit in the agent clone. ``None`` when they could not be measured."""
+    ) -> screencheck.Known | None:
+        """The faults already on the project's pages on its default branch and the numbers of
+        their load, measured once per commit in the agent clone. ``None`` when they could not
+        be measured."""
         slug = ctx.project_slug
         try:
             commit = await asyncio.to_thread(Git(ctx.agent_path).head)
@@ -2430,11 +2434,12 @@ class Engine:
             )
             return None
         keys = before.keys()
-        await asyncio.to_thread(screencheck.save_known, self.settings.home, slug, commit, keys)
+        measured = screencheck.Known(keys, before.metrics)
+        await asyncio.to_thread(screencheck.save_known, self.settings.home, slug, commit, measured)
         ctx.journal.append(
             "verify.screens_baseline", {"looked": True, "faults": len(keys), "commit": commit[:12]}
         )
-        return keys
+        return measured
 
     def _start_held_out(self, ctx: _Ctx) -> asyncio.Task[Any] | None:
         """Start the session that writes this card's test from the card alone
@@ -3213,7 +3218,8 @@ class Engine:
                     # What kept costing runs on this project a round (prat.coach).
                     coaching = coach.render(coach.load(self.settings.home, ctx.project_slug))
             # A card whose own words say it is interface work is built to the published
-            # standards (prat.design), in a project that has screens.
+            # standards (prat.standards), in a project that has screens: the sets that apply
+            # to it, search and AI search among them only for a public website.
             standards = ""
             wanted = ctx.project_spec.screens
             if (
@@ -3222,9 +3228,12 @@ class Engine:
                 and wanted.standards
                 and design.is_interface(f"{ctx.title}\n{ctx.goal}\n{ctx.acceptance_criteria}")
             ):
-                standards = design.for_builder()
+                sets = screencheck.sets_of(ctx.project_spec)
+                standards = standard_sets.builder_text(sets)
                 if standards:
-                    ctx.journal.append("execute.design_standards", {"chars": len(standards)})
+                    ctx.journal.append(
+                        "execute.design_standards", {"chars": len(standards), "sets": list(sets)}
+                    )
             system_prompt = builder_system_prompt(
                 title=ctx.title,
                 goal=ctx.goal,

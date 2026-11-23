@@ -805,21 +805,46 @@ def screens_check(
     wait_ms: Annotated[
         int, typer.Option("--wait-ms", help="How long to let each page settle.")
     ] = 500,
+    sets: Annotated[
+        str,
+        typer.Option(
+            "--sets",
+            help="Standard sets to hold the page to, comma separated: design, accessibility, "
+            "performance, seo, llm, or all.",
+        ),
+    ] = "design",
 ) -> None:
     """Open each page at each width and list what is broken on it: controls covered or on top
-    of each other, text cut off, sideways scrolling, targets too small, text too faint. Exits 1
-    when anything is found, so it can be one of a project's gates."""
-    from prat import screens
+    of each other, text cut off, sideways scrolling, targets too small, text too faint. With
+    --sets, also what the page fails of the published accessibility, performance, search and
+    AI search rules, and how it loaded. Exits 1 when anything is found, so it can be one of
+    a project's gates."""
+    from prat import pagecheck, screens
 
     sizes = [int(part) for part in widths.split(",") if part.strip()]
+    asked = {part.strip().lower() for part in sets.split(",") if part.strip()}
+    wanted = pagecheck.SETS if "all" in asked else tuple(s for s in pagecheck.SETS if s in asked)
+    unknown = asked - set(pagecheck.SETS) - {"all"}
+    if unknown or not wanted:
+        console.print(f"[red]Unknown sets: {escape(', '.join(sorted(unknown)) or sets)}[/red]")
+        raise typer.Exit(2)
     bad = False
     for url in urls:
         try:
-            found = screens.check_url(url, widths=sizes, wait_ms=wait_ms)
+            checked = pagecheck.check_page(url, widths=sizes, wait_ms=wait_ms, sets=wanted)
         except RuntimeError as exc:
             console.print(f"[red]{escape(str(exc))}[/red]")
             raise typer.Exit(2) from exc
+        # With nothing to compare the load with, a slow timing is reported as it stands.
+        found = checked.faults + pagecheck.slow(checked.metrics, None, wanted)
         bad = bad or bool(found)
-        console.print(escape(screens.report(found, url)), highlight=False)
+        what = "Layout faults" if wanted == ("design",) else "Faults"
+        console.print(
+            escape(screens.report(found, url, said=pagecheck.SAID, what=what)), highlight=False
+        )
+        if checked.metrics and "performance" in wanted:
+            console.print(
+                escape("\nHow it loaded, once, here:\n" + pagecheck.table(checked.metrics))
+            )
     if bad:
         raise typer.Exit(1)

@@ -226,6 +226,11 @@ class Screens(BaseModel):
     the paths to open on it. Without them nothing is opened, and the design standards are
     still given to builders of interface cards. ``brand`` is a file of the values the screens
     are made of (``colours``, ``font_sizes``, ``fonts``, ``radii``).
+
+    Pages are held to the published standard sets (prat.standards): design, accessibility and
+    performance for every project, and search and AI search as well when ``website`` says
+    the project is a site the public and its crawlers read. ``checks`` names the sets outright
+    instead.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -237,8 +242,11 @@ class Screens(BaseModel):
     )
     paths: list[str] = Field(default_factory=lambda: list(SCREEN_PATHS), max_length=60)
     brand: Annotated[str, Field(max_length=300)] | None = None
-    # The published design standards (prat.design) in the builder's instructions.
+    # The published standards (prat.standards) in the builder's instructions.
     standards: bool = True
+    # A public website: search engines and AI search products read it.
+    website: bool = False
+    checks: list[Literal["design", "accessibility", "performance", "seo", "llm"]] | None = None
     wait_ms: Annotated[int, Field(ge=0, le=20_000)] = 500
 
     def touched(self, changed: Iterable[str]) -> bool:

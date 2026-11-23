@@ -277,23 +277,32 @@ SAID = {
 }
 
 
-def report(found: Sequence[Fault], url: str = "") -> str:
-    """The faults as text for the builder (or a person), grouped by rule."""
+def report(
+    found: Sequence[Fault],
+    url: str = "",
+    *,
+    said: Mapping[str, str] | None = None,
+    what: str = "Layout faults",
+) -> str:
+    """The faults as text for the builder (or a person), grouped by rule. ``said`` gives the
+    headings of rules this module does not know (prat.pagecheck)."""
     if not found:
-        return f"No layout faults found{' on ' + url if url else ''}."
+        return f"No {what.lower()} found{' on ' + url if url else ''}."
     widths: dict[tuple[str, str], list[int]] = {}
     for fault in found:
         widths.setdefault((fault.rule, fault.element), []).append(fault.width)
-    lines = [f"Layout faults{' on ' + url if url else ''}:"]
-    for rule, title in SAID.items():
+    lines = [f"{what}{' on ' + url if url else ''}:"]
+    for rule, title in {**SAID, **(said or {})}.items():
         mine = [f for f in merged(found) if f.rule == rule]
         if not mine:
             continue
         standard = next((f.standard for f in mine if f.standard), "")
         lines += ["", f"{title}{' (' + standard + ')' if standard else ''}"]
         for fault in mine:
-            at = ", ".join(f"{w} px" for w in sorted(set(widths[(fault.rule, fault.element)])))
-            lines.append(f"- {fault.element}: {fault.detail} [at {at}]")
+            # A fault of the document itself (prat.pagecheck) has no width to name.
+            seen = sorted(w for w in set(widths[(fault.rule, fault.element)]) if w)
+            at = f" [at {', '.join(f'{w} px' for w in seen)}]" if seen else ""
+            lines.append(f"- {fault.element}: {fault.detail}{at}")
     return "\n".join(lines)
 
 
@@ -410,9 +419,14 @@ def measure(
     timeout_ms: int = 30_000,
     shots: Any = None,
     name: str = "page",
+    before: Any = None,
+    after: Any = None,
 ) -> list[dict[str, Any]]:
     """Open ``url`` at each width and return what was measured there, one page per width. With
     ``shots`` (a folder), a full-page picture of each is saved in it as ``<name>-<width>.png``.
+    ``before`` is called with the first page before it loads and ``after`` with that page, what
+    ``before`` returned and the response, once it has; what ``after`` returns is kept under
+    ``"facts"`` (prat.pagecheck reads the document that way, on a load nothing has scrolled).
     Needs Playwright (``pip install playwright`` and ``playwright install chromium``)."""
     try:
         from playwright.sync_api import sync_playwright  # type: ignore[import-not-found,unused-ignore]
@@ -425,11 +439,15 @@ def measure(
     with sync_playwright() as play:  # pragma: no cover - needs a browser
         browser = play.chromium.launch()
         try:
-            for width in widths:
+            for at, width in enumerate(widths):
                 page = browser.new_page(viewport={"width": int(width), "height": height})
-                page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+                state = before(page) if before is not None and at == 0 else None
+                response = page.goto(url, wait_until="networkidle", timeout=timeout_ms)
                 page.wait_for_timeout(wait_ms)
+                facts = after(page, state, response) if after is not None and at == 0 else None
                 pages.append(dict(page.evaluate(COLLECT_JS)))
+                if facts is not None:
+                    pages[-1]["facts"] = facts
                 if shots is not None:
                     shots.mkdir(parents=True, exist_ok=True)
                     page.screenshot(path=str(shots / f"{name}-{int(width)}.png"), full_page=True)

@@ -79,7 +79,7 @@ async def test_a_new_layout_fault_goes_back_to_the_builder_once(
     baseline = [e.data for e in journal if e.kind == "verify.screens_baseline"]
     assert baseline and baseline[0]["faults"] == 1
     note = screencheck.read_note(settings.run_dir(run.id))
-    assert "found no new layout fault" in note and "Design checklist" in note
+    assert "found no new fault" in note and "Design checklist" in note
     assert "The screens this card changed" in engine.reviewer.requests[-1].knowledge
 
 
@@ -112,3 +112,45 @@ async def test_builders_of_interface_cards_get_the_standards(
         for card in (ui, other)
     ]
     assert kinds == [["execute.design_standards"], []]
+
+
+async def test_a_website_is_held_to_search_and_ai_rules_and_told_when_a_page_got_heavier(
+    settings: Settings,
+    db: Database,
+    project_factory: Callable[..., Project],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    site = SCREENS.replace("[screens]\n", "[screens]\nwebsite = true\n")
+    project = project_factory(project_toml=project_toml(extra=site))
+    clone = Path(project.agent_path).resolve()
+    light = {"script_bytes": 100_000.0, "total_bytes": 300_000.0, "lcp_ms": 800.0}
+    heavy = {"script_bytes": 260_000.0, "total_bytes": 460_000.0, "lcp_ms": 900.0}
+    untitled = screens.Fault("a11y.image_alt", 0, "img.hero", "has no alt attribute", "WCAG 1.1.1")
+
+    def look(manager: Any, slug: str, spec: Any, base: Path, *args: Any, **more: Any) -> Any:
+        mine = Path(base).resolve() != clone
+        return screencheck.Look(
+            looked=True,
+            faults={"/": [untitled] if mine else []},
+            metrics={"/": heavy if mine else light},
+        )
+
+    monkeypatch.setattr(screencheck, "look", look)
+    script = [PAGE, {"op": "finish"}, {"op": "finish", "message": "done"}]
+    engine, runtime = make_engine(settings, db, script, race_builders=1)
+    card_id = add_card(db, project, title="Add a hero image to the landing page header")
+    result = await engine.run_card(card_id)
+    await engine.checkouts_set_up()
+    assert result.card_status is CardStatus.REVIEW, result.reason
+    run, journal = journal_of(db, card_id)
+    told = [e.data for e in journal if e.kind == "execute.design_standards"]
+    assert told and told[0]["sets"] == ["design", "accessibility", "performance", "seo", "llm"]
+    looked = [e.data for e in journal if e.kind == "verify.screens"]
+    assert looked[0]["sets"] == told[0]["sets"]
+    assert looked[0]["new"] == 3 and looked[0]["rules"] == ["a11y.image_alt", "perf.heavier"]
+    # Handed back once, in the same session; the second look only tells the reviewer.
+    assert len(runtime.sessions) == 1 and len(looked) == 2
+    note = screencheck.read_note(settings.run_dir(run.id))
+    for name in ("Design", "Accessibility", "Performance", "Search", "AI search"):
+        assert f"{name} checklist" in note
+    assert "Largest Contentful Paint: 0.90 s (before: 0.80 s)" in note
