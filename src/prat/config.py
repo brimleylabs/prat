@@ -139,8 +139,10 @@ class Settings(BaseSettings):
     # A card that changes interface code has its pages opened and measured as its builder
     # ends its turn, in a project whose file says where they are (prat.engine.screencheck).
     screen_checks: bool = True
-    # Builders of interface cards are given the published standards that apply (prat.standards).
-    design_standards: bool = True
+    # The published standards (prat.standards) in the instructions of builders of interface
+    # cards and as questions for their reviewers. Off: a builder builds its card, and standards
+    # are held to by evaluations a person runs (prat.evaluate), not carried by every builder.
+    design_standards: bool = False
     # What sends a card back to its builder without a person. "evidence": a reviewer's
     # rejection counts only with a command that fails on the work; without one the card goes
     # to a person with the reviewer's objections. "any": every rejection sends it back.
@@ -381,10 +383,11 @@ auth_mode = "api_key"
 # coach = "on"
 
 # Screens: a card that changes interface code has its pages opened and measured, in a project
-# whose file has a [screens] table; its builder gets the published standards (design,
-# accessibility, performance; search and AI search too for a website).
+# whose file has a [screens] table, and only what the card itself broke goes back to its builder.
 # screen_checks = true
-# design_standards = true
+# Put the published standards in every interface builder's instructions and its reviewer's
+# questions as well. Off by default: standards are held to by `prat evaluate`, on request.
+# design_standards = false
 # What sends a rejected card back to its builder without a person: "second" (a first rejection
 # on the reviewer's word, a later one only with a command that fails on the work), "evidence"
 # (always with one) or "any".

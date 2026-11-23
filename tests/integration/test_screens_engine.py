@@ -64,7 +64,7 @@ async def test_a_new_layout_fault_goes_back_to_the_builder_once(
     seen = looks(monkeypatch, project)
     fix = {"op": "write", "path": "web/index.html", "content": "<button>Go!</button>\n"}
     script = [PAGE, {"op": "finish"}, fix, {"op": "finish", "message": "moved it"}]
-    engine, runtime = make_engine(settings, db, script, race_builders=1)
+    engine, runtime = make_engine(settings, db, script, race_builders=1, design_standards=True)
     card_id = add_card(db, project)
     result = await engine.run_card(card_id)
     await engine.checkouts_set_up()
@@ -102,7 +102,9 @@ async def test_builders_of_interface_cards_get_the_standards(
     settings: Settings, db: Database, project_factory: Callable[..., Project]
 ) -> None:
     project = project_factory(project_toml=project_toml(extra="\n[screens]\n"))
-    engine, _ = make_engine(settings, db, [CODE, {"op": "finish"}], race_builders=1)
+    engine, _ = make_engine(
+        settings, db, [CODE, {"op": "finish"}], race_builders=1, design_standards=True
+    )
     ui = add_card(db, project, title="Add a filter button to the planner page sidebar")
     other = add_card(db, project, title="Speed up the nightly export job")
     await engine.run_card(ui)
@@ -137,7 +139,7 @@ async def test_a_website_is_held_to_search_and_ai_rules_and_told_when_a_page_got
 
     monkeypatch.setattr(screencheck, "look", look)
     script = [PAGE, {"op": "finish"}, {"op": "finish", "message": "done"}]
-    engine, runtime = make_engine(settings, db, script, race_builders=1)
+    engine, runtime = make_engine(settings, db, script, race_builders=1, design_standards=True)
     card_id = add_card(db, project, title="Add a hero image to the landing page header")
     result = await engine.run_card(card_id)
     await engine.checkouts_set_up()
@@ -154,3 +156,23 @@ async def test_a_website_is_held_to_search_and_ai_rules_and_told_when_a_page_got
     for name in ("Design", "Accessibility", "Performance", "Search", "AI search"):
         assert f"{name} checklist" in note
     assert "Largest Contentful Paint: 0.90 s (before: 0.80 s)" in note
+
+
+async def test_by_default_a_builder_is_given_no_standards_to_carry(
+    settings: Settings,
+    db: Database,
+    project_factory: Callable[..., Project],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = project_factory(project_toml=project_toml(extra=SCREENS))
+    looks(monkeypatch, project)
+    script = [PAGE, {"op": "finish"}, {"op": "finish", "message": "moved it"}]
+    engine, _ = make_engine(settings, db, script, race_builders=1)
+    card_id = add_card(db, project, title="Add a filter button to the planner page sidebar")
+    assert (await engine.run_card(card_id)).card_status is CardStatus.REVIEW
+    await engine.checkouts_set_up()
+    run, journal = journal_of(db, card_id)
+    assert not [e for e in journal if e.kind == "execute.design_standards"]
+    # The pages are still measured and what the card broke still goes back.
+    assert [e.data["new"] for e in journal if e.kind == "verify.screens"] == [1, 0]
+    assert "checklist" not in screencheck.read_note(settings.run_dir(run.id))

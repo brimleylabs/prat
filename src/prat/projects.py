@@ -259,6 +259,26 @@ class Screens(BaseModel):
         )
 
 
+class Evaluate(BaseModel):
+    """How far a report may be acted on without asking (``[evaluate]``, prat.evaluate).
+
+    Evaluations are run by a person, or by a flow that calls ``prat evaluate run``; nothing runs
+    one for a project by default. With ``remediate`` on, a report's findings at ``floor`` or
+    worse become cards and are worked through at once: at most ``max_cards`` of them, for at
+    most ``hours``. It is off unless a project turns it on; the same limits are what
+    ``prat evaluate remediate --start`` uses when it is given none.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    remediate: bool = False
+    floor: Literal["critical", "high", "medium", "low", "info"] = "high"
+    max_cards: Annotated[int, Field(ge=1, le=200)] = 10
+    hours: Annotated[float, Field(gt=0, le=72)] = 3.0
+    # Paths (globs) whose findings are not the project's to fix: vendored or generated code.
+    ignore: list[Annotated[str, Field(max_length=300)]] = Field(default_factory=list, max_length=60)
+
+
 ENV_NAME = re.compile(r"^[A-Z_][A-Z0-9_]{0,63}$")
 DB_LABEL = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
@@ -555,6 +575,8 @@ class ProjectSpec(BaseModel):
     review: Review = Field(default_factory=Review)
     # The project's screens: where to look, and what they are made of.
     screens: Screens | None = None
+    # How far an evaluation's report may be acted on without asking.
+    evaluate: Evaluate = Field(default_factory=Evaluate)
     # Databases branched per card next to the git worktree.
     workspace: Workspace = Field(default_factory=Workspace)
     # Ways to run the project, started and stopped from PRAT.

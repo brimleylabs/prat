@@ -308,12 +308,16 @@ def create_app(
 
         stop_alerts = asyncio.Event()
         alerting = asyncio.create_task(alerts.watch(settings, context.db, stop_alerts))
+        # Open remediation windows: the next card is made ready as one finishes.
+        from prat.evaluate import remediate
+
+        windows = asyncio.create_task(remediate.watch(settings.home, context.db, stop_alerts))
         try:
             yield
         finally:
             stop_alerts.set()
             watchdog.cancel()
-            for task in (watchdog, alerting):
+            for task in (watchdog, alerting, windows):
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
             if context.dreams is not None:

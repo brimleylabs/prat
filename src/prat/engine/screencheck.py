@@ -277,6 +277,7 @@ def review_note(
     *,
     sets: tuple[str, ...] = ("design",),
     known: Known | None = None,
+    asked: tuple[str, ...] | None = None,
 ) -> str:
     """What the reviewer is told: where the pictures are, what is still wrong, what to ask."""
     pictures = sorted(p.name for p in shots.glob("*.png")) if shots.is_dir() else []
@@ -301,7 +302,8 @@ def review_note(
         ]
         for page, now in found.metrics.items():
             lines += [page, pagecheck.table(now, known.metrics.get(page) if known else None)]
-    checklist = standards.reviewer_text(sets)
+    # The sets a reviewer is asked the unmeasured rules of: all of them unless told otherwise.
+    checklist = standards.reviewer_text(sets if asked is None else asked)
     if checklist:
         lines += ["", checklist]
     return "\n".join(lines)

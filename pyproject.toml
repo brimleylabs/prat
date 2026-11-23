@@ -45,6 +45,8 @@ dev = [
 ]
 # `prat screens check` opens pages in a browser.
 screens = ["playwright>=1.45"]
+# `prat evaluate run security` on Python code.
+evaluate = ["pip-audit>=2.7", "bandit>=1.7"]
 
 [project.scripts]
 prat = "prat.cli:main"

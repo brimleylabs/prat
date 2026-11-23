@@ -2394,7 +2394,8 @@ class Engine:
         )
         if not found.looked:
             return None
-        note = screencheck.review_note(shots, found, fresh, sets=sets, known=known)
+        asked = sets if self.settings.design_standards else ()
+        note = screencheck.review_note(shots, found, fresh, sets=sets, known=known, asked=asked)
         await asyncio.to_thread(screencheck.write_note, ctx.run_dir, note)
         return screencheck.feedback(fresh, compared=known is not None) if fresh else None
 

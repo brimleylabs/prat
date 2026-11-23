@@ -540,10 +540,14 @@ own taste. `resources/standards/` holds one file per subject:
 Each rule has its source and link, how firm that source is (`basis`: a formal standard, one
 vendor's guidance, a research finding, or a proposal nobody has adopted), the number to check
 where there is one, the same rule as a plain "do not", and two or three real pages that show
-it done well. A builder of a card whose own words say it is interface work, in a project with
-`[screens]`, gets the sets that apply with their examples before it writes anything
-(`execute.design_standards`). `[screens] website = true` says the project is a site the public
-and its crawlers read; `checks = [...]` names the sets outright.
+it done well. `[screens] website = true` says the project is a site the public and its crawlers
+read; `checks = [...]` names the sets outright.
+
+A builder does not carry these. It builds its card, and the standards are held to by
+evaluations a person runs (below). `design_standards = true` puts them back in the main line:
+a builder of a card whose own words say it is interface work, in a project with `[screens]`,
+then gets the sets that apply with their examples before it writes anything
+(`execute.design_standards`), and its reviewer gets the unmeasured rules as fixed questions.
 
 `pagecheck.py` measures what a page is, as `screens.py` measures where its elements are. One
 script is installed before the page loads (the observers for Largest Contentful Paint, layout
@@ -570,7 +574,51 @@ Three things keep a measurement honest:
 When a measured fault goes back, the builder is given the rule it broke in full, with what
 each of its example pages shows. What is a project's own (its brand values) and what is one
 person's preference (the project's notes) are kept apart from the standards.
-`design_standards = false` turns the builder's section off.
+
+## Evaluate, report, remediate
+
+Whether a codebase is secure, accessible, fast or findable is not part of building a card.
+`prat/evaluate/` asks it separately, when a person wants to know: on a client's system they
+have never seen, before a release, after a piece of work. Nothing runs an evaluation for a
+project by default; a flow that wants one calls the command (`--fail-on high` makes it a gate).
+
+| Evaluation | Judged by | Needs |
+|---|---|---|
+| `security` | gitleaks or PRAT's own secret patterns; `npm audit`, `pnpm audit`, `pip-audit`, `composer audit`; Bandit and Semgrep; the protections a server's answers should carry (OWASP Secure Headers) | the code, a page, or both |
+| `accessibility` | axe-core | a running page |
+| `performance` | Lighthouse | a running page |
+| `design` | PRAT's layout checks (`screens.py`) | a running page |
+| `seo` | PRAT's page checks against the search set | a running page |
+| `llm` | PRAT's page checks against the AI search set | a running page |
+
+PRAT writes no scanner where a maintained one exists. Each tool is found on the machine, run
+with a time limit, and its own JSON read into findings: which rule, how bad, where, what, and
+how to fix it when the tool says. A tool that is not installed is not a failure; the report
+says it did not run and what would install it, so a person sees what was and was not looked
+at. `prat evaluate setup` installs axe-core and Lighthouse with npm into `$PRAT_HOME/tools`;
+without them PRAT's own page checks stand in and the report says so.
+
+**Evaluate.** `prat evaluate run security accessibility --project shop` reads PRAT's clone of
+the project and opens the pages its `[screens]` table names. `--path` takes any folder of code,
+a PRAT project or not, and `--url` any page, so a system can be looked at before it is one of
+PRAT's projects. `[evaluate] ignore` (or `--ignore`) leaves out paths that are not the
+project's to fix: vendored libraries, generated files, test data.
+
+**Report.** Every run is kept under `$PRAT_HOME/evaluations/<project>/`, never in a repository:
+a list of a system's open holes is itself something to protect. A report is compared with the
+one before it (new, fixed, still open; a finding is the same finding when only its line moved).
+`prat evaluate show` prints one again; `--json` gives it to another program. A new critical
+finding is sent to the alert address at once.
+
+**Remediate.** `prat evaluate remediate shop` turns a report into cards: one per kind of fault
+(every place a rule is broken, with the tool's own fix), worst first, as drafts under one epic
+per evaluation ("Security remediation"). A rule that already has an open card gets no second
+one, and a later report adds to the same epic. Nothing starts by itself. `--start` makes the
+worst `--max-cards` ready; with `--hours` it opens a window instead, and the server makes the
+next card ready as each one finishes, two at a time, until the count or the time runs out
+(`prat evaluate window` shows it, `--close` ends it). What is left stays in the backlog. The
+limits a command leaves out come from the project's `[evaluate]` table, where `remediate = true`
+lets a report be acted on without asking; it is off unless a project turns it on.
 
 ## Rejections backed by something that runs
 

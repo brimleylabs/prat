@@ -2335,4 +2335,4 @@ def lesson_familiarity(
 
 
 # Jobs, skills, the crew and epics live in their own module; importing it registers them.
-from prat import cli_more  # noqa: E402,F401
+from prat import cli_evaluate, cli_more  # noqa: E402,F401
