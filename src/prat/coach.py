@@ -75,6 +75,13 @@ RULES: Mapping[str, tuple[str, str]] = {
         "Do not delete, remove or skip a test that was here when you started. If one is wrong "
         "or cannot pass with what the card asks for, leave it and say so in your final message.",
     ),
+    "screens": (
+        "left a layout fault on a page (a control covered or overlapping, text cut off or "
+        "too faint, a target too small)",
+        "You cannot see the page, so place every control you add on purpose: say where it "
+        "sits and what is beside it at a phone's width and at a desktop's, and reuse the "
+        "layout the neighbouring controls already use.",
+    ),
     "finish_gates": (
         "ended its turn with the project's checks failing",
         "Run the project's own test command and read its result before you finish: turns here "
@@ -137,6 +144,8 @@ def observe(
             for slip in ("spacing", "tests"):
                 if data.get(slip):
                     saw(slip, len(data[slip]))
+        elif kind == "verify.screens" and data.get("new"):
+            saw("screens", int(data["new"]))
         elif kind == "verify.finish_check" and data.get("passed") is False:
             saw("finish_gates")
         elif kind == "verify.finding" and data.get("kind") == "oversize_diff":

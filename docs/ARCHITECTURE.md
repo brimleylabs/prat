@@ -507,6 +507,59 @@ and the numbers. The command exits 1 when it finds anything, so it can be one of
 gates, where a failure goes back to the builder like any other. It needs Playwright
 (`pip install 'prat[screens]'`, then `playwright install chromium`).
 
+A project that says where its screens are has them looked at without being asked
+(`engine/screencheck.py`). `[screens]` in the project file names the `[[environment]]` to start
+and the `pages` to open on it (and optionally `widths`, the `paths` that make a card interface
+work, and a `brand` file). When a builder ends its turn on a card that changed such files and
+the project's gates pass, PRAT starts that environment on the card's worktree at a free port,
+opens every page at every width, and stops it. The same pages are measured once per commit on
+the default branch, in the agent clone, and kept under `$PRAT_HOME/screens`; only faults that
+were not there are handed back to the builder, once, in the same session (`verify.screens`).
+A picture of every page at every width is kept in the run's folder, and the reviewer is told
+where they are, which measured faults remain, and the questions to answer about them.
+
+`brand` names a TOML file of the values the project's screens are made of: `colours`,
+`font_sizes` (pixels), `fonts` and `radii` (pixels). A text colour, background, text size, font
+or corner radius on a page that is not among them is reported as outside the brand, once per
+value. Black, white, square corners and pills are always allowed; a list left out is not
+checked.
+
+## Design standards
+
+`design.py` gives builders and reviewers one standard, and it is not PRAT's own taste.
+`resources/design/standards.toml` holds published, generally accepted rules for interfaces
+(WCAG 2.2, the public design systems of governments and large products, Nielsen's heuristics).
+Each rule has its source and link, the number to check where there is one, the same rule as a
+plain "do not", and two or three real pages that show it done well. A builder of a card whose
+own words say it is interface work, in a project with `[screens]`, gets the rules with their
+examples before it writes anything (`execute.design_standards`). The rules a machine can
+measure are the ones `screens.py` measures; the rest become a fixed checklist the reviewer
+answers about the pictures, yes or no with the element named, instead of an opinion. What is a
+project's own (its brand values) and what is one person's preference (the project's notes) are
+kept apart from the standard. `design_standards = false` turns the section off.
+
+## Rejections backed by something that runs
+
+A reviewer reads and cannot run anything, and a wrong rejection costs a whole rebuild. With a
+"not met" or "wrong" verdict the reviewer is asked for up to three commands that fail on the
+work as it stands, and `engine/evidence.py` runs them in the card's worktree under the
+builder's own policy, undoing whatever they change (`critique.evidence`). A command that fails
+backs the rejection and the card goes back to its builder. `rejections` says what happens
+without one: `second` (the default) lets a card's first rejection go back on the reviewer's
+word and sends a second unbacked one to a person, with the objections, instead of round again;
+`evidence` asks for a failing command every time; `any` sends every rejection back.
+
+## Held-out tests
+
+With `held_out_tests` set to `high` (cards of high complexity) or `all`, a second session
+writes one test file from the card's own words while the builder works
+(`engine/heldout.py`). It reads the code as it was before the card, in the agent clone, and
+never sees the builder's work. When the builder ends its turn and the project's gates pass,
+PRAT puts the file in the worktree, runs it, and takes it out again; it never joins the card's
+work. A failure is not a verdict, because the test may be the one that is wrong about the
+card: it goes to the builder once, with the test, to fix the work or say which assertion is
+mistaken, and the reviewer is told how it ended (`verify.held_out`). Off by default.
+
 ## Planner
 
 For cards with complexity `high`, `AgentPlanner` runs a short session before the builder: the

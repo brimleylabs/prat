@@ -74,6 +74,8 @@ class ReviewResult:
     cost_usd: float = 0.0
     # False when the reviewer's answer could not be parsed as a verdict.
     parsed: bool = True
+    # Commands the reviewer says fail on the work as it stands (prat.engine.evidence).
+    commands: list[str] = field(default_factory=list)
 
     @property
     def needs_rework(self) -> bool:
@@ -87,6 +89,7 @@ class ReviewResult:
             "confidence": self.confidence,
             "findings": [f.to_dict() for f in self.findings],
             "fix_list": list(self.fix_list),
+            "commands": list(self.commands),
             "cost_usd": round(self.cost_usd, 6),
             "parsed": self.parsed,
         }
@@ -174,11 +177,13 @@ class FakeReviewer:
         summary: str = "Scripted review.",
         concerns: list[str] | None = None,
         fix_list: list[str] | None = None,
+        commands: list[str] | None = None,
     ) -> None:
         self.verdict = verdict
         self.summary = summary
         self.concerns = list(concerns or [])
         self.fix_list = list(fix_list or [])
+        self.commands = list(commands or [])
         self.requests: list[ReviewRequest] = []
 
     async def review(self, request: ReviewRequest) -> ReviewResult:
@@ -189,4 +194,5 @@ class FakeReviewer:
             list(self.concerns),
             confidence=1.0,
             fix_list=list(self.fix_list),
+            commands=list(self.commands),
         )

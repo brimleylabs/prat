@@ -1,0 +1,764 @@
+# User-interface design standards rubric for web and mobile-web applications.
+# Every number was checked against its source page and every example URL was fetched in November 2026.
+
+# ---------------------------------------------------------------- legibility
+
+[[rule]]
+id = "contrast-text"
+area = "legibility"
+rule = "Text has a contrast ratio of at least 4.5 to 1 against its background. Large text needs at least 3 to 1."
+measure = "4.5:1 normal text; 3:1 large text, where large is 18 pt (about 24 CSS px) and up, or 14 pt bold (about 18.5 CSS px) and up"
+check = "mechanical"
+source = "WCAG 2.2, 1.4.3 Contrast (Minimum), Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#contrast-minimum"
+do_not = "Do not put grey text lighter than #767676 on a white background."
+[[rule.example]]
+name = "GOV.UK Design System: Colour"
+url = "https://design-system.service.gov.uk/styles/colour/"
+shows = "States that text and interactive elements must meet WCAG 1.4.3 and lists the functional text and background colours that do."
+[[rule.example]]
+name = "US Web Design System: Using color"
+url = "https://designsystem.digital.gov/design-tokens/color/overview/"
+shows = "Gives the 4.5:1 and 3:1 thresholds and a colour grade system for picking text and background pairs that pass."
+[[rule.example]]
+name = "Microsoft Fluent 2: Typography"
+url = "https://fluent2.microsoft.design/typography"
+shows = "Requires 4.5:1 for standard text and 3:1 for large text, next to the full type ramp."
+
+[[rule]]
+id = "contrast-non-text"
+area = "legibility"
+rule = "Control boundaries, state indicators, focus rings and meaningful icons have a contrast ratio of at least 3 to 1 against the colours next to them."
+measure = "3:1 against adjacent colours"
+check = "mechanical"
+source = "WCAG 2.2, 1.4.11 Non-text Contrast, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#non-text-contrast"
+do_not = "Do not draw input borders, icons or focus rings in a pale colour that falls below 3:1 against the background."
+[[rule.example]]
+name = "Atlassian Design System: Color"
+url = "https://atlassian.design/foundations/color"
+shows = "The accessibility section requires 3:1 for any interface element essential to understanding the experience and cites WCAG 1.4.11."
+[[rule.example]]
+name = "Microsoft Fluent 2: Accessibility"
+url = "https://fluent2.microsoft.design/accessibility"
+shows = "States that interactive components and non-text components such as icons need 3:1 against adjacent colours."
+[[rule.example]]
+name = "GOV.UK Design System: Understanding focus state styles"
+url = "https://design-system.service.gov.uk/get-started/focus-states/"
+shows = "Explains the yellow and black focus style chosen to meet WCAG 1.4.11 on any background colour."
+
+[[rule]]
+id = "line-length"
+area = "legibility"
+rule = "Keep lines of body text short enough to read comfortably. Limit the width of text blocks instead of letting them span a wide screen."
+measure = "At most 80 characters per line (WCAG 1.4.8); USWDS recommends 45 to 90 with 66 as a target; Baymard recommends 50 to 75"
+check = "mechanical"
+source = "WCAG 2.2, 1.4.8 Visual Presentation, Level AAA"
+source_url = "https://www.w3.org/TR/WCAG22/#visual-presentation"
+do_not = "Do not let a paragraph run the full width of a desktop viewport."
+[[rule.example]]
+name = "US Web Design System: Typography"
+url = "https://designsystem.digital.gov/components/typography/"
+shows = "States that most lines should be 45 to 90 characters with 66 as a good target, and provides measure tokens to enforce it."
+[[rule.example]]
+name = "Baymard Institute: Readability, the optimal line length"
+url = "https://baymard.com/research-articles/line-length-readability"
+shows = "Reports testing that supports 50 to 75 characters per line, with good and bad page examples."
+[[rule.example]]
+name = "GOV.UK Design System: Layout"
+url = "https://design-system.service.gov.uk/styles/layout/"
+shows = "Recommends a two-thirds column so that lines of text do not get too long to read on desktop."
+
+[[rule]]
+id = "line-height"
+area = "legibility"
+rule = "Paragraphs of body text use a line height of at least 1.5 times the font size. Nothing clips or overlaps when a user increases text spacing."
+measure = "Line height 1.5 times font size for long text; content must survive line height 1.5, paragraph spacing 2, letter spacing 0.12 and word spacing 0.16 times the font size"
+check = "mechanical"
+source = "WCAG 2.2, 1.4.12 Text Spacing, Level AA (1.5 line spacing for blocks of text is also in 1.4.8, Level AAA)"
+source_url = "https://www.w3.org/TR/WCAG22/#text-spacing"
+do_not = "Do not set paragraphs with a line height below 1.5 or put text in fixed-height boxes that clip when spacing grows."
+[[rule.example]]
+name = "US Web Design System: Typography"
+url = "https://designsystem.digital.gov/components/typography/"
+shows = "States that longer texts should have a line height of at least 1.5 and headings between 1 and 1.35."
+[[rule.example]]
+name = "US Web Design System: Line height tokens"
+url = "https://designsystem.digital.gov/design-tokens/typesetting/line-height/"
+shows = "Lists the six line height tokens with rendered samples of each."
+
+[[rule]]
+id = "body-text-size"
+area = "legibility"
+rule = "Body text is at least 16 CSS px. Smaller text is used sparingly for captions and secondary details."
+measure = "16 px minimum for body copy (USWDS); GOV.UK uses 19 px body and 16 px small"
+check = "mechanical"
+source = "US Web Design System, Typography: Font size"
+source_url = "https://designsystem.digital.gov/components/typography/"
+do_not = "Do not set the main reading text of a screen below 16 px."
+[[rule.example]]
+name = "GOV.UK Design System: Paragraphs"
+url = "https://design-system.service.gov.uk/styles/paragraphs/"
+shows = "The default paragraph is 19 px, and the 16 px small style is to be used sparingly."
+[[rule.example]]
+name = "GOV.UK Design System: Type scale"
+url = "https://design-system.service.gov.uk/styles/type-scale/"
+shows = "Tables of font size and line height for each style on large and small screens, with 16 px as the smallest."
+[[rule.example]]
+name = "US Web Design System: Typography"
+url = "https://designsystem.digital.gov/components/typography/"
+shows = "Says to use at least an effective size of 16 px for most text, including body copy."
+
+[[rule]]
+id = "no-truncation"
+area = "legibility"
+rule = "Show essential text in full. Let it wrap instead of cutting it off, and when long secondary text is shortened give a way to read all of it."
+measure = ""
+check = "judgment"
+source = "IBM Carbon Design System, Overflow content pattern"
+source_url = "https://www.carbondesignsystem.com/building-blocks/core/patterns/overflow-content"
+do_not = "Do not truncate page headers, titles, labels, error messages, validation messages or notifications."
+[[rule.example]]
+name = "IBM Carbon: Overflow content"
+url = "https://www.carbondesignsystem.com/building-blocks/core/patterns/overflow-content"
+shows = "Lists where truncation is acceptable and where it must not be used, with illustrated examples and a show more pattern."
+[[rule.example]]
+name = "GitHub Primer: Truncate"
+url = "https://primer.style/product/components/truncate/"
+shows = "Live examples where shortened text keeps its full value available through a title."
+
+# ------------------------------------------------------------------- targets
+
+[[rule]]
+id = "target-size-min"
+area = "targets"
+rule = "Every clickable or tappable target is at least 24 by 24 CSS px, or has enough clear space around it that a 24 px circle centred on it does not touch another target."
+measure = "24 by 24 CSS px minimum, or 24 px diameter spacing circle that does not intersect another target"
+check = "mechanical"
+source = "WCAG 2.2, 2.5.8 Target Size (Minimum), Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#target-size-minimum"
+do_not = "Do not place icon buttons smaller than 24 px edge to edge with no gap between them."
+[[rule.example]]
+name = "W3C: Understanding 2.5.8 Target Size (Minimum)"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html"
+shows = "Figures of toolbars, stacked buttons and menus that pass and fail the 24 px size and spacing test."
+[[rule.example]]
+name = "GitHub Primer: Responsive"
+url = "https://primer.style/product/getting-started/foundations/responsive/"
+shows = "States the 24 px minimum target for AA and shows do and do not examples that raise touch targets to 44 px on mobile."
+
+[[rule]]
+id = "target-size-touch"
+area = "targets"
+rule = "On touch screens make primary controls at least 44 by 44 CSS px and leave space between neighbouring targets."
+measure = "44 by 44 CSS px (WCAG 2.5.5; Apple gives 44 by 44 pt for iOS); Android recommends 48 by 48 dp with 8 dp or more between targets"
+check = "mechanical"
+source = "WCAG 2.2, 2.5.5 Target Size (Enhanced), Level AAA"
+source_url = "https://www.w3.org/TR/WCAG22/#target-size-enhanced"
+do_not = "Do not ship a mobile screen whose main buttons or list rows are shorter than 44 px or sit directly against each other."
+[[rule.example]]
+name = "Android Accessibility Help: Touch target size"
+url = "https://support.google.com/accessibility/android/answer/7101858"
+shows = "Recommends targets of at least 48 by 48 dp separated by 8 dp or more, and explains padding a 24 dp icon up to 48 dp."
+[[rule.example]]
+name = "web.dev: Accessible tap targets"
+url = "https://web.dev/articles/accessible-tap-targets"
+shows = "Recommends about 48 px targets spaced about 8 px apart and shows how padding enlarges a small icon target."
+[[rule.example]]
+name = "Nielsen Norman Group: Touch Targets on Touchscreens"
+url = "https://www.nngroup.com/articles/touch-target-size/"
+shows = "Screenshots of mobile sites with targets that are too small or too tightly stacked next to ones that are sized and spaced well."
+
+# -------------------------------------------------------------------- layout
+
+[[rule]]
+id = "spacing-scale"
+area = "layout"
+rule = "Take every margin, padding and gap from one fixed spacing scale built on a 4 px or 8 px base unit."
+measure = "Spacing values are multiples of 4 px or 8 px (USWDS and Atlassian use an 8 px base, Fluent 2 a 4 px base, Carbon multiples of 2, 4 and 8)"
+check = "mechanical"
+source = "US Web Design System, Design tokens: Spacing units"
+source_url = "https://designsystem.digital.gov/design-tokens/spacing-units/"
+do_not = "Do not use one-off spacing values such as 13 px or 22 px."
+[[rule.example]]
+name = "Atlassian Design System: Spacing"
+url = "https://atlassian.design/foundations/spacing"
+shows = "Defines the 8 px base unit and the limited scale of space values built on it."
+[[rule.example]]
+name = "IBM Carbon: Spacing"
+url = "https://www.carbondesignsystem.com/building-blocks/foundations/spacing/overview"
+shows = "Shows the spacing scale in multiples of two, four and eight with a token for each step."
+[[rule.example]]
+name = "Microsoft Fluent 2: Layout"
+url = "https://fluent2.microsoft.design/layout"
+shows = "Presents the global spacing ramp built on a four pixel base unit and how to apply it."
+
+[[rule]]
+id = "grid-alignment"
+area = "layout"
+rule = "Lay content out on a column grid with consistent gutters and margins, and line element edges up with the columns."
+measure = "12-column grid (USWDS, Atlassian, Fluent 2)"
+check = "judgment"
+source = "US Web Design System, Layout grid"
+source_url = "https://designsystem.digital.gov/utilities/layout-grid/"
+do_not = "Do not place elements at arbitrary offsets so that their left edges fail to line up."
+[[rule.example]]
+name = "US Web Design System: Layout grid"
+url = "https://designsystem.digital.gov/utilities/layout-grid/"
+shows = "A mobile-first 12-column grid with live row, column and gutter examples."
+[[rule.example]]
+name = "Atlassian Design System: Grid"
+url = "https://atlassian.design/foundations/grid"
+shows = "Explains columns, gutters and margins, with do and do not examples of aligning content to columns."
+[[rule.example]]
+name = "GOV.UK Design System: Layout"
+url = "https://design-system.service.gov.uk/styles/layout/"
+shows = "Live two-thirds and one-third column layouts built from grid rows."
+
+[[rule]]
+id = "proximity-grouping"
+area = "layout"
+rule = "Place related items close together and separate unrelated groups with more space. A label sits closer to its own field than to any other."
+measure = ""
+check = "judgment"
+source = "Nielsen Norman Group, Proximity Principle in Visual Design"
+source_url = "https://www.nngroup.com/articles/gestalt-proximity/"
+do_not = "Do not space a label equally between two fields or spread related controls evenly across the screen."
+[[rule.example]]
+name = "Nielsen Norman Group: Proximity Principle in Visual Design"
+url = "https://www.nngroup.com/articles/gestalt-proximity/"
+shows = "Annotated screenshots where whitespace alone groups related elements and separates unrelated ones."
+[[rule.example]]
+name = "Nielsen Norman Group: Group Form Elements Effectively Using White Space"
+url = "https://www.nngroup.com/articles/form-design-white-space/"
+shows = "Before and after forms where labels are moved closer to their own fields and related fields are grouped."
+[[rule.example]]
+name = "Nielsen Norman Group: Visual Hierarchy in UX"
+url = "https://www.nngroup.com/articles/visual-hierarchy-ux-definition/"
+shows = "A section on grouping by proximity and common regions with page examples."
+
+[[rule]]
+id = "reflow-and-zoom"
+area = "layout"
+rule = "Content fits a 320 CSS px wide viewport with no horizontal scrolling, and text can be zoomed to 200 percent without clipping or losing content."
+measure = "No two-direction scrolling at 320 CSS px width (1.4.10); text resizable to 200 percent without loss of content or function (1.4.4)"
+check = "mechanical"
+source = "WCAG 2.2, 1.4.10 Reflow and 1.4.4 Resize Text, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#reflow"
+do_not = "Do not use fixed-width layouts or fixed-height text containers that force sideways scrolling or cut text off on a 320 px screen."
+[[rule.example]]
+name = "Microsoft Fluent 2: Accessibility"
+url = "https://fluent2.microsoft.design/accessibility"
+shows = "Says to design down to a 320 pixel breakpoint with no horizontal scrolling and for text zoom up to 200 percent without clipping."
+[[rule.example]]
+name = "GitHub Primer: Responsive"
+url = "https://primer.style/product/getting-started/foundations/responsive/"
+shows = "Sets a minimum supported viewport of 320 px wide and 256 px high without loss of information or function."
+[[rule.example]]
+name = "GOV.UK Design System: Layout"
+url = "https://design-system.service.gov.uk/styles/layout/"
+shows = "Says to design for small screens first, starting with a single-column layout, and shows the responsive grid."
+
+[[rule]]
+id = "focus-not-obscured"
+area = "layout"
+rule = "Sticky headers, footers, banners and other overlays never completely cover the element that has keyboard focus, or any content the user needs."
+measure = "The focused element is at least partly visible"
+check = "mechanical"
+source = "WCAG 2.2, 2.4.11 Focus Not Obscured (Minimum), Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#focus-not-obscured-minimum"
+do_not = "Do not let a sticky bar or cookie banner sit on top of the focused control or the content beneath it."
+[[rule.example]]
+name = "W3C: Understanding 2.4.11 Focus Not Obscured (Minimum)"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html"
+shows = "Describes sticky footer, sticky header and cookie banner cases that pass and fail."
+[[rule.example]]
+name = "W3C Technique C43: Using CSS scroll-padding to un-obscure content"
+url = "https://www.w3.org/WAI/WCAG22/Techniques/css/C43"
+shows = "Code and a working example where scroll padding keeps focused items clear of a fixed banner."
+
+# ----------------------------------------------------------------- hierarchy
+
+[[rule]]
+id = "one-primary-action"
+area = "hierarchy"
+rule = "Each view has one primary button for its most important action. Other actions use visibly lower-emphasis button styles."
+measure = "At most 1 primary button per page or section"
+check = "judgment"
+source = "IBM Carbon Design System, Button guidelines"
+source_url = "https://www.carbondesignsystem.com/building-blocks/core/components/button/guidelines"
+do_not = "Do not put two or more primary-styled buttons side by side."
+[[rule.example]]
+name = "GOV.UK Design System: Button"
+url = "https://design-system.service.gov.uk/components/button/"
+shows = "Says to avoid multiple default buttons on one page and shows default, secondary and warning buttons live."
+[[rule.example]]
+name = "Atlassian Design System: Button usage"
+url = "https://atlassian.design/components/button/usage"
+shows = "A use one primary call to action section with do and do not examples."
+[[rule.example]]
+name = "GitHub Primer: Button guidelines"
+url = "https://primer.style/product/components/button/guidelines/"
+shows = "Do and do not images pairing one primary button with a secondary one instead of several primaries."
+
+[[rule]]
+id = "heading-order"
+area = "hierarchy"
+rule = "Use real heading elements nested by level, and do not skip levels on the way down."
+measure = "No skipped heading levels going down (h1, h2, h3)"
+check = "mechanical"
+source = "W3C WAI Tutorials, Page Structure: Headings"
+source_url = "https://www.w3.org/WAI/tutorials/page-structure/headings/"
+do_not = "Do not jump from h1 to h4, or pick a heading level for its size instead of its place in the structure."
+[[rule.example]]
+name = "W3C WAI Tutorials: Headings"
+url = "https://www.w3.org/WAI/tutorials/page-structure/headings/"
+shows = "Example page outlines with h1 to h4 nested by rank, and the advice that skipping ranks should be avoided."
+[[rule.example]]
+name = "GOV.UK Design System: Headings"
+url = "https://design-system.service.gov.uk/styles/headings/"
+shows = "Heading tags h1 to h3 paired with heading size classes in order, rendered live."
+[[rule.example]]
+name = "Atlassian Design System: Typography"
+url = "https://atlassian.design/foundations/typography"
+shows = "Says to use heading styles instead of bold text or a size change, because heading levels help people navigate."
+
+[[rule]]
+id = "type-scale"
+area = "hierarchy"
+rule = "Take every text size from one defined type scale and use only a few sizes on a screen. Size and weight follow importance."
+measure = "Every font size matches a step on the type scale"
+check = "mechanical"
+source = "GOV.UK Design System, Type scale"
+source_url = "https://design-system.service.gov.uk/styles/type-scale/"
+do_not = "Do not introduce a font size that is not on the type scale."
+[[rule.example]]
+name = "GOV.UK Design System: Type scale"
+url = "https://design-system.service.gov.uk/styles/type-scale/"
+shows = "The full scale in a table, with the instruction to align any new style with a point on the scale."
+[[rule.example]]
+name = "IBM Carbon: Typography type sets"
+url = "https://www.carbondesignsystem.com/building-blocks/foundations/typography/type-sets"
+shows = "Every type style listed with its size, line height and weight token."
+[[rule.example]]
+name = "Microsoft Fluent 2: Typography"
+url = "https://fluent2.microsoft.design/typography"
+shows = "The type ramp from caption to display with a fixed size and line height for each step."
+
+# --------------------------------------------------------------------- forms
+
+[[rule]]
+id = "visible-labels"
+area = "forms"
+rule = "Every input has a visible text label placed above or beside it that stays visible while the user types."
+measure = ""
+check = "mechanical"
+source = "WCAG 2.2, 3.3.2 Labels or Instructions, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#labels-or-instructions"
+do_not = "Do not use placeholder text as the only label for a field."
+[[rule.example]]
+name = "GOV.UK Design System: Text input"
+url = "https://design-system.service.gov.uk/components/text-input/"
+shows = "Live inputs with labels above them, and the instruction not to use placeholder text in place of a label."
+[[rule.example]]
+name = "Nielsen Norman Group: Placeholders in Form Fields Are Harmful"
+url = "https://www.nngroup.com/articles/form-design-placeholders/"
+shows = "Examples of the problems placeholder-only labels cause, next to forms with persistent labels."
+[[rule.example]]
+name = "W3C WAI Tutorials: Labeling Controls"
+url = "https://www.w3.org/WAI/tutorials/forms/labels/"
+shows = "Examples of labelled text fields and checkboxes, with guidance on where the label goes."
+
+[[rule]]
+id = "single-column-form"
+area = "forms"
+rule = "Lay form fields out in a single column, one field per row. Only short, closely related fields such as city, state and zip code may share a row."
+measure = "1 column of fields"
+check = "mechanical"
+source = "Baymard Institute, Form Field Usability: Avoid Extensive Multicolumn Layouts"
+source_url = "https://baymard.com/research-articles/avoid-multi-column-forms"
+do_not = "Do not arrange unrelated form fields in two or more columns."
+[[rule.example]]
+name = "Baymard Institute: Avoid Extensive Multicolumn Layouts"
+url = "https://baymard.com/research-articles/avoid-multi-column-forms"
+shows = "Screenshots of multicolumn forms that caused skipped fields in testing, compared with single-column forms."
+[[rule.example]]
+name = "Nielsen Norman Group: Website Forms Usability, Top 10 Recommendations"
+url = "https://www.nngroup.com/articles/web-form-design/"
+shows = "Recommends presenting fields in a single column and names the short related fields that may share a row."
+[[rule.example]]
+name = "IBM Carbon: Forms pattern"
+url = "https://www.carbondesignsystem.com/building-blocks/core/patterns/forms"
+shows = "A columns section that recommends single-column forms and illustrates them."
+
+[[rule]]
+id = "error-messages"
+area = "forms"
+rule = "Show each validation error as text next to the field it belongs to, saying what went wrong and how to fix it. Add an icon or border so colour is not the only signal."
+measure = ""
+check = "judgment"
+source = "WCAG 2.2, 3.3.1 Error Identification, Level A (with 3.3.3 Error Suggestion and 1.4.1 Use of Color)"
+source_url = "https://www.w3.org/TR/WCAG22/#error-identification"
+do_not = "Do not mark a field as invalid with a red border alone, or list errors only in a banner far from the fields."
+[[rule.example]]
+name = "GOV.UK Design System: Error message"
+url = "https://design-system.service.gov.uk/components/error-message/"
+shows = "A live field with a red text message above the input and a red border joining message and question, plus wording templates."
+[[rule.example]]
+name = "Nielsen Norman Group: 10 Design Guidelines for Reporting Errors in Forms"
+url = "https://www.nngroup.com/articles/errors-forms-design-guidelines/"
+shows = "Screenshots of error messages kept next to fields, using colour together with an icon."
+[[rule.example]]
+name = "W3C WAI Tutorials: User Notification"
+url = "https://www.w3.org/WAI/tutorials/forms/notifications/"
+shows = "Examples of an error list linked to fields and of inline messages that explain how to correct the input."
+
+[[rule]]
+id = "required-optional"
+area = "forms"
+rule = "Make it clear on every field whether it is required or optional, using text or a mark that is explained on the form."
+measure = ""
+check = "judgment"
+source = "Baymard Institute, Mark Both Required Fields and Optional Fields Explicitly"
+source_url = "https://baymard.com/research-articles/required-optional-form-fields"
+do_not = "Do not leave users to discover required fields through a validation error."
+[[rule.example]]
+name = "US Web Design System: Form"
+url = "https://designsystem.digital.gov/components/form/"
+shows = "Says to show whether a field is required or optional, with a red asterisk explained in text and the word optional in parentheses."
+[[rule.example]]
+name = "GOV.UK Design System: Question pages"
+url = "https://design-system.service.gov.uk/patterns/question-pages/"
+shows = "Says to add (optional) to the labels of optional fields."
+[[rule.example]]
+name = "GitHub Primer: Forms"
+url = "https://primer.style/product/ui-patterns/forms/"
+shows = "A required field indicator section stating that required fields are visibly marked and also set as required in code."
+
+[[rule]]
+id = "input-purpose"
+area = "forms"
+rule = "Give fields that collect personal data the matching input type and autocomplete value, so browsers can fill them in and phones show the right keyboard."
+measure = "The autocomplete attribute is set on name, email, phone, address and payment fields"
+check = "mechanical"
+source = "WCAG 2.2, 1.3.5 Identify Input Purpose, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#identify-input-purpose"
+do_not = "Do not use a plain text input with no autocomplete value for an email, phone, name or address field."
+[[rule.example]]
+name = "GOV.UK Design System: Email addresses"
+url = "https://design-system.service.gov.uk/patterns/email-addresses/"
+shows = "A live email field coded with the email input type and the email autocomplete value."
+[[rule.example]]
+name = "GOV.UK Design System: Text input"
+url = "https://design-system.service.gov.uk/components/text-input/"
+shows = "Whole-number fields that set inputmode to numeric so phones show the number keypad."
+[[rule.example]]
+name = "MDN: HTML autocomplete attribute"
+url = "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/autocomplete"
+shows = "The list of autocomplete values with a sample form that uses them."
+
+[[rule]]
+id = "button-labels"
+area = "forms"
+rule = "Button text names the action it performs, starting with a verb, in sentence case."
+measure = ""
+check = "judgment"
+source = "GOV.UK Design System, Button"
+source_url = "https://design-system.service.gov.uk/components/button/"
+do_not = "Do not label a button with a vague word such as OK, Submit or Yes when a specific verb such as Save changes or Delete file fits."
+[[rule.example]]
+name = "GOV.UK Design System: Button"
+url = "https://design-system.service.gov.uk/components/button/"
+shows = "Says to write button text in sentence case describing the action, with examples such as Start now and Add another address."
+[[rule.example]]
+name = "US Web Design System: Button"
+url = "https://designsystem.digital.gov/components/button/"
+shows = "Says to lead with a verb and use sentence case, for example File a complaint instead of Complaint filing."
+[[rule.example]]
+name = "IBM Carbon: Button guidelines"
+url = "https://www.carbondesignsystem.com/building-blocks/core/components/button/guidelines"
+shows = "Gives the verb plus noun formula for button labels with do and do not examples."
+
+# ------------------------------------------------------------------ feedback
+
+[[rule]]
+id = "system-status-loading"
+area = "feedback"
+rule = "Always show what the system is doing. Any action that takes longer than about 1 second shows a loading indicator, and long waits show progress."
+measure = "Feedback within 0.1 s feels instant; show a progress indicator after about 1 s; show percent done or a time estimate after about 10 s"
+check = "judgment"
+source = "Nielsen Norman Group, 10 Usability Heuristics: 1 Visibility of System Status, and Response Time Limits"
+source_url = "https://www.nngroup.com/articles/ten-usability-heuristics/"
+do_not = "Do not leave the screen unchanged after a click while work happens in the background."
+[[rule.example]]
+name = "Nielsen Norman Group: Progress Indicators Make a Slow System Less Insufferable"
+url = "https://www.nngroup.com/articles/progress-indicators/"
+shows = "Says to use a progress indicator for anything over about 1 second, with examples of spinners and percent-done bars."
+[[rule.example]]
+name = "Nielsen Norman Group: Response Time Limits"
+url = "https://www.nngroup.com/articles/response-times-3-important-limits/"
+shows = "Defines the 0.1 second, 1 second and 10 second limits and the feedback each one calls for."
+[[rule.example]]
+name = "GitHub Primer: Loading"
+url = "https://primer.style/product/ui-patterns/loading/"
+shows = "Guidance by wait length, from no loading state under 1 second to determinate progress over 10 seconds, with component examples."
+
+[[rule]]
+id = "destructive-confirm-undo"
+area = "feedback"
+rule = "Before a destructive or irreversible action, ask for confirmation in a dialog that names exactly what will be affected. Where possible offer undo instead."
+measure = ""
+check = "judgment"
+source = "Nielsen Norman Group, 10 Usability Heuristics: 3 User Control and Freedom, 5 Error Prevention"
+source_url = "https://www.nngroup.com/articles/ten-usability-heuristics/"
+do_not = "Do not delete data on a single click with no confirmation and no undo, and do not ask Are you sure? without saying what will be lost."
+[[rule.example]]
+name = "Nielsen Norman Group: Confirmation Dialogs Can Prevent User Errors"
+url = "https://www.nngroup.com/articles/confirmation-dialog/"
+shows = "Screenshots comparing vague confirmation dialogs with specific ones that name the item being deleted."
+[[rule.example]]
+name = "IBM Carbon: Modal guidelines"
+url = "https://www.carbondesignsystem.com/building-blocks/core/components/modal/guidelines"
+shows = "The danger modal variant for destructive or irreversible actions, with title and button text that state the action."
+[[rule.example]]
+name = "Nielsen Norman Group: User Control and Freedom"
+url = "https://www.nngroup.com/articles/user-control-and-freedom/"
+shows = "Examples of back, cancel, close and undo controls that let people reverse an action."
+
+[[rule]]
+id = "status-messages"
+area = "feedback"
+rule = "After an action, confirm the result with a visible message such as saved, sent or failed. The message is announced to screen readers without moving focus."
+measure = "The message container has role status or role alert, or an aria-live region"
+check = "mechanical"
+source = "WCAG 2.2, 4.1.3 Status Messages, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#status-messages"
+do_not = "Do not complete a save or submit silently, or show the result only as a colour change."
+[[rule.example]]
+name = "GOV.UK Design System: Notification banner"
+url = "https://design-system.service.gov.uk/components/notification-banner/"
+shows = "A live success banner coded with role alert that confirms what just happened."
+[[rule.example]]
+name = "US Web Design System: Alert"
+url = "https://designsystem.digital.gov/components/alert/"
+shows = "Informative, warning, success and error alerts rendered with text and icons, and role alert on the urgent ones."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Alert example"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/alert/examples/alert/"
+shows = "A working alert that is announced when its message is inserted, without focus moving."
+
+[[rule]]
+id = "empty-states"
+area = "feedback"
+rule = "When a list, table or page has no content, say why it is empty and offer the next step, usually one action that adds the first item."
+measure = ""
+check = "judgment"
+source = "Nielsen Norman Group, Designing Empty States in Complex Applications: 3 Guidelines"
+source_url = "https://www.nngroup.com/articles/empty-state-interface-design/"
+do_not = "Do not show a blank area or a bare No data message with no explanation and no action."
+[[rule.example]]
+name = "IBM Carbon: Empty states pattern"
+url = "https://www.carbondesignsystem.com/building-blocks/core/patterns/empty-states"
+shows = "Empty state anatomy with a title, a short explanation and a primary action button, across several layouts."
+[[rule.example]]
+name = "Atlassian Design System: Empty state usage"
+url = "https://atlassian.design/components/empty-state/usage"
+shows = "Says to include an action or link so people know what to do next, with do and do not examples."
+[[rule.example]]
+name = "GitHub Primer: Empty states"
+url = "https://primer.style/product/ui-patterns/empty-states/"
+shows = "The Blankslate component with heading, description and one primary action."
+
+# ---------------------------------------------------------------- navigation
+
+[[rule]]
+id = "consistent-navigation"
+area = "navigation"
+rule = "Navigation that repeats across screens appears in the same place and in the same order on every screen."
+measure = "Same relative order of repeated navigation items on every page"
+check = "mechanical"
+source = "WCAG 2.2, 3.2.3 Consistent Navigation, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#consistent-navigation"
+do_not = "Do not move, reorder or rename main navigation items from one screen to the next."
+[[rule.example]]
+name = "GOV.UK Design System: Service navigation"
+url = "https://design-system.service.gov.uk/components/service-navigation/"
+shows = "A service-wide navigation bar meant to give a consistent experience across pages, with the active item marked."
+[[rule.example]]
+name = "W3C: Understanding 3.2.3 Consistent Navigation"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/consistent-navigation.html"
+shows = "Examples of a search field and menus that keep the same position and order on every page."
+
+[[rule]]
+id = "focus-visible"
+area = "navigation"
+rule = "Every interactive element shows a clearly visible focus indicator when reached by keyboard."
+measure = "A focus indicator is present on every focusable element; aim for 3:1 contrast against adjacent colours"
+check = "mechanical"
+source = "WCAG 2.2, 2.4.7 Focus Visible, Level AA"
+source_url = "https://www.w3.org/TR/WCAG22/#focus-visible"
+do_not = "Do not remove the focus outline without replacing it with an equally visible focus style."
+[[rule.example]]
+name = "GOV.UK Design System: Understanding focus state styles"
+url = "https://design-system.service.gov.uk/get-started/focus-states/"
+shows = "The yellow and black focus styles used for links and form inputs, and how to apply them to custom components."
+[[rule.example]]
+name = "GitHub Primer: Button guidelines"
+url = "https://primer.style/product/components/button/guidelines/"
+shows = "A do and do not pair: show focus styles on keyboard focus, do not remove the default button focus styles."
+[[rule.example]]
+name = "IBM Carbon: Color"
+url = "https://www.carbondesignsystem.com/building-blocks/foundations/color/overview"
+shows = "States that focus states are required on all interactive elements and must pass 3:1 contrast."
+
+[[rule]]
+id = "current-location"
+area = "navigation"
+rule = "Show users where they are. Highlight the current item in navigation, and on nested pages show a breadcrumb trail back to the top."
+measure = "The current navigation item carries aria-current and a distinct visual style"
+check = "mechanical"
+source = "Nielsen Norman Group, Breadcrumbs: 11 Design Guidelines for Desktop and Mobile"
+source_url = "https://www.nngroup.com/articles/breadcrumbs/"
+do_not = "Do not leave the navigation looking identical on every page, with no marker for the current section."
+[[rule.example]]
+name = "GOV.UK Design System: Breadcrumbs"
+url = "https://design-system.service.gov.uk/components/breadcrumbs/"
+shows = "A live breadcrumb trail that starts at the home page and ends with the parent of the current page."
+[[rule.example]]
+name = "US Web Design System: Side navigation"
+url = "https://designsystem.digital.gov/components/side-navigation/"
+shows = "A side navigation preview with the current page highlighted at each level."
+[[rule.example]]
+name = "W3C ARIA Authoring Practices: Breadcrumb example"
+url = "https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/examples/breadcrumb/"
+shows = "A breadcrumb trail whose last item is marked as the current page with aria-current."
+
+[[rule]]
+id = "link-text"
+area = "navigation"
+rule = "Link text describes where the link goes and makes sense when read on its own."
+measure = ""
+check = "judgment"
+source = "WCAG 2.2, 2.4.4 Link Purpose (In Context), Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#link-purpose-in-context"
+do_not = "Do not use click here, read more or a bare URL as link text."
+[[rule.example]]
+name = "US Web Design System: Link"
+url = "https://designsystem.digital.gov/components/link/"
+shows = "Says not to use generic link text such as read more, or the same text for different destinations, with live link examples."
+[[rule.example]]
+name = "Nielsen Norman Group: Writing Hyperlinks"
+url = "https://www.nngroup.com/articles/writing-links/"
+shows = "Examples of salient, descriptive links that start with a keyword, compared with vague ones."
+
+# --------------------------------------------------------------- consistency
+
+[[rule]]
+id = "consistent-components"
+area = "consistency"
+rule = "Use the same component, label and icon for the same job everywhere. Reuse an existing component or platform convention before creating a new one."
+measure = ""
+check = "judgment"
+source = "Nielsen Norman Group, Usability Heuristic 4: Consistency and Standards (see also WCAG 2.2, 3.2.4 Consistent Identification)"
+source_url = "https://www.nngroup.com/articles/consistency-and-standards/"
+do_not = "Do not label the same action Search on one screen and Find on another, or build a custom control where a standard one already exists."
+[[rule.example]]
+name = "Nielsen Norman Group: Maintain Consistency and Adhere to Standards"
+url = "https://www.nngroup.com/articles/consistency-and-standards/"
+shows = "Examples of internal consistency within a product and of following platform and industry conventions."
+[[rule.example]]
+name = "W3C: Understanding 3.2.4 Consistent Identification"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/consistent-identification.html"
+shows = "Examples of passing and failing cases, such as one search button labelled Search and another labelled Find."
+[[rule.example]]
+name = "GOV.UK Design System: Components"
+url = "https://design-system.service.gov.uk/components/"
+shows = "The catalogue of reusable components, introduced as pre-built elements that let teams build consistent services."
+
+[[rule]]
+id = "colour-meaning"
+area = "consistency"
+rule = "Never use colour as the only way to convey information. Keep the palette small and give each status colour one meaning throughout the product."
+measure = ""
+check = "judgment"
+source = "WCAG 2.2, 1.4.1 Use of Color, Level A"
+source_url = "https://www.w3.org/TR/WCAG22/#use-of-color"
+do_not = "Do not show status, errors or required fields by colour alone, and do not use the error red for decoration."
+[[rule.example]]
+name = "Atlassian Design System: Accessibility"
+url = "https://atlassian.design/foundations/accessibility"
+shows = "States never rely on color alone to convey meaning, alongside the contrast ratios to use."
+[[rule.example]]
+name = "US Web Design System: Using color"
+url = "https://designsystem.digital.gov/design-tokens/color/overview/"
+shows = "Says to convey the message without relying on colour and to limit colour to functional needs such as status states first."
+[[rule.example]]
+name = "IBM Carbon: Color"
+url = "https://www.carbondesignsystem.com/building-blocks/foundations/color/overview"
+shows = "A neutral grey palette with blue as the single action colour, other colours used sparingly, and dedicated alert colours."
+
+# ------------------------------------------------------------------- content
+
+[[rule]]
+id = "plain-sentence-case"
+area = "content"
+rule = "Write interface text in plain language, keep it brief, and use sentence case for headings, labels and buttons."
+measure = "Only the first word and proper nouns are capitalised"
+check = "judgment"
+source = "GitHub Primer, Content guidelines"
+source_url = "https://primer.style/product/getting-started/foundations/content/"
+do_not = "Do not use Title Case, ALL CAPS, internal jargon or full paragraphs where a short label will do."
+[[rule.example]]
+name = "GitHub Primer: Content"
+url = "https://primer.style/product/getting-started/foundations/content/"
+shows = "Rules to write in plain English, be brief and use sentence case, with do and do not label examples."
+[[rule.example]]
+name = "Microsoft Fluent 2: Content design"
+url = "https://fluent2.microsoft.design/content-design"
+shows = "Style tips to keep it simple, get to the point fast and use sentence-style capitalisation."
+[[rule.example]]
+name = "Atlassian Design System: Button usage"
+url = "https://atlassian.design/components/button/usage"
+shows = "Content guidelines to use sentence case and action verbs in button labels."
+
+# -------------------------------------------------------------------- motion
+
+[[rule]]
+id = "reduced-motion"
+area = "motion"
+rule = "When the user has asked their system to reduce motion, remove or replace non-essential animation."
+measure = "Animations and transitions are disabled or reduced under the prefers-reduced-motion: reduce media query"
+check = "mechanical"
+source = "WCAG 2.2, 2.3.3 Animation from Interactions, Level AAA"
+source_url = "https://www.w3.org/TR/WCAG22/#animation-from-interactions"
+do_not = "Do not run parallax, large slide or zoom animations for users who have set reduce motion."
+[[rule.example]]
+name = "MDN: prefers-reduced-motion"
+url = "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion"
+shows = "A code example that switches off a scaling animation when the user prefers reduced motion."
+[[rule.example]]
+name = "web.dev: prefers-reduced-motion"
+url = "https://web.dev/articles/prefers-reduced-motion"
+shows = "Explains the media query and shows how to serve reduced or no animation to users who ask for it."
+[[rule.example]]
+name = "W3C: Understanding 2.3.3 Animation from Interactions"
+url = "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html"
+shows = "Examples including a page-flip transition that turns off under the reduced motion preference."
+
+[[rule]]
+id = "animation-duration"
+area = "motion"
+rule = "Keep interface animations short. Small feedback such as a toggle or checkbox is close to instant, and larger transitions stay under about half a second."
+measure = "Most animations 100 to 500 ms; simple feedback about 100 ms (NN/g). Carbon duration tokens run from 70 ms to 700 ms"
+check = "mechanical"
+source = "Nielsen Norman Group, Executing UX Animations: Duration and Motion Characteristics"
+source_url = "https://www.nngroup.com/articles/animation-duration/"
+do_not = "Do not animate routine interface changes for longer than 500 ms."
+[[rule.example]]
+name = "Nielsen Norman Group: Executing UX Animations"
+url = "https://www.nngroup.com/articles/animation-duration/"
+shows = "Video examples with the 100 to 500 ms guidance and the roughly 100 ms rule for simple feedback."
+[[rule.example]]
+name = "IBM Carbon: Motion"
+url = "https://www.carbondesignsystem.com/building-blocks/foundations/motion/overview"
+shows = "A table of six duration tokens from 70 ms to 700 ms and what each is used for."

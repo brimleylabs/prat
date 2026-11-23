@@ -123,6 +123,9 @@ COLLECT_JS = r"""
       bold: (parseInt(cs.fontWeight, 10) || 400) >= 700,
       colour: text && colour && colour.alpha >= 0.99 ? colour.rgb : null,
       behind: text ? behind(el) : null,
+      family: text ? (cs.fontFamily.split(',')[0] || '').replace(/["']/g, '').trim() : '',
+      radius: parseFloat(cs.borderTopLeftRadius) || 0,
+      fill: ((c) => (c && c.alpha >= 0.99 ? c.rgb : null))(solid(cs.backgroundColor)),
     });
   }
   scrollTo(0, 0);
@@ -270,6 +273,7 @@ SAID = {
     "page_overflow": "Page wider than the screen",
     "target_size": "Target too small to press",
     "contrast": "Text too faint",
+    "off_brand": "Values that are not the brand's own",
 }
 
 
@@ -293,16 +297,123 @@ def report(found: Sequence[Fault], url: str = "") -> str:
     return "\n".join(lines)
 
 
-def check_url(
+def key(fault: Fault) -> str:
+    """What makes two faults the same fault, whatever the width and the exact numbers."""
+    return f"{fault.rule}|{fault.element}|{re.sub(r'[0-9.]+', '#', fault.detail)}"
+
+
+def fresh(found: Iterable[Fault], known: Iterable[str]) -> list[Fault]:
+    """The faults that were not already there (``known`` holds the keys of those that were)."""
+    before = set(known)
+    return [fault for fault in found if key(fault) not in before]
+
+
+# Brand values --------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Brand:
+    """The values a project's screens are made of (its ``brand.toml``). An empty list means
+    that kind of value is not checked."""
+
+    colours: tuple[tuple[int, int, int], ...] = ()
+    font_sizes: tuple[float, ...] = ()
+    fonts: tuple[str, ...] = ()
+    radii: tuple[float, ...] = ()
+
+    @property
+    def empty(self) -> bool:
+        return not (self.colours or self.font_sizes or self.fonts or self.radii)
+
+
+def parse_colour(text: str) -> tuple[int, int, int]:
+    value = text.strip().lstrip("#")
+    if len(value) == 3:
+        value = "".join(ch * 2 for ch in value)
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", value):
+        raise ValueError(f"colour {text!r}: use #rgb or #rrggbb")
+    return (int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16))
+
+
+def brand_from(data: Mapping[str, Any]) -> Brand:
+    """A brand from the tables of a ``brand.toml``: ``colours`` (or ``colors``), ``font_sizes``
+    in pixels, ``fonts`` (family names) and ``radii`` in pixels."""
+    colours = data.get("colours") or data.get("colors") or []
+    return Brand(
+        colours=tuple(parse_colour(str(c)) for c in colours),
+        font_sizes=tuple(float(s) for s in data.get("font_sizes") or []),
+        fonts=tuple(str(f).strip().lower() for f in data.get("fonts") or []),
+        radii=tuple(float(r) for r in data.get("radii") or []),
+    )
+
+
+def _hex(rgb: Sequence[float]) -> str:
+    return "#" + "".join(f"{round(v):02x}" for v in rgb[:3])
+
+
+def brand_faults(page: Mapping[str, Any], brand: Brand) -> list[Fault]:
+    """Values on a measured page that are not among the brand's own. Black, white and a square
+    corner are always allowed."""
+    width = int(page["width"])
+    found: list[Fault] = []
+    said: set[tuple[str, str]] = set()
+
+    def known_colour(rgb: Sequence[float]) -> bool:
+        if all(v <= 2 for v in rgb[:3]) or all(v >= 253 for v in rgb[:3]):
+            return True
+        return any(
+            max(abs(a - b) for a, b in zip(rgb[:3], c, strict=False)) <= 2 for c in brand.colours
+        )
+
+    def say(what: str, value: str, box: Mapping[str, Any], allowed: str) -> None:
+        if (what, value) in said:
+            return  # one element is enough to find the others by
+        said.add((what, value))
+        found.append(
+            Fault("off_brand", width, _label(box), f"{what} {value} is not one of {allowed}")
+        )
+
+    for box in page.get("boxes") or []:
+        if brand.colours:
+            palette = ", ".join(_hex(c) for c in brand.colours)
+            for name in ("colour", "fill"):
+                rgb = box.get(name)
+                if rgb and not known_colour(rgb):
+                    what = "text colour" if name == "colour" else "background"
+                    say(what, _hex(rgb), box, f"the brand's colours ({palette})")
+        if not str(box.get("text") or "").strip():
+            continue
+        size = float(box.get("font_px") or 0)
+        if brand.font_sizes and size and all(abs(size - s) > 0.5 for s in brand.font_sizes):
+            sizes = ", ".join(f"{s:g}" for s in brand.font_sizes)
+            say("text size", f"{size:g} px", box, f"the brand's sizes ({sizes} px)")
+        family = str(box.get("family") or "").lower()
+        if brand.fonts and family and family not in brand.fonts:
+            say("font", family, box, f"the brand's fonts ({', '.join(brand.fonts)})")
+    for box in page.get("boxes") or []:
+        radius = float(box.get("radius") or 0)
+        # A corner rounded past half the box is a pill or a circle, whatever the number.
+        pill = radius >= min(float(box["w"]), float(box["h"])) / 2 - 0.5
+        odd = radius > 0.5 and all(abs(radius - r) > 0.5 for r in brand.radii)
+        if brand.radii and odd and not pill:
+            radii = ", ".join(f"{r:g}" for r in brand.radii)
+            say("corner radius", f"{radius:g} px", box, f"the brand's radii ({radii} px)")
+    return found
+
+
+def measure(
     url: str,
     *,
     widths: Sequence[int] = WIDTHS,
     height: int = HEIGHT,
     wait_ms: int = 500,
     timeout_ms: int = 30_000,
-) -> list[Fault]:
-    """Open ``url`` at each width and return what is wrong on it. Needs Playwright
-    (``pip install playwright`` and ``playwright install chromium``)."""
+    shots: Any = None,
+    name: str = "page",
+) -> list[dict[str, Any]]:
+    """Open ``url`` at each width and return what was measured there, one page per width. With
+    ``shots`` (a folder), a full-page picture of each is saved in it as ``<name>-<width>.png``.
+    Needs Playwright (``pip install playwright`` and ``playwright install chromium``)."""
     try:
         from playwright.sync_api import sync_playwright  # type: ignore[import-not-found,unused-ignore]
     except ImportError as exc:  # pragma: no cover - depends on the install
@@ -310,7 +421,7 @@ def check_url(
             "checking a screen needs Playwright: pip install playwright, then "
             "playwright install chromium"
         ) from exc
-    found: list[Fault] = []
+    pages: list[dict[str, Any]] = []
     with sync_playwright() as play:  # pragma: no cover - needs a browser
         browser = play.chromium.launch()
         try:
@@ -318,8 +429,30 @@ def check_url(
                 page = browser.new_page(viewport={"width": int(width), "height": height})
                 page.goto(url, wait_until="networkidle", timeout=timeout_ms)
                 page.wait_for_timeout(wait_ms)
-                found += faults(page.evaluate(COLLECT_JS))
+                pages.append(dict(page.evaluate(COLLECT_JS)))
+                if shots is not None:
+                    shots.mkdir(parents=True, exist_ok=True)
+                    page.screenshot(path=str(shots / f"{name}-{int(width)}.png"), full_page=True)
                 page.close()
         finally:
             browser.close()
+    return pages
+
+
+def check_url(
+    url: str,
+    *,
+    widths: Sequence[int] = WIDTHS,
+    wait_ms: int = 500,
+    brand: Brand | None = None,
+    shots: Any = None,
+    name: str = "page",
+) -> list[Fault]:
+    """Open ``url`` at each width and return what is wrong on it, and with ``brand`` what is
+    not made of the brand's values."""
+    found: list[Fault] = []
+    for page in measure(url, widths=widths, wait_ms=wait_ms, shots=shots, name=name):
+        found += faults(page)
+        if brand is not None and not brand.empty:
+            found += brand_faults(page, brand)
     return found

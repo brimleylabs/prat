@@ -287,6 +287,12 @@ Rules:
   changes dominate the diff. The card goes back to the builder.
 - fix_list: short, concrete instructions for the builder (what to change, where).
   Leave it empty when the verdict is "met".
+- commands: with "not_met" or "wrong", up to three shell commands, run from the repository
+  root, that fail on this work as it stands and will pass once it is fixed: the one test
+  that fails, or a one-line check of the behaviour. PRAT runs them for you. A rejection with
+  a command that fails goes straight back to the builder; one without may wait for a person,
+  so give one whenever the fault can be shown by running something. Commands that read and
+  test only: nothing that changes a file. Leave it empty when nothing that runs can show it.
 - Never try to modify anything.
 
 Answer with exactly one JSON object in a ```json fenced block and nothing before or after
@@ -298,6 +304,7 @@ it: the JSON is your whole review. Keep each evidence to a few words naming wher
  "criteria": [{"criterion": "...", "status": "met" | "partial" | "not_met",
                "evidence": "..."}],
  "fix_list": ["..."],
+ "commands": ["..."],
  "confidence": 0.0 to 1.0}"""
 
 _TEST_FUNCTION = re.compile(r"^\+\s*(?:async\s+)?def\s+(test_\w+)\s*\(", re.MULTILINE)

@@ -4,6 +4,7 @@ the Claude adapter wired into the engine (with a fake SDK client)."""
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -449,3 +450,50 @@ async def test_claude_runtime_through_the_engine(
     options = next(c.options for c in factory.clients if c.options.cwd == run.worktree_path)
     assert options.model == SONNET
     assert "Never push" in str(options.system_prompt)
+
+
+async def test_a_second_rejection_needs_a_command_that_fails(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    scripts = RoleScripts(
+        builder=lambda n: [
+            {"op": "write", "path": f"part_{n}.py", "content": f"x = {n}\n"},
+            {"op": "finish"},
+        ]
+    )
+    reviewer = FakeReviewer(Verdict.NOT_MET, "Tests are missing.", fix_list=["Add test_part.py"])
+    engine, _ = engine_for(settings, db, scripts, reviewer=reviewer)
+    card_id = add_card(db, project)
+
+    # The first rejection goes back to the builder on the reviewer's word.
+    assert (await engine.run_card(card_id)).card_status is CardStatus.REWORK
+    # The second has nothing that runs behind it: a person decides, with the objections.
+    second = await engine.run_card(card_id)
+    assert second.card_status is CardStatus.REVIEW
+    said = "\n".join(body for _, _, body in comments(db, card_id))
+    assert "gave no command that fails" in said and "Add test_part.py" in said
+
+
+async def test_a_rejection_with_a_failing_command_goes_back_every_time(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    scripts = RoleScripts(
+        builder=lambda n: [
+            {"op": "write", "path": f"part_{n}.py", "content": f"x = {n}\n"},
+            {"op": "finish"},
+        ]
+    )
+    fails = f'"{sys.executable}" -c "import sys; sys.exit(3)"'
+    passes = f'"{sys.executable}" -c "print(1)"'
+    reviewer = FakeReviewer(Verdict.NOT_MET, "Broken.", fix_list=["Fix it"], commands=[fails])
+    engine, _ = engine_for(settings, db, scripts, reviewer=reviewer, rejections="evidence")
+    card_id = add_card(db, project)
+
+    assert (await engine.run_card(card_id)).card_status is CardStatus.REWORK
+    assert (await engine.run_card(card_id)).card_status is CardStatus.REWORK
+    # A command that passes backs nothing.
+    reviewer.commands = [passes]
+    third = await engine.run_card(card_id)
+    assert third.card_status is CardStatus.REVIEW
+    said = "\n".join(body for _, _, body in comments(db, card_id))
+    assert "none of the commands it gave fails" in said and "- passed:" in said

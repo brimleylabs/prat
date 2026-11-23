@@ -41,7 +41,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from prat import coach, governor, memory, onboard, packs, paths, store, swarm
+from prat import coach, design, governor, memory, onboard, packs, paths, store, swarm
 from prat.changes import classify_diff
 from prat.config import Settings
 from prat.db import Card, Database, Project, Run, RunStep, as_utc
@@ -59,7 +59,15 @@ from prat.domain import (
     Verdict,
     lowest_autonomy,
 )
-from prat.engine import context_pack, crewing, speculative, tidy
+from prat.engine import (
+    context_pack,
+    crewing,
+    evidence,
+    heldout,
+    screencheck,
+    speculative,
+    tidy,
+)
 from prat.engine.instructions import load_repo_instructions
 from prat.engine.interfaces import (
     NoPlanner,
@@ -68,6 +76,7 @@ from prat.engine.interfaces import (
     PlanResult,
     Reviewer,
     ReviewRequest,
+    ReviewResult,
 )
 from prat.engine.limits import Limiter
 from prat.engine.prompts import (
@@ -135,7 +144,13 @@ from prat.setup_agent import (
     setup_system_prompt,
     switch_to_fallback,
 )
-from prat.verification import GateResult, check_diff, empty_diff_finding, run_gates
+from prat.verification import (
+    GateResult,
+    check_diff,
+    empty_diff_finding,
+    gate_environment,
+    run_gates,
+)
 from prat.workspace import DatabaseMergeConflict, DoltBranchProvider, WorkspaceError
 from prat.workspace.dolt_branch import branch_name, providers_for
 from prat.workspace.postgres_copy import is_doltgres
@@ -336,6 +351,10 @@ class _Active:
     )
     # Finish checks running in a builder's own worktree: (stop, set when it has let go).
     finishing: dict[str, tuple[threading.Event, asyncio.Event]] = field(default_factory=dict)
+    # The card's held-out test being written (prat.engine.heldout), and how it ran on each
+    # worktree: its first run, then its run after the builder was shown it failing.
+    held_out: asyncio.Task[Any] | None = None
+    held_ran: dict[str, list[evidence.Ran]] = field(default_factory=dict)
 
     def stop_gates(self, keep: str | None = None) -> None:
         """Stop the speculative gate runs, all but the one for tree ``keep``."""
@@ -452,6 +471,8 @@ class Engine:
         self._lessons: set[asyncio.Task[Any]] = set()
         # The one backlog card being researched for its fact pack (prat.packs), if any.
         self._packing: asyncio.Task[None] | None = None
+        # One look at a project's screens at a time (prat.engine.screencheck).
+        self._screen_locks: dict[str, asyncio.Lock] = {}
         # Usage and live state per running run (prat.engine.telemetry).
         self._telemetry: dict[int, RunTelemetry] = {}
         # Setups of the checkout approved work reached, likewise.
@@ -2180,9 +2201,10 @@ class Engine:
         slot = str(worktree)
         rounds = 0
         told_slips = False
+        looks = 0
 
         async def check() -> str | None:
-            nonlocal rounds, told_slips
+            nonlocal rounds, told_slips, looks
             if rounds >= self.settings.finish_check_rounds or ctx.base is None:
                 return None
             if active.cancel_requested or active.stop.is_set():
@@ -2294,6 +2316,21 @@ class Engine:
                     if previous is not None:
                         previous[1].set()
                     active.gates[slot] = (tree, threading.Event(), kept)
+                # The project's own checks pass: now the test written from the card alone.
+                held_said = await self._held_out_check(ctx, active, worktree, commit, slot)
+                if held_said:
+                    rounds += 1
+                    return held_said
+                if looks < 2:
+                    # The gates pass: now the pages, when this is interface work. What is
+                    # wrong on them is handed back once; a second look only tells the reviewer.
+                    looks += 1
+                    screens_said = await self._screen_check(
+                        ctx, active, worktree, commit, [f.path for f in stats.files]
+                    )
+                    if screens_said and looks == 1:
+                        rounds += 1
+                        return screens_said
                 return None
             if failed.cancelled or (failed.exit_code is None and not failed.timed_out):
                 return None  # stopped, or the command could not start: not the builder's to fix
@@ -2301,6 +2338,274 @@ class Engine:
             return finish_feedback(failed)
 
         return check
+
+    async def _screen_check(
+        self, ctx: _Ctx, active: _Active, worktree: Path, commit: str, changed: list[str]
+    ) -> str | None:
+        """Open the card's pages on its own work (prat.engine.screencheck) and return what to
+        tell the builder: the faults that were not there on the default branch. Pictures and a
+        note for the reviewer are left in the run's folder either way."""
+        spec = ctx.project_spec
+        wanted = spec.screens
+        if (
+            not self.settings.screen_checks
+            or wanted is None
+            or not wanted.environment
+            or not wanted.pages
+            or not wanted.touched(changed)
+        ):
+            return None
+        slug = ctx.project_slug
+        manager = EnvironmentManager(self.settings.home, environment_sandboxes(self.settings))
+        variables = {
+            **load_local(self.settings.home, slug).variables,
+            **_database_env(spec, ctx.card_id, self._environ(slug)),
+        }
+
+        def stopped() -> bool:
+            return active.cancel_requested or active.stop.is_set()
+
+        shots = ctx.run_dir / screencheck.KNOWN_DIR
+        async with self._screen_locks.setdefault(slug, asyncio.Lock()):
+            found = await asyncio.to_thread(
+                functools.partial(
+                    screencheck.look,
+                    manager,
+                    slug,
+                    spec,
+                    worktree,
+                    ctx.card_id,
+                    variables,
+                    shots=shots,
+                    stop=stopped,
+                )
+            )
+            # Whatever running the project wrote in the worktree is undone.
+            await asyncio.to_thread(speculative.restore, worktree, commit)
+            known: list[str] | None = None
+            if found.looked and found.count and not stopped():
+                known = await self._known_screens(ctx, manager, variables, stopped)
+        fresh = screencheck.new_faults(found, known)
+        ctx.journal.append(
+            "verify.screens", screencheck.summary(found, fresh, compared=known is not None)
+        )
+        if not found.looked:
+            return None
+        note = screencheck.review_note(shots, found, fresh)
+        await asyncio.to_thread(screencheck.write_note, ctx.run_dir, note)
+        return screencheck.feedback(fresh, compared=known is not None) if fresh else None
+
+    async def _known_screens(
+        self,
+        ctx: _Ctx,
+        manager: EnvironmentManager,
+        variables: Mapping[str, str],
+        stopped: Callable[[], bool],
+    ) -> list[str] | None:
+        """The faults already on the project's pages on its default branch, measured once per
+        commit in the agent clone. ``None`` when they could not be measured."""
+        slug = ctx.project_slug
+        try:
+            commit = await asyncio.to_thread(Git(ctx.agent_path).head)
+        except GitError:
+            return None
+        known = await asyncio.to_thread(screencheck.load_known, self.settings.home, slug, commit)
+        if known is not None:
+            return known
+        before = await asyncio.to_thread(
+            functools.partial(
+                screencheck.look,
+                manager,
+                slug,
+                ctx.project_spec,
+                ctx.agent_path,
+                screencheck.BASELINE_CARD,
+                variables,
+                stop=stopped,
+            )
+        )
+        if not before.looked:
+            ctx.journal.append(
+                "verify.screens_baseline", {"looked": False, "reason": before.reason}
+            )
+            return None
+        keys = before.keys()
+        await asyncio.to_thread(screencheck.save_known, self.settings.home, slug, commit, keys)
+        ctx.journal.append(
+            "verify.screens_baseline", {"looked": True, "faults": len(keys), "commit": commit[:12]}
+        )
+        return keys
+
+    def _start_held_out(self, ctx: _Ctx) -> asyncio.Task[Any] | None:
+        """Start the session that writes this card's test from the card alone
+        (prat.engine.heldout), when the settings ask for one. A test already written for the
+        same card text is used again."""
+        mode = self.settings.held_out_tests
+        if (
+            mode == "off"
+            or ctx.card_kind is not CardKind.CHANGE
+            or ctx.is_setup
+            or self.settings.sandbox == "docker"
+            or (mode == "high" and str(ctx.complexity) != str(Complexity.HIGH))
+        ):
+            return None
+        home = self.settings.home
+
+        async def written() -> heldout.HeldOut | None:
+            wanted = packs.card_hash(ctx.title, ctx.goal, ctx.acceptance_criteria)
+            saved = await asyncio.to_thread(heldout.load, home, ctx.card_id)
+            if saved is not None and saved.card_hash == wanted:
+                return saved
+            try:
+                held = await heldout.write(
+                    self.runtime,
+                    card_id=ctx.card_id,
+                    title=ctx.title,
+                    goal=ctx.goal,
+                    acceptance_criteria=ctx.acceptance_criteria,
+                    # The code as it was before the card: the builder's work is never seen.
+                    workdir=ctx.agent_path,
+                    model=self._model(Role.RESEARCHER, ctx),
+                    on_event=self._journal_events(ctx, "heldout"),
+                    test_command=(
+                        " ".join(command_argv(ctx.project_spec.commands.test))
+                        if ctx.project_spec.commands.test
+                        else ""
+                    ),
+                )
+            except Exception:
+                log.exception("the held-out test of run %s was not written", ctx.run_id)
+                return None
+            if held.cost_usd:
+                self._add_cost(ctx.run_id, held.cost_usd)
+            await asyncio.to_thread(heldout.save, home, held)
+            ctx.journal.append(
+                "execute.held_out",
+                {
+                    "usable": held.usable,
+                    "path": held.path,
+                    "command": held.command,
+                    "why": held.why[:300],
+                    "seconds": held.seconds,
+                    "cost_usd": held.cost_usd,
+                },
+            )
+            return held
+
+        task = asyncio.create_task(written())
+        self._setups.add(task)
+        task.add_done_callback(self._setups.discard)
+        return task
+
+    async def _held_out_check(
+        self, ctx: _Ctx, active: _Active, worktree: Path, commit: str, slot: str
+    ) -> str | None:
+        """Run the card's held-out test on a builder's work. The first failure goes back to
+        the builder once; the next run only tells the reviewer how it ended."""
+        ran = active.held_ran.setdefault(slot, [])
+        if active.held_out is None or len(ran) >= 2:
+            return None
+        if ran and not ran[0].failed:
+            return None
+        try:
+            # The builder is waiting on this: a test not written by now is not waited for long.
+            held = await asyncio.wait_for(asyncio.shield(active.held_out), timeout=90)
+        except (TimeoutError, asyncio.CancelledError):
+            return None
+        if held is None or not held.usable:
+            return None
+        policy = self._policy(ctx)
+
+        def allowed(command: str) -> str | None:
+            decision = policy.decide(ToolCall.bash(command))
+            return None if decision.allowed else decision.reason
+
+        env = gate_environment(
+            _database_env(ctx.project_spec, ctx.card_id, self._environ(ctx.project_slug))
+        )
+        result = await asyncio.to_thread(
+            functools.partial(
+                heldout.run,
+                held,
+                worktree,
+                allowed=allowed,
+                env=env,
+                timeout=self.settings.evidence_timeout_seconds,
+            )
+        )
+        await asyncio.to_thread(speculative.restore, worktree, commit)
+        ran.append(result)
+        ctx.journal.append(
+            "verify.held_out",
+            {
+                "worktree": slot,
+                "round": len(ran),
+                "exit_code": result.exit_code,
+                "failed": result.failed,
+                "refused": result.refused,
+                "seconds": result.seconds,
+            },
+        )
+        note = heldout.review_note(held, ran[0], ran[1] if len(ran) > 1 else None)
+        await asyncio.to_thread(heldout.write_note, ctx.run_dir, note)
+        if len(ran) == 1 and result.failed:
+            return heldout.feedback(held, result)
+        return None
+
+    async def _weigh_rejection(
+        self, ctx: _Ctx, result: ReviewResult, diff: str, gates: list[dict[str, Any]]
+    ) -> ReviewResult:
+        """A reviewer's rejection, checked against what runs (prat.engine.evidence): its
+        commands are run on the work, and a rejection that needs one and has none that fails
+        goes to a person instead of back to the builder."""
+        mode = self.settings.rejections
+        if (
+            not result.needs_rework
+            or mode == "any"
+            or not diff.strip()
+            or self.settings.sandbox == "docker"
+            or ctx.card_kind is not CardKind.CHANGE
+            or any(not gate.get("passed", True) for gate in gates)
+        ):
+            return result
+        policy = self._policy(ctx)
+
+        def allowed(command: str) -> str | None:
+            decision = policy.decide(ToolCall.bash(command))
+            return None if decision.allowed else decision.reason
+
+        worktree = ctx.worktree_path
+        spec = ctx.project_spec
+        env = gate_environment(_database_env(spec, ctx.card_id, self._environ(ctx.project_slug)))
+        shot = await asyncio.to_thread(speculative.snapshot, worktree)
+        ran = await asyncio.to_thread(
+            functools.partial(
+                evidence.run,
+                result.commands,
+                worktree,
+                allowed=allowed,
+                env=env,
+                timeout=self.settings.evidence_timeout_seconds,
+                limit=self.settings.evidence_commands,
+            )
+        )
+        if shot is not None:
+            await asyncio.to_thread(speculative.restore, worktree, shot[1])
+        backed = evidence.backed(ran)
+        needed = evidence.needed(mode, ctx.attempt)
+        ctx.journal.append(
+            "critique.evidence",
+            {
+                "backed": backed,
+                "needed": needed,
+                "ran": [{**r.to_dict(), "output": r.output[-400:]} for r in ran],
+            },
+        )
+        if backed or not needed:
+            return result
+        return dataclasses.replace(
+            result, verdict=Verdict.PARTIAL, concerns=[*result.concerns, evidence.note(ran)]
+        )
 
     async def _start_race(
         self,
@@ -2907,6 +3212,19 @@ class Engine:
                 if self.settings.coach == "on":
                     # What kept costing runs on this project a round (prat.coach).
                     coaching = coach.render(coach.load(self.settings.home, ctx.project_slug))
+            # A card whose own words say it is interface work is built to the published
+            # standards (prat.design), in a project that has screens.
+            standards = ""
+            wanted = ctx.project_spec.screens
+            if (
+                self.settings.design_standards
+                and wanted is not None
+                and wanted.standards
+                and design.is_interface(f"{ctx.title}\n{ctx.goal}\n{ctx.acceptance_criteria}")
+            ):
+                standards = design.for_builder()
+                if standards:
+                    ctx.journal.append("execute.design_standards", {"chars": len(standards)})
             system_prompt = builder_system_prompt(
                 title=ctx.title,
                 goal=ctx.goal,
@@ -2914,7 +3232,9 @@ class Engine:
                 spec=ctx.project_spec,
                 autonomy=ctx.run_autonomy,
                 repo_instructions=instructions,
-                knowledge="\n\n".join(t for t in (coaching, knowledge.text, facts, files) if t),
+                knowledge="\n\n".join(
+                    t for t in (coaching, knowledge.text, facts, files, standards) if t
+                ),
             )
             task_prompt = builder_task_prompt(feedback=ctx.feedback, plan=ctx.plan)
         try:
@@ -3034,6 +3354,7 @@ class Engine:
                     await closer()
 
         watch = self._watch(ctx, active, ctx.worktree_path)
+        active.held_out = self._start_held_out(ctx)
         race = await self._start_race(ctx, task, sandbox, env, active)
         race_detail: dict[str, Any] = {}
         try:
@@ -3430,6 +3751,10 @@ class Engine:
                 for t in (
                     knowledge.text,
                     await asyncio.to_thread(self._bench_memory, ctx, "critic"),
+                    # Pictures of the card's pages and what to ask of them, when PRAT looked.
+                    await asyncio.to_thread(screencheck.read_note, ctx.run_dir),
+                    # How the test written from the card alone ran on this work.
+                    await asyncio.to_thread(heldout.read_note, ctx.run_dir),
                 )
                 if t
             ),
@@ -3532,6 +3857,7 @@ class Engine:
             result = await self.reviewer.review(request)
         if result.cost_usd:
             self._add_cost(ctx.run_id, result.cost_usd)
+        result = await self._weigh_rejection(ctx, result, diff, gates)
         verdict_word = str(result.verdict)
         await asyncio.to_thread(
             self._bench_episode,

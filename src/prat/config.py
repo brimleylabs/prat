@@ -136,6 +136,22 @@ class Settings(BaseSettings):
     speculative_gates: bool = True
     # Extended thinking for builders, where the project's crew allows it.
     builder_thinking: bool = True
+    # A card that changes interface code has its pages opened and measured as its builder
+    # ends its turn, in a project whose file says where they are (prat.engine.screencheck).
+    screen_checks: bool = True
+    # Builders of interface cards are given the published design standards (prat.design).
+    design_standards: bool = True
+    # What sends a card back to its builder without a person. "evidence": a reviewer's
+    # rejection counts only with a command that fails on the work; without one the card goes
+    # to a person with the reviewer's objections. "any": every rejection sends it back.
+    rejections: Literal["evidence", "second", "any"] = "second"
+    # How many of a reviewer's commands PRAT runs to back a rejection, and how long each may take.
+    evidence_commands: int = Field(default=3, ge=1, le=10)
+    evidence_timeout_seconds: float = Field(default=180.0, gt=0, le=3600)
+    # Tests written from the card alone, by a session that never sees the builder's work, and
+    # run on that work when it is handed over (prat.engine.heldout). "high": for cards of high
+    # complexity; "all": for every change card; "off": never.
+    held_out_tests: Literal["off", "high", "all"] = "off"
     # Fact packs (prat.packs): "backlog" researches waiting cards while nothing is being built
     # and gives a builder the pack that still holds; "off" neither builds nor uses them.
     fact_packs: Literal["backlog", "off"] = "backlog"
@@ -363,6 +379,18 @@ auth_mode = "api_key"
 # fact_pack_budget_usd = 2.0
 # The coach reads every run and gives the next builder the rules repeated slips earned.
 # coach = "on"
+
+# Screens: a card that changes interface code has its pages opened and measured, in a project
+# whose file has a [screens] table; its builder gets the published design standards.
+# screen_checks = true
+# design_standards = true
+# What sends a rejected card back to its builder without a person: "second" (a first rejection
+# on the reviewer's word, a later one only with a command that fails on the work), "evidence"
+# (always with one) or "any".
+# rejections = "second"
+# Tests written from the card alone and run on the work: "off", "high" (high-complexity
+# cards) or "all".
+# held_out_tests = "off"
 
 # Model per role. Defaults: builder and critic Sonnet, planner Opus, helpers Haiku.
 # [models]

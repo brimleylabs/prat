@@ -186,6 +186,7 @@ def _from_object(data: dict[str, Any]) -> ReviewResult | None:
         confidence=_confidence(data.get("confidence")),
         findings=findings,
         fix_list=fixes,
+        commands=[] if verdict is Verdict.MET else _fix_list(data.get("commands"))[:10],
     )
 
 

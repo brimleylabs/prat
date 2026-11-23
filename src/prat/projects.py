@@ -17,10 +17,12 @@ Two paths matter for every project:
 
 from __future__ import annotations
 
+import fnmatch
 import re
 import shlex
 import sys
 import tomllib
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -207,6 +209,46 @@ class Review(BaseModel):
         if "criteria" not in values:
             raise ValueError("the criteria reviewer cannot be turned off")
         return [name for name in REVIEWERS if name in values]
+
+
+# Files whose change makes a card interface work, unless the project says otherwise.
+SCREEN_PATHS = [
+    "*.css", "*.scss", "*.sass", "*.less", "*.html", "*.htm", "*.vue", "*.svelte", "*.astro",
+    "*.jsx", "*.tsx", "*.twig", "*.blade.php", "*.erb", "*.jinja", "*.j2", "*.hbs",
+]  # fmt: skip
+
+
+class Screens(BaseModel):
+    """The project's screens (``[screens]``), checked from the page when a card changes
+    interface code (prat.screens).
+
+    ``environment`` names the ``[[environment]]`` PRAT starts on the card's work, and ``pages``
+    the paths to open on it. Without them nothing is opened, and the design standards are
+    still given to builders of interface cards. ``brand`` is a file of the values the screens
+    are made of (``colours``, ``font_sizes``, ``fonts``, ``radii``).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    environment: str | None = None
+    pages: list[Annotated[str, Field(max_length=300)]] = Field(default_factory=list, max_length=12)
+    widths: list[Annotated[int, Field(ge=240, le=3840)]] = Field(
+        default_factory=lambda: [390, 768, 1280], min_length=1, max_length=6
+    )
+    paths: list[str] = Field(default_factory=lambda: list(SCREEN_PATHS), max_length=60)
+    brand: Annotated[str, Field(max_length=300)] | None = None
+    # The published design standards (prat.design) in the builder's instructions.
+    standards: bool = True
+    wait_ms: Annotated[int, Field(ge=0, le=20_000)] = 500
+
+    def touched(self, changed: Iterable[str]) -> bool:
+        """Whether any changed file is interface code."""
+        return any(
+            fnmatch.fnmatchcase(path.replace("\\", "/").rsplit("/", 1)[-1], glob)
+            or fnmatch.fnmatchcase(path.replace("\\", "/"), glob)
+            for path in changed
+            for glob in self.paths
+        )
 
 
 ENV_NAME = re.compile(r"^[A-Z_][A-Z0-9_]{0,63}$")
@@ -503,6 +545,8 @@ class ProjectSpec(BaseModel):
     changes: Changes = Field(default_factory=Changes)
     # Which reviewers judge a change.
     review: Review = Field(default_factory=Review)
+    # The project's screens: where to look, and what they are made of.
+    screens: Screens | None = None
     # Databases branched per card next to the git worktree.
     workspace: Workspace = Field(default_factory=Workspace)
     # Ways to run the project, started and stopped from PRAT.
