@@ -47,6 +47,7 @@ def test_a_run_is_read_from_its_journal_and_its_review() -> None:
             event("policy", allowed=False, reason="pushing is not allowed"),
             event("execute.line_endings_restored", paths=["a.py", "b.py"]),
             event("verify.slips", spacing=["cli.py:5"]),
+            event("verify.slips", tests=["t/test_a.py: removed test_x", "t/test_b.py: deleted"]),
             event("verify.finish_check", passed=False),
             event("verify.finish_check", passed=True),
             event("verify.finding", kind="oversize_diff"),
@@ -58,6 +59,7 @@ def test_a_run_is_read_from_its_journal_and_its_review() -> None:
         "loop": 1,
         "line_endings": 2,
         "spacing": 1,
+        "tests": 2,
         "finish_gates": 1,
         "oversize_diff": 1,
     }

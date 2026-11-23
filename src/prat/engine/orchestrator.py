@@ -384,6 +384,8 @@ class _Ctx:
     # A setup or infra card's agent proposes the project file and its proposal is what verify
     # proves, environments included.
     card_kind: CardKind = CardKind.CHANGE
+    # Which run of the card this is: 1 for its first.
+    attempt: int = 1
 
     @property
     def is_setup(self) -> bool:
@@ -1497,6 +1499,7 @@ class Engine:
                 run_dir=self.settings.run_dir(run.id),
                 plan=_plan_from(run),
                 card_kind=CardKind(card.kind),
+                attempt=run.attempt,
             )
 
     async def _try_fallback(
@@ -2192,15 +2195,20 @@ class Engine:
             if stats.empty:
                 return None
             if not told_slips:
-                # Typing accidents in the diff (prat.engine.tidy): said once, before the gates.
+                # Slips in the diff (prat.engine.tidy): said once, before the gates. Tests taken
+                # away come first: the gates cannot see a test that is no longer there.
+                gone = await asyncio.to_thread(tidy.test_slips, worktree, ctx.base)
                 slips = await asyncio.to_thread(tidy.spacing_slips, worktree, ctx.base)
-                if slips:
+                if gone or slips:
                     told_slips = True
-                    ctx.journal.append(
-                        "verify.slips",
-                        {"worktree": slot, "spacing": [f"{s.path}:{s.line}" for s in slips]},
-                    )
-                    return tidy.feedback(slips)
+                    seen: dict[str, Any] = {"worktree": slot}
+                    if gone:
+                        seen["tests"] = [f"{s.path}: {s.what} {s.name}".strip() for s in gone]
+                    if slips:
+                        seen["spacing"] = [f"{s.path}:{s.line}" for s in slips]
+                    ctx.journal.append("verify.slips", seen)
+                    said = [tidy.test_feedback(gone)] if gone else []
+                    return "\n\n".join(said + ([tidy.feedback(slips)] if slips else []))
             gates: list[GateResult] | None = None
             running = active.gates.get(slot)
             if running is not None and running[0] == tree:
@@ -2926,6 +2934,10 @@ class Engine:
         if crew_session is not None:
             tools |= crew_session.tools
             system_prompt = crew_session.prompt + "\n\n" + system_prompt
+        # A card that came back from its checks or its reviewer is done again with more thought.
+        again = self.settings.retry_efforts.get(str(role)) if ctx.attempt > 1 else None
+        if again:
+            ctx.journal.append("execute.effort", {"effort": again, "attempt": ctx.attempt})
         task = AgentTask(
             prompt=task_prompt,
             system_prompt=system_prompt,
@@ -2939,6 +2951,7 @@ class Engine:
                 "run_id": str(ctx.run_id),
                 "project": ctx.project_slug,
                 "role": str(role),
+                **({"effort": again} if again else {}),
             },
             # The project's own database settings, pointed at the card's branch.
             env=env,
@@ -3074,7 +3087,7 @@ class Engine:
             detail["race"] = race_detail
         # The settings this run was built with, for the ledger (prat.ledger).
         detail["config"] = {
-            "efforts": dict(self.settings.efforts),
+            "efforts": {**self.settings.efforts, **({str(role): again} if again else {})},
             "race_builders": self.settings.race_builders,
             "thinking": task.thinking,
             "fact_pack": bool(facts),

@@ -70,6 +70,11 @@ RULES: Mapping[str, tuple[str, str]] = {
         "When you add a line next to an aligned one, anchor your edit on a line you are not "
         "changing and add yours beside it; do not retype the lines around it.",
     ),
+    "tests": (
+        "removed or switched off tests that were already there",
+        "Do not delete, remove or skip a test that was here when you started. If one is wrong "
+        "or cannot pass with what the card asks for, leave it and say so in your final message.",
+    ),
     "finish_gates": (
         "ended its turn with the project's checks failing",
         "Run the project's own test command and read its result before you finish: turns here "
@@ -129,7 +134,9 @@ def observe(
         elif kind == "execute.line_endings_restored":
             saw("line_endings", len(data.get("paths") or []) or 1)
         elif kind == "verify.slips":
-            saw("spacing", len(data.get("spacing") or []) or 1)
+            for slip in ("spacing", "tests"):
+                if data.get(slip):
+                    saw(slip, len(data[slip]))
         elif kind == "verify.finish_check" and data.get("passed") is False:
             saw("finish_gates")
         elif kind == "verify.finding" and data.get("kind") == "oversize_diff":

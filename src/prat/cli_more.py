@@ -21,6 +21,7 @@ epic_app = typer.Typer(no_args_is_help=True, help="Epics and their parts.")
 idea_app = typer.Typer(no_args_is_help=True, help="The crew's ideas for working better.")
 ledger_app = typer.Typer(no_args_is_help=True, help="The ledger: which settings suit which work.")
 coach_app = typer.Typer(no_args_is_help=True, help="The coach: slips, rules and attention.")
+screens_app = typer.Typer(no_args_is_help=True, help="Screens: layout faults found from the page.")
 app.add_typer(job_app, name="job")
 app.add_typer(skill_app, name="skill")
 app.add_typer(crew_app, name="crew")
@@ -28,6 +29,7 @@ app.add_typer(epic_app, name="epic")
 app.add_typer(idea_app, name="idea")
 app.add_typer(ledger_app, name="ledger")
 app.add_typer(coach_app, name="coach")
+app.add_typer(screens_app, name="screens")
 
 
 # Jobs -----------------------------------------------------------------------------------
@@ -792,3 +794,32 @@ def coach_show(ctx: typer.Context) -> None:
                 f"   - {escape(rule.text)}"
                 + (f" ({escape(rule.evidence)})" if rule.evidence else "")
             )
+
+
+@screens_app.command("check")
+def screens_check(
+    urls: Annotated[list[str], typer.Argument(help="The pages to open.")],
+    widths: Annotated[
+        str, typer.Option("--widths", help="Screen widths in pixels, comma separated.")
+    ] = "390,768,1280",
+    wait_ms: Annotated[
+        int, typer.Option("--wait-ms", help="How long to let each page settle.")
+    ] = 500,
+) -> None:
+    """Open each page at each width and list what is broken on it: controls covered or on top
+    of each other, text cut off, sideways scrolling, targets too small, text too faint. Exits 1
+    when anything is found, so it can be one of a project's gates."""
+    from prat import screens
+
+    sizes = [int(part) for part in widths.split(",") if part.strip()]
+    bad = False
+    for url in urls:
+        try:
+            found = screens.check_url(url, widths=sizes, wait_ms=wait_ms)
+        except RuntimeError as exc:
+            console.print(f"[red]{escape(str(exc))}[/red]")
+            raise typer.Exit(2) from exc
+        bad = bad or bool(found)
+        console.print(escape(screens.report(found, url)), highlight=False)
+    if bad:
+        raise typer.Exit(1)

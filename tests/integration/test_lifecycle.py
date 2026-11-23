@@ -885,3 +885,29 @@ async def test_a_ready_card_made_outside_the_server_is_picked_up(
     await engine._tasks[settled]
     assert card_state(db, settled)[0] is CardStatus.REVIEW
     assert card_state(db, fresh)[0] is CardStatus.READY
+
+
+async def test_a_card_sent_back_is_built_again_with_more_effort(
+    settings: Settings, db: Database, project: Project
+) -> None:
+    card_id = add_card(db, project)
+    efforts: list[str | None] = []
+
+    def script_for(task: AgentTask) -> FakeScript:
+        efforts.append(task.metadata.get("effort"))
+        n = len(efforts)
+        return FakeScript.parse(
+            [{"op": "write", "path": f"pass_{n}.txt", "content": f"{n}\n"}, {"op": "finish"}]
+        )
+
+    engine, _ = make_engine(settings, db, FakeRuntime(script_for))
+    await engine.run_card(card_id)
+    engine.rework(card_id, "Please also add a docstring.")
+    await engine.run_card(card_id)
+    # The first run works at the builder's own effort; the second at the one for retries.
+    assert efforts == [None, "high"]
+    with db.session() as session:
+        card = session.get(Card, card_id)
+        assert card is not None
+        execute = next(s for s in card.runs[1].steps if str(s.name) == "execute")
+        assert (execute.detail or {})["config"]["efforts"]["builder"] == "high"

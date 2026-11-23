@@ -909,10 +909,13 @@ class ClaudeRuntime:
         )
 
     def _effort(self, task: AgentTask) -> str | None:
-        """The effort for the task's role; a racing builder works as hard as the lead."""
+        """The effort for the task's role; a racing builder works as hard as the lead. A task
+        that names its own effort (a later attempt at a card, see ``retry_efforts``) gets it."""
         role = task.metadata.get("role", "")
-        return self.config.efforts.get(role) or (
-            self.config.efforts.get("builder") if role.startswith("rival") else None
+        return (
+            task.metadata.get("effort")
+            or self.config.efforts.get(role)
+            or (self.config.efforts.get("builder") if role.startswith("rival") else None)
         )
 
     # Protocol -----------------------------------------------------------------

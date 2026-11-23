@@ -104,3 +104,117 @@ def feedback(slips: list[SpacingSlip]) -> str:
     for slip in slips:
         lines += [f"{slip.path}:{slip.line}", f"  was: {slip.before}", f"  now: {slip.after}"]
     return "\n".join(lines)
+
+
+# Tests ---------------------------------------------------------------------------------------
+
+TEST_PATH = re.compile(
+    r"(^|/)(tests?|__tests__|specs?)/"
+    r"|(^|/)test_[^/]+\.py$|_test\.(py|go|rb|exs?)$|_spec\.rb$"
+    r"|\.(test|spec)\.[cm]?[jt]sx?$|Tests?\.(php|java|kt|cs|swift)$"
+)
+# The name of a test a line declares, whatever the language.
+TEST_NAME = re.compile(
+    r"^\s*(?:async\s+)?def\s+(test\w*)"
+    r"|^\s*func\s+(Test\w+)"
+    r"|^\s*(?:public\s+|final\s+)*function\s+(test\w+)"
+    r"|^\s*(?:public\s+|internal\s+)?(?:async\s+)?(?:void|Task|fun)\s+(\w*[Tt]est\w*)\s*\("
+    r"|^\s*(?:it|test|specify|scenario)(?:\.\w+)*\s*\(\s*(['\"`])(?P<title>.+?)\5"
+    r"|^\s*(?:it|test|specify|scenario)\s+(['\"])(?P<title2>.+?)\7"
+)
+SKIP = re.compile(
+    r"@pytest\.mark\.(skip|skipif|xfail)|@unittest\.(skip|expectedFailure)|\bpytest\.skip\("
+    r"|\b(it|test|describe|context)\.(skip|todo)\b|\bx(it|describe|test|context)\s*\("
+    r"|\bt\.Skip(f|Now)?\(|markTest(Skipped|Incomplete)\(|@(Disabled|Ignore)\b|#\[ignore\]"
+    r"|\bskip\s*\(|\[(Ignore|Skip)\b"
+)
+
+
+@dataclass(frozen=True)
+class TestSlip:
+    __test__ = False  # not a test, whatever pytest makes of the name
+
+    path: str
+    # "deleted": the test file is gone. "removed": a test in it is. "skipped": one was switched off.
+    what: str
+    name: str = ""
+
+
+def is_test_path(path: str) -> bool:
+    return TEST_PATH.search(path.replace("\\", "/")) is not None
+
+
+def test_name(line: str) -> str | None:
+    match = TEST_NAME.match(line)
+    if match is None:
+        return None
+    return next((group for group in match.groups() if group and len(group) > 1), None)
+
+
+def test_slips(worktree: Path, base: str) -> list[TestSlip]:
+    """Tests that existed at ``base`` and that the work in ``worktree`` (committed or not)
+    deletes, removes or switches off. A test file that only moved is not one."""
+    git = Git(worktree)
+    names = git.run("diff", "--name-status", "--find-renames", "--no-color", base, check=False)
+    if not names.ok:
+        return []
+    found = [
+        TestSlip(path, "deleted")
+        for status, _, path in (line.partition("\t") for line in names.stdout.splitlines())
+        if status == "D" and is_test_path(path)
+    ]
+    diff = git.run(
+        "diff", "--unified=0", "--no-color", "--find-renames", "--diff-filter=MR", base, check=False
+    )
+    if not diff.ok:
+        return found[:MAX_SLIPS]
+    path = ""
+    removed: list[str] = []
+    added: list[str] = []
+
+    def close() -> None:
+        if path and is_test_path(path):
+            still = {name for name in map(test_name, added) if name}
+            for name in dict.fromkeys(name for name in map(test_name, removed) if name):
+                if name not in still:
+                    found.append(TestSlip(path, "removed", name))
+            had = sum(1 for line in removed if SKIP.search(line))
+            for line in added:
+                if SKIP.search(line):
+                    if had:
+                        had -= 1  # a skip that was already there, moved or reworded
+                    else:
+                        found.append(TestSlip(path, "skipped", line.strip()[:120]))
+        removed.clear()
+        added.clear()
+
+    for text in diff.stdout.splitlines():
+        if text.startswith("+++ "):
+            close()
+            path = text[6:] if text.startswith("+++ b/") else ""
+        elif text.startswith("--- ") or text.startswith("diff --git") or text.startswith("@@"):
+            continue
+        elif text.startswith("-"):
+            removed.append(text[1:])
+        elif text.startswith("+"):
+            added.append(text[1:])
+    close()
+    return found[:MAX_SLIPS]
+
+
+def test_feedback(slips: list[TestSlip]) -> str:
+    said = {
+        "deleted": "test file deleted",
+        "removed": "test removed",
+        "skipped": "test switched off",
+    }
+    lines = [
+        "Before you finish: this work takes away tests that were here when you started. Put "
+        "each back as it was, unless the card itself asks for it to go. If one of them is wrong, "
+        "or cannot pass with what the card asks for, leave it in place and say so in your final "
+        "message, naming the test and why, so a person decides; then finish again.",
+        "",
+    ]
+    for slip in slips:
+        lines.append(f"{slip.path}: {said[slip.what]}{': ' + slip.name if slip.name else ''}")
+    return "\n".join(lines)

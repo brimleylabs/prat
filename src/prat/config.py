@@ -194,6 +194,10 @@ class Settings(BaseSettings):
     # Builders work at low effort unless told otherwise: on well-specified cards it was the
     # fastest setting measured, with nothing lost in what the work passed.
     efforts: dict[str, str] = Field(default_factory=lambda: {"builder": "low"})
+    # Role to effort for a card's second and later runs: work that came back from its checks
+    # or its reviewer is done again with more thought, so the cost of high effort is paid only
+    # where low effort was not enough. Empty: every run at the role's own effort.
+    retry_efforts: dict[str, str] = Field(default_factory=lambda: {"builder": "high"})
     # Loop detector: the same tool on the same target this many times within
     # the last ``loop_window`` calls is denied.
     loop_threshold: int = Field(default=5, ge=2, le=100)
@@ -368,4 +372,8 @@ auth_mode = "api_key"
 # Effort per role ("low" to "max"). Default: builders at low, every other role at its own.
 # [efforts]
 # builder = "low"
+
+# Effort for a card's second and later runs: work sent back is done again with more thought.
+# [retry_efforts]
+# builder = "high"
 """

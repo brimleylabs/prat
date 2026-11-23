@@ -43,6 +43,8 @@ dev = [
     "mypy>=1.10",
     "types-psutil",
 ]
+# `prat screens check` opens pages in a browser.
+screens = ["playwright>=1.45"]
 
 [project.scripts]
 prat = "prat.cli:main"

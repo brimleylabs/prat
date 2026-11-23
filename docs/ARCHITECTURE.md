@@ -453,6 +453,11 @@ Some mistakes are typing accidents that no card asks for, and PRAT finds them wi
 - `engine/tidy.py`: as a builder ends its turn, lines of its diff whose words are unchanged and
   whose inner spacing changed (a neighbouring line retyped while adding one) are handed back to
   it once, before the gates run (`verify.slips`).
+- `engine/tidy.py` also looks for tests taken away: a test file deleted, a test removed from
+  one, or a test switched off (a skip marker added). The gates cannot see a test that is no
+  longer there, so the builder is told once to put each back, or, when a test is wrong or
+  cannot pass with what the card asks for, to leave it and say so for a person to decide. A
+  test file that only moved is not counted.
 - `git/worktree.py` `restore_line_endings`: a change that rewrote every line ending of a file
   (an edit through a shell command on Windows) has them put back before the diff is judged, by
   git's own view of what changed. The agent clone is created with the checkout's own
@@ -484,7 +489,23 @@ they were right and then by time; `prat ledger export` writes the entries to a f
 merged with another machine's.
 
 `efforts` maps a role to the effort its model works at (`low` to `max`). Builders default to
-`low`.
+`low`. `retry_efforts` is the effort for a card's second and later runs (builders: `high`), so
+the cost of more thought is paid only where a run came back from its checks or its reviewer.
+The effort a run was actually built at is what its ledger entry holds.
+
+## Screens
+
+`screens.py` finds what is broken on a page from where its elements are, without a model.
+`prat screens check <url>...` opens each page at several widths (390, 768 and 1280 pixels unless
+`--widths` says otherwise), measures every visible control and piece of text with one script
+run in the page, and judges the result in plain Python: a control another element sits on top
+of (a hit test at its centre), two controls on top of each other, text cut off, a page that
+scrolls sideways (WCAG 2.2 1.4.10), a target smaller than 24 by 24 CSS pixels (WCAG 2.2 2.5.8;
+links inside a sentence are exempt) and text below the contrast its size needs (WCAG 2.2 1.4.3:
+4.5 to 1, or 3 to 1 for large text). Each fault names the element, the widths it was seen at
+and the numbers. The command exits 1 when it finds anything, so it can be one of a project's
+gates, where a failure goes back to the builder like any other. It needs Playwright
+(`pip install 'prat[screens]'`, then `playwright install chromium`).
 
 ## Planner
 
