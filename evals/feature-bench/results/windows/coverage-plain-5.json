@@ -1,0 +1,21 @@
+{
+  "mode": "plain",
+  "final_status": "succeeded",
+  "reason": "success",
+  "seconds": 169.8,
+  "cost_usd": 0.5325,
+  "turns": 27,
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 47 tests in 19.155s",
+    "tail": [
+      "311 passed, 4 skipped, 1 deselected, 1 warning in 14.31s",
+      "...............................................",
+      "----------------------------------------------------------------------",
+      "Ran 47 tests in 19.155s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "2f322c94677fedf1ff9ad4780d694504d3a22092"
+}

@@ -1,0 +1,66 @@
+{
+  "mode": "swarm",
+  "final_status": "review",
+  "seconds": 67.4,
+  "cost_usd": 1.8787,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T00:43:58.963364",
+      "finished": "2026-11-24T00:44:06.299802",
+      "cost_usd": 0.0693
+    },
+    {
+      "run": 2,
+      "card": 2,
+      "title": "Loyalty points and promotions",
+      "status": "succeeded",
+      "started": "2026-11-24T00:44:06.330655",
+      "finished": "2026-11-24T00:44:59.540085",
+      "cost_usd": 0.3749
+    },
+    {
+      "run": 3,
+      "card": 5,
+      "title": "Search and bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T00:44:06.351336",
+      "finished": "2026-11-24T00:45:01.670701",
+      "cost_usd": 0.3767
+    },
+    {
+      "run": 4,
+      "card": 3,
+      "title": "Shipping rates and invoices",
+      "status": "succeeded",
+      "started": "2026-11-24T00:44:06.363023",
+      "finished": "2026-11-24T00:44:54.486017",
+      "cost_usd": 0.3307
+    },
+    {
+      "run": 5,
+      "card": 4,
+      "title": "Returns and subscriptions",
+      "status": "succeeded",
+      "started": "2026-11-24T00:44:06.377097",
+      "finished": "2026-11-24T00:44:57.311046",
+      "cost_usd": 0.3384
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 113 tests in 0.017s",
+    "tail": [
+      ".................................................................................................................",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.017s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "fec288c86f9a03e93d655a93de27c5f43a64f405",
+  "statuses": "#1 review, #2 done, #3 done, #4 done, #5 done"
+}

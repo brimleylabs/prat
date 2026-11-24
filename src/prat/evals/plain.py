@@ -55,14 +55,18 @@ async def run_plain(
     journal: Path | None = None,
     time_limit: float = SESSION_TIMEOUT_SECONDS,
     prompt: str | None = None,
+    effort: str | None = None,
 ) -> PlainSession:
     """Run the session. ``prompt`` replaces the card's text (for example to ask for a
-    CLAUDE.md, or to add an instruction after the card)."""
+    CLAUDE.md, or to add an instruction after the card). ``effort`` ("low" to "max") sets the
+    session's effort, to compare like with like when PRAT's builder runs at one; without it
+    the session runs at the model's default."""
     from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
     from prat.runtime.auth import runtime_env
 
     model = resolve_model(Role.BUILDER, settings_models=settings.models, project_models=spec.models)
+    chosen: dict[str, Any] = {"effort": effort} if effort else {}
     options = ClaudeAgentOptions(
         system_prompt={"type": "preset", "preset": "claude_code"},
         permission_mode="bypassPermissions",
@@ -76,6 +80,7 @@ async def run_plain(
             **runtime_env(settings),
         },
         cli_path=settings.claude_cli_path,
+        **chosen,
     )
     text = prompt if prompt is not None else plain_prompt(case, spec)
     log: Journal | None = None

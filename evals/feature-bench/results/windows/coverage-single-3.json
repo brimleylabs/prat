@@ -1,0 +1,31 @@
+{
+  "mode": "single",
+  "final_status": "review",
+  "seconds": 192.0,
+  "cost_usd": 0.7158,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Tell people when their coverage data is stale: fingerprint measured files and add coverage stale",
+      "status": "succeeded",
+      "started": "2026-11-23T23:41:15.967393",
+      "finished": "2026-11-23T23:44:27.546668",
+      "cost_usd": 0.6132
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 47 tests in 19.542s",
+    "tail": [
+      "311 passed, 4 skipped, 1 deselected, 1 warning in 14.49s",
+      "...............................................",
+      "----------------------------------------------------------------------",
+      "Ran 47 tests in 19.542s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "455a57667cae67af0dd33c694d0bd80de0ee0df0",
+  "statuses": "#1 review"
+}

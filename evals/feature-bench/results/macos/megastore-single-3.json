@@ -1,0 +1,39 @@
+{
+  "mode": "single",
+  "final_status": "review",
+  "seconds": 170.1,
+  "cost_usd": 1.417,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T00:51:36.852137",
+      "finished": "2026-11-24T00:54:04.260316",
+      "cost_usd": 0.757
+    },
+    {
+      "run": 2,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T00:54:04.268308",
+      "finished": "2026-11-24T00:54:26.928739",
+      "cost_usd": 0.3231
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 113 tests in 0.014s",
+    "tail": [
+      ".................................................................................................................",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.014s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "14b08995e8f3008d0a05036cb278a8e3f43bcaa1",
+  "statuses": "#1 review"
+}

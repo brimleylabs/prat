@@ -1,0 +1,102 @@
+{
+  "mode": "swarm",
+  "final_status": "review",
+  "seconds": 62.3,
+  "cost_usd": 2.7717,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:22.139151",
+      "finished": "2026-11-23T23:12:33.835107",
+      "cost_usd": 0.0764
+    },
+    {
+      "run": 2,
+      "card": 3,
+      "title": "Promotions module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.032175",
+      "finished": "2026-11-23T23:13:11.800848",
+      "cost_usd": 0.267
+    },
+    {
+      "run": 3,
+      "card": 2,
+      "title": "Loyalty points module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.135476",
+      "finished": "2026-11-23T23:13:06.444963",
+      "cost_usd": 0.1982
+    },
+    {
+      "run": 4,
+      "card": 4,
+      "title": "Shipping rates module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.203186",
+      "finished": "2026-11-23T23:13:00.434322",
+      "cost_usd": 0.2493
+    },
+    {
+      "run": 5,
+      "card": 5,
+      "title": "Invoices module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.289212",
+      "finished": "2026-11-23T23:13:13.200161",
+      "cost_usd": 0.2792
+    },
+    {
+      "run": 6,
+      "card": 6,
+      "title": "Returns policy module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.352636",
+      "finished": "2026-11-23T23:13:09.492004",
+      "cost_usd": 0.2597
+    },
+    {
+      "run": 7,
+      "card": 7,
+      "title": "Product search module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.412919",
+      "finished": "2026-11-23T23:13:11.940002",
+      "cost_usd": 0.2646
+    },
+    {
+      "run": 8,
+      "card": 9,
+      "title": "Bundles module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.488078",
+      "finished": "2026-11-23T23:13:11.245873",
+      "cost_usd": 0.2813
+    },
+    {
+      "run": 9,
+      "card": 8,
+      "title": "Subscriptions module",
+      "status": "succeeded",
+      "started": "2026-11-23T23:12:34.629291",
+      "finished": "2026-11-23T23:13:20.509752",
+      "cost_usd": 0.2724
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 113 tests in 0.108s",
+    "tail": [
+      ".................................................................................................................",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.108s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "4b45bdfb84cb6ca3fda3849ccc40f52b2513c44e",
+  "statuses": "#1 review, #2 done, #3 done, #4 done, #5 done, #6 done, #7 done, #8 done, #9 done"
+}

@@ -1,0 +1,21 @@
+{
+  "mode": "plain",
+  "effort": "low",
+  "final_status": "succeeded",
+  "reason": "success",
+  "seconds": 59.4,
+  "cost_usd": 0.2249,
+  "turns": 11,
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 13 tests in 0.001s",
+    "tail": [
+      ".............",
+      "----------------------------------------------------------------------",
+      "Ran 13 tests in 0.001s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "95577b45ccaac3af90339dd1c4d2759a722cb0fc"
+}

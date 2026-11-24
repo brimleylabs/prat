@@ -1,0 +1,102 @@
+{
+  "mode": "swarm",
+  "final_status": "review",
+  "seconds": 57.0,
+  "cost_usd": 2.6779,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:14.254562",
+      "finished": "2026-11-23T23:36:25.630405",
+      "cost_usd": 0.0753
+    },
+    {
+      "run": 2,
+      "card": 3,
+      "title": "Promotions",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:25.820942",
+      "finished": "2026-11-23T23:37:02.539033",
+      "cost_usd": 0.273
+    },
+    {
+      "run": 3,
+      "card": 2,
+      "title": "Loyalty points",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:25.930478",
+      "finished": "2026-11-23T23:36:57.445024",
+      "cost_usd": 0.2538
+    },
+    {
+      "run": 4,
+      "card": 4,
+      "title": "Shipping rates",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:25.995329",
+      "finished": "2026-11-23T23:37:00.516019",
+      "cost_usd": 0.2676
+    },
+    {
+      "run": 5,
+      "card": 5,
+      "title": "Invoices",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:26.065119",
+      "finished": "2026-11-23T23:37:05.154879",
+      "cost_usd": 0.2011
+    },
+    {
+      "run": 6,
+      "card": 6,
+      "title": "Returns policy",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:26.126626",
+      "finished": "2026-11-23T23:36:56.870698",
+      "cost_usd": 0.1955
+    },
+    {
+      "run": 7,
+      "card": 7,
+      "title": "Product search",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:26.189791",
+      "finished": "2026-11-23T23:36:56.185951",
+      "cost_usd": 0.241
+    },
+    {
+      "run": 8,
+      "card": 8,
+      "title": "Subscriptions",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:26.254331",
+      "finished": "2026-11-23T23:37:05.944262",
+      "cost_usd": 0.2558
+    },
+    {
+      "run": 9,
+      "card": 9,
+      "title": "Bundles",
+      "status": "succeeded",
+      "started": "2026-11-23T23:36:26.383463",
+      "finished": "2026-11-23T23:37:06.595082",
+      "cost_usd": 0.2753
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 113 tests in 0.110s",
+    "tail": [
+      ".................................................................................................................",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.110s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "a7598b9f89184a58c983b91617f2ec193ffcd681",
+  "statuses": "#1 review, #2 done, #3 done, #4 done, #5 done, #6 done, #7 done, #8 done, #9 done"
+}

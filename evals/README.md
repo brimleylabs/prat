@@ -17,9 +17,11 @@ Every case is a card, a starting codebase and a hidden check the agent never see
 Each of the first three sets runs in seconds per case on a laptop, so a full comparison takes
 minutes. The results and the write-up are in [docs/CASE-STUDY.md](../docs/CASE-STUDY.md);
 [exploratory/](exploratory/) holds the runs made before the benchmark's protocol was written.
-The feature cases below them were written to develop swarms and fact packs. They come with no
-published results: each has a hidden check, and `FACTS.md` in the packbench case is the list of
-verified facts its ticket leaves out.
+The feature cases below them were written to develop swarms and fact packs. Each has a hidden
+check, and `FACTS.md` in the packbench case is the list of verified facts its ticket leaves out.
+Three of them (swarm, swarm-xl and packbench) were run 70 times against plain Claude Code under a
+protocol written beforehand: the method, every run and the write-up are in
+[feature-bench/](feature-bench/RESULTS.md).
 
 ## Running them
 

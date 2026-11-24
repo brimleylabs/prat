@@ -1,0 +1,30 @@
+{
+  "mode": "single",
+  "final_status": "review",
+  "seconds": 138.7,
+  "cost_usd": 0.9536,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T00:41:39.434428",
+      "finished": "2026-11-24T00:43:58.132462",
+      "cost_usd": 0.7845
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 113 tests in 0.027s",
+    "tail": [
+      ".................................................................................................................",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.027s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "f7501810b211626a374fb2d720d0b5ece8e16471",
+  "statuses": "#1 review"
+}

@@ -1,0 +1,30 @@
+{
+  "mode": "single",
+  "final_status": "review",
+  "seconds": 43.5,
+  "cost_usd": 0.2976,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Gift cards",
+      "status": "succeeded",
+      "started": "2026-11-23T23:06:47.604022",
+      "finished": "2026-11-23T23:07:30.569752",
+      "cost_usd": 0.2392
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 13 tests in 0.001s",
+    "tail": [
+      ".............",
+      "----------------------------------------------------------------------",
+      "Ran 13 tests in 0.001s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "da6032d95b83793ed6744e7285549a00d67f1d85",
+  "statuses": "#1 review"
+}

@@ -1,0 +1,31 @@
+{
+  "mode": "single",
+  "final_status": "review",
+  "seconds": 117.7,
+  "cost_usd": 0.7339,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-23T23:10:18.904400",
+      "finished": "2026-11-23T23:12:16.150325",
+      "cost_usd": 0.5873
+    }
+  ],
+  "hidden_check": {
+    "passed": false,
+    "ran": "Ran 113 tests in 0.517s",
+    "tail": [
+      "OverflowError: date value out of range",
+      "",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.517s",
+      "",
+      "FAILED (errors=1)"
+    ]
+  },
+  "commit": "40b70787531d7d23a3060d4368e7bcd493a78277",
+  "statuses": "#1 review"
+}

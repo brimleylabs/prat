@@ -1,0 +1,92 @@
+{
+  "coverage-single-1": {
+    "condition": "single",
+    "round": 1,
+    "kept": "first builder",
+    "calls_before_first_edit": 21,
+    "seconds_to_first_edit": 51.5,
+    "seconds_after_first_edit": 91.1,
+    "tool_calls": 45
+  },
+  "coverage-single-2": {
+    "condition": "single",
+    "round": 2,
+    "kept": "second builder",
+    "calls_before_first_edit": 13,
+    "seconds_to_first_edit": 89.7,
+    "seconds_after_first_edit": 114.0,
+    "tool_calls": 28
+  },
+  "coverage-single-3": {
+    "condition": "single",
+    "round": 3,
+    "kept": "first builder",
+    "calls_before_first_edit": 10,
+    "seconds_to_first_edit": 41.0,
+    "seconds_after_first_edit": 124.9,
+    "tool_calls": 26
+  },
+  "coverage-single-4": {
+    "condition": "single",
+    "round": 4,
+    "kept": "second builder",
+    "calls_before_first_edit": 19,
+    "seconds_to_first_edit": 45.3,
+    "seconds_after_first_edit": 128.8,
+    "tool_calls": 46
+  },
+  "coverage-single-5": {
+    "condition": "single",
+    "round": 5,
+    "kept": "second builder",
+    "calls_before_first_edit": 16,
+    "seconds_to_first_edit": 41.7,
+    "seconds_after_first_edit": 94.5,
+    "tool_calls": 40
+  },
+  "coverage-single+pack-1": {
+    "condition": "single+pack",
+    "round": 1,
+    "kept": "second builder",
+    "calls_before_first_edit": 4,
+    "seconds_to_first_edit": 12.7,
+    "seconds_after_first_edit": 185.0,
+    "tool_calls": 43
+  },
+  "coverage-single+pack-2": {
+    "condition": "single+pack",
+    "round": 2,
+    "kept": "first builder",
+    "calls_before_first_edit": 4,
+    "seconds_to_first_edit": 19.0,
+    "seconds_after_first_edit": 142.2,
+    "tool_calls": 37
+  },
+  "coverage-single+pack-3": {
+    "condition": "single+pack",
+    "round": 3,
+    "kept": "first builder",
+    "calls_before_first_edit": 8,
+    "seconds_to_first_edit": 70.5,
+    "seconds_after_first_edit": 109.8,
+    "tool_calls": 21
+  },
+  "coverage-single+pack-4": {
+    "condition": "single+pack",
+    "round": 4,
+    "kept": "second builder",
+    "calls_before_first_edit": 4,
+    "seconds_to_first_edit": 13.0,
+    "seconds_after_first_edit": 96.2,
+    "tool_calls": 32
+  },
+  "coverage-single+pack-5": {
+    "condition": "single+pack",
+    "round": 5,
+    "kept": "second builder",
+    "calls_before_first_edit": 4,
+    "seconds_to_first_edit": 14.6,
+    "seconds_after_first_edit": 121.2,
+    "tool_calls": 34
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "mode": "swarm",
+  "final_status": "review",
+  "seconds": 68.6,
+  "cost_usd": 2.554,
+  "runs": [
+    {
+      "run": 1,
+      "card": 1,
+      "title": "Megastore: loyalty, promotions, shipping rates, invoices, returns, search, subscriptions and bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:24.220233",
+      "finished": "2026-11-24T01:04:32.731332",
+      "cost_usd": 0.0725
+    },
+    {
+      "run": 2,
+      "card": 2,
+      "title": "Loyalty points and promotions",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.763287",
+      "finished": "2026-11-24T01:05:27.638915",
+      "cost_usd": 0.368
+    },
+    {
+      "run": 3,
+      "card": 5,
+      "title": "Returns policy",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.784511",
+      "finished": "2026-11-24T01:05:01.968732",
+      "cost_usd": 0.259
+    },
+    {
+      "run": 4,
+      "card": 3,
+      "title": "Shipping rates",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.798613",
+      "finished": "2026-11-24T01:05:04.973669",
+      "cost_usd": 0.2034
+    },
+    {
+      "run": 5,
+      "card": 7,
+      "title": "Subscriptions",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.810109",
+      "finished": "2026-11-24T01:05:17.662377",
+      "cost_usd": 0.2944
+    },
+    {
+      "run": 6,
+      "card": 4,
+      "title": "Invoices",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.823599",
+      "finished": "2026-11-24T01:05:14.838018",
+      "cost_usd": 0.2986
+    },
+    {
+      "run": 7,
+      "card": 6,
+      "title": "Product search",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.835861",
+      "finished": "2026-11-24T01:05:07.970502",
+      "cost_usd": 0.2028
+    },
+    {
+      "run": 8,
+      "card": 8,
+      "title": "Bundles",
+      "status": "succeeded",
+      "started": "2026-11-24T01:04:32.849778",
+      "finished": "2026-11-24T01:05:03.660849",
+      "cost_usd": 0.2684
+    }
+  ],
+  "hidden_check": {
+    "passed": true,
+    "ran": "Ran 113 tests in 0.019s",
+    "tail": [
+      ".................................................................................................................",
+      "----------------------------------------------------------------------",
+      "Ran 113 tests in 0.019s",
+      "",
+      "OK"
+    ]
+  },
+  "commit": "c6c7cd7bceb238d97879e089a4027e262899f11b",
+  "statuses": "#1 review, #2 done, #3 done, #4 done, #5 done, #6 done, #7 done, #8 done"
+}
