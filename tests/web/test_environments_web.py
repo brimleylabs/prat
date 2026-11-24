@@ -196,5 +196,6 @@ def test_check_environments_files_and_queues_an_infra_card(
         panel = wait_for(web, "/projects/shop/environments", "Problems found", seconds=120)
         assert "nothing proves they reach each other" in panel
         assert 'href="/cards/1"' in panel and "Infra card #1" in panel
-        assert web.wait_for(1, CardStatus.FAILED, CardStatus.REVIEW)  # it was queued and ran
+        # It was queued and ran.
+        assert web.wait_for(1, CardStatus.FAILED, CardStatus.REVIEW, timeout=120)
         assert "Infra</span>" in web.client.get("/cards/1").text
