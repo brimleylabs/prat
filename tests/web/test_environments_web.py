@@ -41,9 +41,9 @@ url = "http://127.0.0.1:{{port}}/"
 """
 
 
-def wait_for(web: object, path: str, text: str) -> str:
+def wait_for(web: object, path: str, text: str, seconds: float = 15.0) -> str:
     page = ""
-    for _ in range(150):
+    for _ in range(int(seconds * 10)):
         page = web.client.get(path).text  # type: ignore[attr-defined]
         if text in page:
             return page
@@ -192,7 +192,8 @@ def test_check_environments_files_and_queues_an_infra_card(
         panel = web.client.get("/projects/shop/environments").text
         assert "Environment check" in panel and "not run yet" in panel
         assert web.post("/projects/shop/environments/check").status_code == 303
-        panel = wait_for(web, "/projects/shop/environments", "Problems found")
+        # A fresh checkout, setup and two environments started: slow on a shared CI machine.
+        panel = wait_for(web, "/projects/shop/environments", "Problems found", seconds=120)
         assert "nothing proves they reach each other" in panel
         assert 'href="/cards/1"' in panel and "Infra card #1" in panel
         assert web.wait_for(1, CardStatus.FAILED, CardStatus.REVIEW)  # it was queued and ran

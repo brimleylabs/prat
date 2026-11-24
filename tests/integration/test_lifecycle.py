@@ -399,8 +399,11 @@ async def test_cancel_queued_card(settings: Settings, db: Database, project: Pro
     script = [{"op": "write", "path": "a.txt", "content": "1"}, {"op": "wait", "seconds": 60}]
     engine, runtime = make_engine(settings, db, script, max_concurrent_per_project=1)
     t1 = engine.submit(first)
-    t2 = engine.submit(second)
+    # The first card holds the project's one slot before the second is submitted: submitted
+    # together, either can take it.
     await wait_for(lambda: bool(runtime.executed))
+    t2 = engine.submit(second)
+    await asyncio.sleep(0.1)  # the second card's task has started and is waiting for the slot
     assert await engine.cancel(second)
     queued = await asyncio.wait_for(t2, timeout=10)
     assert queued.run_id is None

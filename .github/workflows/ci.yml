@@ -26,4 +26,4 @@ jobs:
       - name: Type check
         run: python -m mypy
       - name: Test
-        run: python -m pytest -q
+        run: python -m pytest -q -n auto
